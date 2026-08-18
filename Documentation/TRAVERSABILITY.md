@@ -42,7 +42,6 @@ These relationships model inheritance or identity resolution. They should be use
 - `Vault_GenerateIdentityToken` produces an identity token through an allowed signing role.
 - `Vault_OidcAuthenticateTo` represents proven access to an OIDC application through assignment and provider constraints.
 - `Vault_ControlObject` represents a proven takeover-capable mutation.
-- `Vault_ObtainPolicy` composes object control with assignable policy authority.
 
 `Vault_ControlObject` is deliberately narrower than `Vault_ManageObject`. Examples include resetting a UserPass password, adding a controlled identity to an internal group, rebinding an alias under attacker control, or replacing authentication trust without restrictive parameter constraints.
 

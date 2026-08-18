@@ -72,7 +72,6 @@ EDGE_ENDPOINTS = {
     "Vault_ReadObject": ("Vault_Policy", "Concrete durable Vault object"),
     "Vault_ManageObject": ("Vault_Policy", "Concrete durable Vault object"),
     "Vault_ControlObject": ("Vault_Policy or resolved principal", "Concrete security-bearing object"),
-    "Vault_ObtainPolicy": ("Vault_Policy or resolved principal", "Vault_Policy"),
     "Vault_ReadConfig": ("Vault_Policy", "Store, auth method, secrets engine, or config object"),
     "Vault_ManageConfig": ("Vault_Policy", "Store, auth method, secrets engine, or config object"),
     "Vault_GenerateCredentials": ("Vault_Policy", "Observed secrets-engine role or account"),

@@ -71,18 +71,16 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_AwsRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_AwsRole]
 ```
 
 The destination role records whether Vault returns an IAM user, assumed-role credential, federation token, or session token. The edge is traversable only when at least one configured mode is viable. A session-token-only role that requires an unproven MFA code instead produces `Vault_PotentialAccess`.
 
-```text
-Vault_Policy
-  -> Vault_ReadStaticCredentials
-Vault_AwsStaticRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ReadStaticCredentials| role[Vault_AwsStaticRole]
 ```
 
 This yields the managed IAM user's current credential through Vault. Neither path proves the generated principal's downstream AWS permissions; those require correlation with AWS graph data.
@@ -105,13 +103,13 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_AzureRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic[Vault_AzureRole]
+    policy -->|Vault_ReadStaticCredentials| static[Vault_AzureStaticRole]
 ```
 
-The policy can obtain a generated Azure service-principal credential constrained by the role. Static roles use `Vault_ReadStaticCredentials` instead. Importing or managing a static role is not itself traversable because it does not prove that usable credential material is returned.
+The first path obtains a generated Azure service-principal credential constrained by the dynamic role. The second reads the current credential managed through the concrete static role. Importing or managing a static role is not itself traversable because it does not prove that usable credential material is returned.
 
 ## Database
 
@@ -140,20 +138,17 @@ Dynamic credential generation requires an observed compatible connection and an 
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_DatabaseRole
-  -> Vault_DatabaseUsesConnection
-Vault_DatabaseConnection
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]
+    role -.->|Vault_DatabaseUsesConnection: non-traversable| connection[Vault_DatabaseConnection]
 ```
 
 The attack path terminates at the role; `Vault_DatabaseUsesConnection` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
 
-```text
-Vault_Policy
-  -> Vault_ReadStaticCredentials
-Vault_DatabaseStaticRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ReadStaticCredentials| role[Vault_DatabaseStaticRole]
 ```
 
 Static credential reads target the exact managed account and do not depend on dynamic-role connection viability in the same way.
@@ -169,7 +164,7 @@ flowchart LR
     mount -->|Vault_Contains| static[Vault_GcpStaticAccount]
     mount -->|Vault_Contains| impersonated[Vault_GcpImpersonatedAccount]
     policy[Vault_Policy] -->|Vault_GenerateCredentials| roleset
-    policy -->|Vault_ReadStaticCredentials| static
+    policy -->|Vault_GenerateCredentials| static
     policy -->|Vault_GenerateCredentials| impersonated
 ```
 
@@ -177,13 +172,14 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_GcpRoleset or Vault_GcpImpersonatedAccount
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| roleset[Vault_GcpRoleset]
+    policy -->|Vault_GenerateCredentials| static[Vault_GcpStaticAccount]
+    policy -->|Vault_GenerateCredentials| impersonated[Vault_GcpImpersonatedAccount]
 ```
 
-The edge represents the ability to request the configured OAuth token or service-account credential mode. A concrete `Vault_GcpStaticAccount` can instead be reached through `Vault_ReadStaticCredentials`. The paths prove Vault-side credential acquisition, not the resulting Google Cloud IAM permissions.
+The edge represents the ability to request a credential from the concrete GCP object. Rolesets support OAuth access tokens or service-account keys according to their configured secret type; static accounts expose OAuth access-token or service-account-key endpoints; impersonated accounts expose OAuth access tokens. The paths prove Vault-side credential acquisition, not the resulting Google Cloud IAM permissions.
 
 ## GCP KMS
 
@@ -210,9 +206,10 @@ Unknown key purpose produces `Vault_PotentialAccess` rather than a traversable d
 
 ### Attack Paths
 
-```text
-Vault_Policy -> Vault_GcpKmsDecrypt -> Vault_GcpKmsKey
-Vault_Policy -> Vault_GcpKmsSign    -> Vault_GcpKmsKey
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GcpKmsDecrypt| key[Vault_GcpKmsKey]
+    policy -->|Vault_GcpKmsSign| key
 ```
 
 Decrypt represents a plaintext oracle; sign represents use of signing authority. Both require a compatible observed key purpose. Encrypt, re-encrypt, and verify remain non-traversable because they do not reveal plaintext or confer signing authority.
@@ -254,14 +251,14 @@ Exact paths target the compatible file or directory. Globs expand to observed co
 
 A policy-backed identity path can reach a concrete secret file:
 
-```text
-Vault_AuthUser
-  -> Vault_MapsTo -> Vault_EntityAlias
-  -> Vault_MapsTo -> Vault_Entity
-  -> Vault_MemberOf -> Vault_Group
-  -> Vault_LinksPolicy -> Vault_Policy
-  -> Vault_KvReadSecret -> Vault_KvFile
-  -> Vault_Contains -> Vault_KvPair
+```mermaid
+flowchart LR
+    user[Vault_AuthUser] -->|Vault_MapsTo| alias[Vault_EntityAlias]
+    alias -->|Vault_MapsTo| entity[Vault_Entity]
+    entity -->|Vault_MemberOf| group[Vault_Group]
+    group -->|Vault_LinksPolicy| policy[Vault_Policy]
+    policy -->|Vault_KvReadSecret| file[Vault_KvFile]
+    file -->|Vault_Contains| pair[Vault_KvPair]
 ```
 
 The file read exposes plaintext at request time. The pair node records only a top-level key name; VaultHound does not store its value.
@@ -294,10 +291,9 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_KubernetesRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_KubernetesRole]
 ```
 
 The edge represents generation of a Kubernetes service-account token through the concrete role. Role properties describe namespace selectors and generated namespaced or cluster-scoped bindings. The path does not independently prove the live Kubernetes RBAC attached to the resulting token.
@@ -329,10 +325,11 @@ Unknown account availability becomes potential access. Checkout is not routed th
 
 ### Attack Paths
 
-```text
-Vault_Policy -> Vault_GenerateCredentials       -> Vault_LdapDynamicRole
-Vault_Policy -> Vault_ReadStaticCredentials     -> Vault_LdapStaticRole
-Vault_Policy -> Vault_LdapCheckoutServiceAccount -> Vault_LdapServiceAccount
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic[Vault_LdapDynamicRole]
+    policy -->|Vault_ReadStaticCredentials| static[Vault_LdapStaticRole]
+    policy -->|Vault_LdapCheckoutServiceAccount| service[Vault_LdapServiceAccount]
 ```
 
 Dynamic and static role paths yield LDAP credentials according to their role mode. Checkout targets only an observed account currently marked available. Unknown availability emits `Vault_PotentialAccess`; it does not create a traversable edge to the library set and fan out through containment.
@@ -349,6 +346,8 @@ flowchart LR
     mount -->|Vault_Contains| key[Vault_PkiKey]
     issuer -->|Vault_References| key
     policy[Vault_Policy] -->|Vault_PkiIssueCertificate| role
+    policy -->|Vault_PkiIssueCertificate| issuer
+    policy -->|Vault_PkiSignCertificate| issuer
     policy -->|Vault_PkiSignIntermediate| issuer
 ```
 
@@ -357,8 +356,8 @@ flowchart LR
 | Edge | Target | Traversable | Meaning |
 | --- | --- | --- | --- |
 | `Vault_PkiListCertificateInfo` | Mount | No | List authenticated certificate information collections. |
-| `Vault_PkiIssueCertificate` | Concrete role | Yes | Issue a certificate constrained by a role. |
-| `Vault_PkiSignCertificate` | Concrete role | Yes | Sign a CSR through a role. |
+| `Vault_PkiIssueCertificate` | Concrete role or issuer | Yes | Issue a certificate through a role, or through an issuer-scoped external-policy endpoint. |
+| `Vault_PkiSignCertificate` | Concrete role or issuer | Yes | Sign a CSR through a role, or through an issuer-scoped external-policy endpoint. |
 | `Vault_PkiSignVerbatim` | Concrete role or issuer | Yes | Sign through the role-less or issuer-specific verbatim surface when target resolution is concrete. |
 | `Vault_PkiSignIntermediate` | Concrete issuer | Yes | Sign an intermediate CA certificate. |
 | `Vault_PkiSignSelfIssued` | Concrete issuer | Yes | Sign a self-issued CA certificate. |
@@ -379,11 +378,16 @@ Authenticated ACME, CMP, EST, and SCEP policy surfaces fold into existing issue,
 
 Certificate issuance and signing target the concrete resource that constrains the operation:
 
-```text
-Vault_Policy -> Vault_PkiIssueCertificate -> Vault_PkiRole
-Vault_Policy -> Vault_PkiSignCertificate  -> Vault_PkiRole
-Vault_Policy -> Vault_PkiSignIntermediate -> Vault_PkiIssuer
-Vault_Policy -> Vault_PkiSignSelfIssued   -> Vault_PkiIssuer
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_PkiIssueCertificate| role[Vault_PkiRole]
+    policy -->|Vault_PkiSignCertificate| role
+    policy -->|Vault_PkiSignVerbatim: role-qualified| role
+    policy -->|Vault_PkiIssueCertificate: issuer external policy| issuer[Vault_PkiIssuer]
+    policy -->|Vault_PkiSignCertificate: issuer external policy| issuer
+    policy -->|Vault_PkiSignVerbatim: resolved default or selected issuer| issuer
+    policy -->|Vault_PkiSignIntermediate| issuer
+    policy -->|Vault_PkiSignSelfIssued| issuer
 ```
 
 A role glob such as:
@@ -424,10 +428,11 @@ CA and zero-address configuration uses generic config edges. CA public keys are 
 
 ### Attack Paths
 
-```text
-Vault_Policy -> Vault_SshGenerateOtp  -> Vault_SshRole (OTP)
-Vault_Policy -> Vault_SshSignKey      -> Vault_SshRole (CA)
-Vault_Policy -> Vault_SshIssueKeyPair -> Vault_SshRole (CA)
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_SshGenerateOtp| otp["Vault_SshRole: OTP"]
+    policy -->|Vault_SshSignKey| ca["Vault_SshRole: CA"]
+    policy -->|Vault_SshIssueKeyPair| ca
 ```
 
 OTP generation returns a usable one-time password. Signing turns an attacker-supplied public key into an SSH certificate. Key-pair issuance returns new private-key material and its certificate. Role-mode compatibility is checked before any of these traversable edges are emitted.
@@ -448,10 +453,9 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_GenerateCredentials
-Vault_TerraformRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_TerraformRole]
 ```
 
 The path yields a Terraform Cloud organization, team, or user API token according to the role. It proves token generation through Vault, while the resulting Terraform Cloud authorization remains an external-system concern.
@@ -477,10 +481,9 @@ Keys include issuer, account name, period, algorithm, digits, skew, key size, an
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_TotpGenerateCode
-Vault_TotpKey
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_TotpGenerateCode| key[Vault_TotpKey]
 ```
 
 The edge is traversable because the endpoint returns a currently usable code. `Vault_TotpValidateCode` remains non-traversable because validation accepts a candidate code but does not reveal one.
@@ -505,7 +508,7 @@ flowchart LR
 | `Vault_TransitDecrypt` | Yes | Recover plaintext. |
 | `Vault_TransitGenerateDataKey` | No | Generate a data key; its security meaning depends on returned plaintext/ciphertext mode and is retained as operation context. |
 | `Vault_TransitRewrap` | No | Rewrap ciphertext without revealing plaintext. |
-| `Vault_TransitSign` | Yes | Produce a signature with a compatible key. |
+| `Vault_TransitSign` | Yes | Produce a signature with a compatible key. `Signing Targets` distinguishes ordinary message/digest signing from CSR signing. |
 | `Vault_TransitGenerateCmac` | Yes | Generate a CMAC with a compatible key. |
 | `Vault_TransitGenerateHmac` | Yes | Generate an HMAC with a compatible key. |
 | `Vault_TransitVerify` | No | Verify signatures, HMACs, or CMACs. |
@@ -516,15 +519,16 @@ Key properties include type, versions, derivation, convergent encryption, export
 
 ### Attack Paths
 
-```text
-Vault_Policy -> Vault_TransitDecrypt      -> Vault_TransitKey
-Vault_Policy -> Vault_TransitSign         -> Vault_TransitKey
-Vault_Policy -> Vault_TransitGenerateCmac -> Vault_TransitKey
-Vault_Policy -> Vault_TransitGenerateHmac -> Vault_TransitKey
-Vault_Policy -> Vault_TransitExportKey    -> Vault_TransitKey
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_TransitDecrypt| key[Vault_TransitKey]
+    policy -->|Vault_TransitSign| key
+    policy -->|Vault_TransitGenerateCmac| key
+    policy -->|Vault_TransitGenerateHmac| key
+    policy -->|Vault_TransitExportKey| key
 ```
 
-Decrypt is a plaintext oracle. Sign, CMAC, and HMAC exercise concrete cryptographic authority. Secret export is emitted only when the observed key type supports the requested export and the key is exportable. Public-key reads use `Vault_ReadObject`, while BYOK-wrapped export uses non-traversable `Vault_TransitExportByokKey`.
+Decrypt is a plaintext oracle. Sign, CMAC, and HMAC exercise concrete cryptographic authority. `/sign/:key` records `Signing Targets: Message or Digest`, while `/keys/:key/csr` records `Signing Targets: Certificate Signing Request`; both merge into the same key edge when both surfaces are authorized. Secret export is emitted only when the observed key type supports the requested export and the key is exportable. Public-key reads use `Vault_ReadObject`, while BYOK-wrapped export uses non-traversable `Vault_TransitExportByokKey`.
 
 For an exact missing path such as `transit/decrypt/future-key`, the collector may create a detached synthetic key but emits `Vault_PotentialAccess` with `Target Observed: false`. The synthetic key is not attached through normal containment and therefore cannot become an asserted attack path.
 

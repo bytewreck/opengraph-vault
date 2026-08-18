@@ -11,6 +11,7 @@ flowchart LR
     namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: AUTH]
     store -->|Vault_Contains| method[Vault_AuthMethod]
     method -->|Vault_Contains| object[Role, user, group, or CRL]
+    method -->|Vault_LinksPolicy| policy[Vault_Policy]
     object -->|Vault_LinksPolicy| policy[Vault_Policy]
     object -->|Vault_MapsTo| alias[Entity or Group Alias]
     alias -->|Vault_MapsTo| identity[Entity or Group]
@@ -34,7 +35,6 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 | `Vault_ReadConfig` | Read mount, tuning, or method-wide configuration. |
 | `Vault_ManageConfig` | Change method configuration, tuning, credentials, or maintenance state. |
 | `Vault_ControlObject` | Perform a parameter-aware mutation that proves takeover of a concrete auth object. |
-| `Vault_ObtainPolicy` | Obtain a policy through a controlled auth object with assignable policy parameters. |
 | `Vault_LinksPolicy` | Role, user, group, or backend default grants a policy after authentication. |
 | `Vault_MapsTo` | Auth principal resolves through an alias into canonical Vault identity. |
 
@@ -42,26 +42,40 @@ Collection globs expand read and manage rights to compatible observed children. 
 
 ## Common Attack-Path Patterns
 
-Auth configuration participates in attack paths in three ways:
+Auth configuration participates in attack paths in four ways:
 
-```text
-Vault_AuthUser or Vault_AuthGroup
-  -> Vault_MapsTo -> Vault_EntityAlias or Vault_GroupAlias
-  -> Vault_MapsTo -> Vault_Entity or Vault_Group
-  -> Vault_LinksPolicy -> Vault_Policy
+```mermaid
+flowchart LR
+    principal["Vault_AuthUser or Vault_AuthGroup"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
+    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
+    identity -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
 This identity-resolution chain describes the policies reached if the represented external authentication succeeds. The collector does not assert possession of the external credential.
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Concrete auth user, role, group, or trust target
-  -> Vault_ObtainPolicy
-Vault_Policy
+Method-wide defaults are represented directly on the auth method:
+
+```mermaid
+flowchart LR
+    namespace[Vault_Namespace] -->|Vault_Contains| store["Vault_Store: AUTH"]
+    store -->|Vault_Contains| method[Vault_AuthMethod]
+    method -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
-This chain is emitted only when parameter-aware mutation proves takeover and policy assignment on the same concrete object. Ordinary `Vault_ManageObject` and `Vault_ManageConfig` remain non-traversable.
+| Auth Methods | Policy Link Type | Meaning |
+| --- | --- | --- |
+| GitHub, LDAP, Okta, and RADIUS | `Auth Method Default` | Policy configured as a method-wide login default. |
+| RADIUS | `Unregistered User Default` | Policy granted after successful RADIUS authentication when no configured user record matches. |
+
+These links describe the policy outcome after successful external authentication. They do not prove possession of GitHub, LDAP, Okta, or RADIUS credentials.
+
+```mermaid
+flowchart LR
+    authority[Vault_Policy] -->|Vault_ControlObject| target["Concrete auth user, role, group, or trust target"]
+    target -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+```
+
+This chain is emitted only when parameter-aware mutation proves takeover of the concrete object and that object has an observed policy link. Ordinary `Vault_ManageObject` and `Vault_ManageConfig` remain non-traversable. Policy-assignment parameters remain evidence on the relevant management or control edge but do not synthesize a direct policy-to-policy relationship.
 
 AppRole SecretID generation and privileged token issuance have their own traversable edge families because those endpoints can produce authentication material directly.
 
@@ -132,12 +146,10 @@ RoleID is always required for login. SecretID generation alone is not treated as
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_AuthApproleGenerateSecretId
-Vault_AuthApproleRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_AuthApproleGenerateSecretId| role[Vault_AuthApproleRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
 The chain is traversable only when RoleID is known or independently readable. Without RoleID, SecretID generation becomes `Vault_PotentialAccess`. SecretID accessor reads and SecretID destruction remain non-traversable.
@@ -192,19 +204,17 @@ flowchart LR
     role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
-Unrestricted replacement of authentication trust may derive `Vault_ControlObject`; ordinary configuration management remains non-traversable.
+Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObject` to each observed CF role. Value-constrained replacement emits `Vault_PotentialAccess`, while writes limited to routing, timeout, or CF API client settings remain ordinary non-traversable configuration management.
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Vault_AuthCfRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthCfRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
-This path is derived only when configuration and parameter constraints prove that the caller can replace the trust material or matching conditions with attacker-controlled values. Ordinary CF configuration access remains non-traversable.
+This path is derived only when configuration and parameter constraints prove that the caller can replace the instance-identity CA trust with attacker-controlled values. Role CIDRs, instance-IP matching, and token-bound CIDRs are retained as requirements on the edge. Ordinary CF configuration access remains non-traversable.
 
 ## GCP
 
@@ -244,11 +254,11 @@ User and team CRUD uses generic object edges. External organization membership i
 
 ### Attack Paths
 
-```text
-Vault_AuthGithubUser or Vault_AuthGithubTeam
-  -> Vault_MapsTo -> Vault_EntityAlias or Vault_GroupAlias
-  -> Vault_MapsTo -> Vault_Entity or Vault_Group
-  -> Vault_LinksPolicy -> Vault_Policy
+```mermaid
+flowchart LR
+    principal["Vault_AuthGithubUser or Vault_AuthGithubTeam"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
+    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
+    identity -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
 The chain exposes policy accumulation for a correlated GitHub principal. It does not prove control of the GitHub account or membership in the external organization.
@@ -270,12 +280,10 @@ Mount properties include discovery, verification keys, bound issuer, algorithms,
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Vault_AuthJwtOidcRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthJwtOidcRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
 The path requires proof that attacker-controlled issuer, discovery, verification-key, or claim values can satisfy the concrete role. Constrained trust changes produce `Vault_PotentialAccess` or ordinary management instead.
@@ -297,11 +305,11 @@ SPN, keytab, LDAP, case behavior, and token configuration use method properties 
 
 ### Attack Paths
 
-```text
-Vault_AuthKerberosGroup
-  -> Vault_MapsTo -> Vault_GroupAlias
-  -> Vault_MapsTo -> Vault_Group
-  -> Vault_LinksPolicy -> Vault_Policy
+```mermaid
+flowchart LR
+    principal[Vault_AuthKerberosGroup] -->|Vault_MapsTo| alias[Vault_GroupAlias]
+    alias -->|Vault_MapsTo| group[Vault_Group]
+    group -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
 This shows the policy consequence of a correlated Kerberos group. It does not prove Kerberos credential possession or external directory membership.
@@ -323,12 +331,10 @@ The mount records Kubernetes host, CA, token reviewer, issuer validation, and se
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Vault_AuthKubernetesRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthKubernetesRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
 This requires an unrestricted trust or reviewer replacement that makes an attacker-controlled Kubernetes token satisfy the observed role. Merely editing the role or reading cluster configuration does not create the path.
@@ -343,24 +349,20 @@ flowchart LR
     method -->|Vault_Contains| user[Vault_AuthLdapUser]
     method -->|Vault_Contains| group[Vault_AuthLdapGroup]
     user -->|Vault_MemberOf| group
-    user -->|Vault_MapsTo| alias[Vault_EntityAlias]
-    group -->|Vault_MapsTo| groupAlias[Vault_GroupAlias]
-    user -->|Vault_LinksPolicy| policy[Vault_Policy]
     group -->|Vault_LinksPolicy| policy
+    user -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
 Configuration includes URLs, bind DN behavior, user/group search, nested groups, case sensitivity, certificates, token settings, and root credential rotation. The user/group nodes are mappings known to Vault, not a complete LDAP inventory.
 
 ### Attack Paths
 
-```text
-Vault_AuthLdapUser
-  -> Vault_MemberOf -> Vault_AuthLdapGroup
-  -> Vault_LinksPolicy -> Vault_Policy
-
-Vault_AuthLdapUser or Vault_AuthLdapGroup
-  -> Vault_MapsTo -> Alias
-  -> Vault_MapsTo -> Vault_Entity or Vault_Group
+```mermaid
+flowchart LR
+    user[Vault_AuthLdapUser] -->|Vault_MemberOf| authGroup[Vault_AuthLdapGroup]
+    authGroup -->|Vault_LinksPolicy| policy[Vault_Policy]
+    principal["Vault_AuthLdapUser or Vault_AuthLdapGroup"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
+    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
 ```
 
 The graph exposes mapped and inherited Vault policies for LDAP names returned by Vault. It does not assert live LDAP credentials or complete directory membership.
@@ -398,18 +400,18 @@ flowchart LR
     group -->|Vault_LinksPolicy| policy
 ```
 
-Sensitive API-token fields returned by Vault can produce `Vault_ReadCredential`; ordinary organization and mapping reads remain non-traversable.
+Okta's API token is a write-only configuration input and is not returned by the configuration read endpoint. Configuration and mapping reads therefore remain non-traversable and do not produce `Vault_ReadCredential`.
 
 ### Attack Paths
 
-```text
-Vault_AuthOktaUser or Vault_AuthOktaGroup
-  -> Vault_MapsTo -> Alias
-  -> Vault_MapsTo -> Vault_Entity or Vault_Group
-  -> Vault_LinksPolicy -> Vault_Policy
+```mermaid
+flowchart LR
+    principal["Vault_AuthOktaUser or Vault_AuthOktaGroup"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
+    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
+    identity -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
-A separate `Vault_ReadCredential` edge can expose a returned Okta integration credential from concrete configuration. External Okta authentication and group membership are not independently proven.
+External Okta authentication and live group membership are not independently proven. Alias correlation records matching Vault Identity aliases without claiming that Vault returned the configured Okta API token.
 
 ## RADIUS
 
@@ -447,12 +449,10 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Vault_AuthSamlRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthSamlRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
 The edge requires unrestricted attacker-controlled IdP metadata, certificate, or assertion-routing values compatible with the role. Routing-only writes or constrained trust replacement remain non-traversable or potential.
@@ -513,12 +513,10 @@ Roles include trusted certificate material, names, DNS/email/URI constraints, or
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_ControlObject
-Vault_AuthTlsCertRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthTlsCertRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
 This requires the ability to replace trusted certificate material or matching constraints with values controlled by the attacker. CRL maintenance and constrained role changes do not automatically confer login ability.
@@ -533,6 +531,8 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthTokenRole]
     admin[Vault_Policy] -->|Vault_AuthTokenCreateRestrictedToken| method
     admin -->|Vault_AuthTokenCreatePrivilegedToken| role
+    admin -->|Vault_AuthTokenCreatePrivilegedToken| policyStore[Policy Store]
+    admin -->|Vault_AuthTokenCreatePrivilegedToken| alias[Vault_EntityAlias]
     role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
@@ -540,7 +540,7 @@ flowchart LR
 | --- | --- | --- |
 | `Vault_AuthTokenReadToken` | Token method or role context | Lookup token or accessor state. |
 | `Vault_AuthTokenCreateRestrictedToken` | Method or role | Create a token constrained to the caller's policy subset; non-traversable. |
-| `Vault_AuthTokenCreatePrivilegedToken` | Concrete role | Create a token with proven policy expansion or privileged alias outcome; traversable. |
+| `Vault_AuthTokenCreatePrivilegedToken` | Concrete role, Policy Store, or entity alias | Create a token with proven policy expansion: delegated role policies, sudo-authorized bare issuance, or a privileged allowed entity alias; traversable. |
 | `Vault_AuthTokenManageToken` | Method or role context | Renew or revoke tokens. |
 | `Vault_AuthTokenListAccessors` | Token method | List token accessors on the sudo-gated endpoint. |
 
@@ -548,15 +548,25 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 
 ### Attack Paths
 
-```text
-Vault_Policy
-  -> Vault_AuthTokenCreatePrivilegedToken
-Vault_AuthTokenRole
-  -> Vault_LinksPolicy
-Granted Vault_Policy
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| role[Vault_AuthTokenRole]
+    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
 ```
 
-The edge is traversable only when role-based or sudo issuance demonstrably expands policy authority or resolves a privileged allowed entity alias. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| store["Policy Store"]
+```
+
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| alias[Vault_EntityAlias]
+    alias -->|Vault_MapsTo| entity[Vault_Entity]
+    entity -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+```
+
+The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
 
 ## UserPass
 
@@ -572,20 +582,19 @@ flowchart LR
     admin[Vault_Policy] -->|Vault_ControlObject| user
 ```
 
-Password, policy, and token-setting updates are generic object management. An unrestricted password reset derives traversable `Vault_ControlObject` because it allows authentication as the concrete user. Policy-assignment control on the same user can further derive `Vault_ObtainPolicy`.
+Password, policy, and token-setting updates are generic object management. An unrestricted password reset derives traversable `Vault_ControlObject` because it allows authentication as the concrete user.
 
 ### Attack Paths
 
-```text
-Vault_Policy A
-  -> Vault_ControlObject
-Vault_AuthUserpassUser
-  -> Vault_MapsTo -> Vault_EntityAlias
-  -> Vault_MapsTo -> Vault_Entity
-  -> Vault_LinksPolicy -> Vault_Policy B
+```mermaid
+flowchart LR
+    policyA["Vault_Policy A"] -->|Vault_ControlObject| user[Vault_AuthUserpassUser]
+    user -->|Vault_MapsTo| alias[Vault_EntityAlias]
+    alias -->|Vault_MapsTo| entity[Vault_Entity]
+    entity -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
 ```
 
-The control edge exists only when Policy A can set an attacker-controlled password for the concrete user. If the same controlled user can be assigned Policy B, `Vault_ObtainPolicy` may summarize the proven policy-acquisition composition directly.
+The control edge exists only when Policy A can set an attacker-controlled password for the concrete user. Traversal reaches Policy B through the user's observed identity mapping and policy links; possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
 
 ## Glob, Synthetic, And Control Behavior
 

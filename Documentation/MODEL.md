@@ -115,7 +115,6 @@ Generic edge families reduce visual clutter while preserving subsystem context i
 | `Vault_ReadObject` | Concrete object | No | Read durable object configuration. |
 | `Vault_ManageObject` | Concrete object | No | Update, patch, delete, rotate, or otherwise administer an object. |
 | `Vault_ControlObject` | Concrete identity/auth object | Yes | Perform a proven takeover-capable mutation. |
-| `Vault_ObtainPolicy` | Policy | Yes | Obtain policy authority by controlling an object that can be assigned that policy. |
 | `Vault_ReadConfig` | Store, auth method, or secrets-engine mount | No | Read registry, mount, tuning, or backend configuration. |
 | `Vault_ManageConfig` | Store, auth method, or secrets-engine mount | No | Change configuration, tuning, root credentials, or maintenance state. |
 | `Vault_GenerateCredentials` | Concrete secrets-engine role | Yes | Invoke a viable endpoint that returns usable external credentials. |
@@ -189,6 +188,17 @@ Auth principal
   -> Vault_LinksPolicy -> Policy
   -> Traversable subsystem edge -> Concrete target
 ```
+
+Enterprise namespace authority composes with immediate-parent containment into the child namespace's stores and objects:
+
+```text
+Parent Vault_Namespace
+  -> Vault_ParentOf -> Child Vault_Namespace
+  -> Vault_Contains -> Child Namespace Store
+  -> Vault_Contains -> Subsystem Object
+```
+
+`Vault_ParentOf` and `Vault_Contains` are traversable because the model treats control of an administrative parent as control of its immediate children. This path is one-way: it does not imply child-to-parent authority or access between sibling namespaces.
 
 Non-traversable edges can still be security-relevant evidence, but they do not extend BloodHound's automatic attack path. For example, deleting a PKI issuer is destructive without granting its signing authority, and Transit encryption does not reveal plaintext.
 

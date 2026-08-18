@@ -1035,11 +1035,6 @@
       "is_traversable": true
     },
     {
-      "name": "Vault_ObtainPolicy",
-      "description": "Derived attack-path edge showing that the source can obtain the target policy's authority by controlling a concrete identity or authentication object and assigning the policy through that same object. Via Object and policy-assignment properties identify the proven composition.",
-      "is_traversable": true
-    },
-    {
       "name": "Vault_ReadConfig",
       "description": "Access edge showing that a Vault policy can read configuration or backend-maintenance state on the target auth method, secrets engine mount, or concrete configuration child object; Operations and configuration targets identify the readable state.",
       "is_traversable": false

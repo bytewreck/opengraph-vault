@@ -55,12 +55,11 @@ Managed-key use remains non-traversable by itself because provider mechanisms di
 
 There is no direct traversable edge into `Vault_ManagedKey`. The registration is an external cryptographic dependency, not raw key material:
 
-```text
-Vault_Policy
-  -> Vault_TransitDecrypt or Vault_TransitSign
-Vault_TransitKey
-  -> Vault_ManagedBy
-Vault_ManagedKey
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_TransitDecrypt| transit[Vault_TransitKey]
+    policy -->|Vault_TransitSign| transit
+    transit -.->|Vault_ManagedBy: non-traversable| managed[Vault_ManagedKey]
 ```
 
 The attack path terminates at the Transit operation. `Vault_ManagedBy` remains non-traversable evidence showing which external key backs that operation. `Vault_CanUseManagedKey` is also non-traversable because system mechanisms can expose materially different outcomes and do not necessarily reveal or confer control of the provider key.

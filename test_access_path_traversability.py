@@ -13,6 +13,58 @@ class KvKindTests(unittest.TestCase):
         self.assertEqual(vc.get_kv_kinds("directory"), ["Vault_KvDirectory"])
 
 
+class OktaGroupAliasCorrelationTests(unittest.TestCase):
+    def test_group_maps_to_same_mount_alias_case_insensitively(self):
+        collector = vc.VaultCollector(None, "https://vault.test")
+        collector._auth_methods["okta-accessor"] = {
+            "type": "okta",
+            "node_id": "okta-mount",
+        }
+        collector._auth_methods["other-accessor"] = {
+            "type": "okta",
+            "node_id": "other-okta-mount",
+        }
+        collector._auth_okta_groups["okta-accessor"] = {
+            "Vault-Admins": {
+                "node_id": "okta-group-vault-admins",
+                "name": "Vault-Admins",
+                "accessor": "okta-accessor",
+            }
+        }
+        collector._group_aliases.update({
+            "matching-alias": {
+                "id": "matching-alias",
+                "name": "vault-admins",
+                "mount_accessor": "okta-accessor",
+                "canonical_id": "vault-admin-group",
+            },
+            "foreign-alias": {
+                "id": "foreign-alias",
+                "name": "Vault-Admins",
+                "mount_accessor": "other-accessor",
+                "canonical_id": "foreign-admin-group",
+            },
+        })
+        collector._group_alias_nodes.update({
+            "matching-alias": "group-alias-matching",
+            "foreign-alias": "group-alias-foreign",
+        })
+        collector._group_by_id.update({
+            "vault-admin-group": {"id": "vault-admin-group"},
+            "foreign-admin-group": {"id": "foreign-admin-group"},
+        })
+
+        collector._compute_alias_edges()
+
+        okta_group_edges = [
+            edge for edge in collector.edges
+            if edge.kind == "Vault_MapsTo"
+            and edge.source == "okta-group-vault-admins"
+        ]
+        self.assertEqual(len(okta_group_edges), 1)
+        self.assertEqual(okta_group_edges[0].target, "group-alias-matching")
+
+
 class LdapCheckoutTraversalTests(unittest.TestCase):
     def test_checkout_targets_only_observed_available_accounts(self):
         collector = vc.VaultCollector(None, "https://vault.test")
@@ -800,6 +852,214 @@ class SamlTrustTraversalTests(unittest.TestCase):
             and edge.target in {"saml-role-admin", "saml-role-operator"}
             for edge in collector.edges
         ))
+
+
+class CloudFoundryTrustTraversalTests(unittest.TestCase):
+    @staticmethod
+    def collector():
+        collector = vc.VaultCollector(None, "https://vault.test")
+        collector._auth_methods["cf-accessor"] = {
+            "accessor": "cf-accessor",
+            "type": "cf",
+            "path": "auth/cf/",
+            "node_id": "cf-mount",
+        }
+        collector._auth_cf_roles["cf-accessor"] = {
+            "web": {
+                "node_id": "cf-role-web",
+                "name": "web",
+                "accessor": "cf-accessor",
+            },
+        }
+        collector.nodes.extend([
+            graph_node("cf-mount", "Vault_AuthMethodCf"),
+            vc.GraphNode(
+                "cf-role-web",
+                ["Vault_AuthCfRole"],
+                {
+                    "name": "web",
+                    "Bound CIDRs": ["10.0.0.0/8"],
+                    "Disable IP Matching": False,
+                    "Token Bound CIDRs": ["192.0.2.0/24"],
+                },
+            ),
+        ])
+        return collector
+
+    @staticmethod
+    def emit(collector, path_info):
+        collector._dispatch_auth_access(
+            "policy",
+            "auth/cf/config",
+            path_info["capabilities"],
+            policy_path=path_info["path"],
+            path_info=path_info,
+        )
+
+    def test_unrestricted_identity_ca_replacement_controls_roles(self):
+        collector = self.collector()
+        self.emit(collector, {
+            "path": "auth/cf/config",
+            "capabilities": ["update"],
+        })
+
+        edge = next(edge for edge in collector.edges if edge.kind == "Vault_ControlObject")
+        self.assertEqual(edge.target, "cf-role-web")
+        self.assertEqual(
+            edge.properties["control_methods"],
+            ["Replace Cloud Foundry Instance Identity Trust"],
+        )
+        self.assertEqual(
+            edge.properties["requirements"],
+            [
+                "Satisfy Role Bound CIDRs",
+                "Satisfy Cloud Foundry Instance IP Matching",
+                "Satisfy Token Bound CIDRs",
+            ],
+        )
+
+    def test_value_constrained_identity_ca_replacement_is_potential(self):
+        collector = self.collector()
+        self.emit(collector, {
+            "path": "auth/cf/config",
+            "capabilities": ["update"],
+            "allowed_parameters": ["identity_ca_certificates"],
+            "value_constrained_parameters": ["identity_ca_certificates"],
+            "allowed_parameter_values": {
+                "identity_ca_certificates": ["approved-ca"],
+            },
+        })
+
+        self.assertFalse(any(edge.kind == "Vault_ControlObject" for edge in collector.edges))
+        edge = next(edge for edge in collector.edges if edge.kind == "Vault_PotentialAccess")
+        self.assertEqual(edge.target, "cf-role-web")
+        self.assertEqual(
+            edge.properties["resolution_status"],
+            ["Cloud Foundry Identity Trust Is Value-Constrained"],
+        )
+
+    def test_unrelated_config_write_does_not_control_roles(self):
+        collector = self.collector()
+        self.emit(collector, {
+            "path": "auth/cf/config",
+            "capabilities": ["update"],
+            "allowed_parameters": ["cf_timeout"],
+        })
+
+        self.assertFalse(any(
+            edge.kind in {"Vault_ControlObject", "Vault_PotentialAccess"}
+            for edge in collector.edges
+        ))
+
+
+class TotpAdminEnrollmentTraversalTests(unittest.TestCase):
+    @staticmethod
+    def collector():
+        collector = vc.VaultCollector(None, "https://vault.test")
+        collector._entity_by_id.update({
+            "entity-alice": {"id": "entity-alice", "name": "alice"},
+            "entity-bob": {"id": "entity-bob", "name": "bob"},
+        })
+        collector.nodes.extend([
+            graph_node(collector._id("entity", "entity-alice"), "Vault_Entity"),
+            graph_node(collector._id("entity", "entity-bob"), "Vault_Entity"),
+        ])
+        return collector
+
+    def test_admin_generate_targets_only_parameter_allowed_entity(self):
+        collector = self.collector()
+        path = "identity/mfa/method/totp/admin-generate"
+        collector._check_identity_management(
+            "policy",
+            path,
+            ["update"],
+            policy_path=path,
+            path_info={
+                "path": path,
+                "capabilities": ["update"],
+                "allowed_parameters": ["entity_id"],
+                "value_constrained_parameters": ["entity_id"],
+                "allowed_parameter_values": {"entity_id": ["entity-alice"]},
+            },
+        )
+
+        edges = [edge for edge in collector.edges if edge.kind == "Vault_PotentialAccess"]
+        self.assertEqual(
+            [edge.target for edge in edges],
+            [collector._id("entity", "entity-alice")],
+        )
+        self.assertEqual(
+            edges[0].properties["credential_types"],
+            ["TOTP Enrollment Secret"],
+        )
+        self.assertIn(
+            "Possess Primary Authentication Credential",
+            edges[0].properties["requirements"],
+        )
+        self.assertFalse(any(edge.kind == "Vault_ReadCredential" for edge in collector.edges))
+
+    def test_global_wildcard_targets_all_observed_entities_as_potential(self):
+        collector = self.collector()
+        collector._policies["admin"] = {
+            "node_id": "policy",
+            "type": "acl",
+            "parsed_paths": [{
+                "path": "*",
+                "capabilities": ["update"],
+            }],
+        }
+
+        collector._compute_access_grant_edges()
+
+        target_ids = {
+            edge.target
+            for edge in collector.edges
+            if edge.kind == "Vault_PotentialAccess"
+            and edge.properties.get("credential_types") == ["TOTP Enrollment Secret"]
+        }
+        self.assertEqual(target_ids, {
+            collector._id("entity", "entity-alice"),
+            collector._id("entity", "entity-bob"),
+        })
+
+
+class TransitSigningTargetTests(unittest.TestCase):
+    def test_csr_and_message_signing_targets_merge_on_the_key_edge(self):
+        collector = vc.VaultCollector(None, "https://vault.test")
+        engine = {
+            "accessor": "transit-accessor",
+            "path": "transit/",
+            "node_id": "transit-mount",
+        }
+        collector._transit_keys["transit-accessor"] = {
+            "signing": {
+                "node_id": "transit-key-signing",
+                "name": "signing",
+                "key_type": "ecdsa-p256",
+                "synthetic": False,
+            },
+        }
+        collector.nodes.append(graph_node("transit-key-signing", "Vault_TransitKey"))
+
+        collector._check_transit_access(
+            "policy",
+            engine,
+            "transit/keys/signing/csr",
+            ["update"],
+        )
+        collector._check_transit_access(
+            "policy",
+            engine,
+            "transit/sign/signing",
+            ["update"],
+        )
+
+        edge = next(edge for edge in collector.edges if edge.kind == "Vault_TransitSign")
+        self.assertEqual(edge.target, "transit-key-signing")
+        self.assertEqual(
+            edge.properties["signing_targets"],
+            ["Certificate Signing Request", "Message or Digest"],
+        )
 
 
 if __name__ == "__main__":

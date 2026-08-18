@@ -64,7 +64,7 @@ flowchart LR
     policy -->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]
     policy -->|Vault_ManageObject| object
     policy -->|Vault_ControlObject| controlled[Takeover-capable identity target]
-    controlled -->|Vault_ObtainPolicy| granted[Vault_Policy]
+    controlled -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 | Edge | Destination | Meaning |
@@ -76,7 +76,6 @@ flowchart LR
 | `Vault_ReadObject` | Concrete generic identity object | Read durable configuration through the generic family. |
 | `Vault_ManageObject` | Concrete object | Update or delete ordinary identity configuration. |
 | `Vault_ControlObject` | Concrete entity, alias, group, or trust object | Perform a parameter-aware mutation that proves identity takeover. |
-| `Vault_ObtainPolicy` | Policy | Assign a concrete policy through an object the caller can control. |
 | `Vault_ReadConfig` | Identity Store | Read subsystem configuration such as OIDC configuration. |
 | `Vault_ManageConfig` | Identity Store | Change subsystem-wide configuration. |
 | `Vault_DenyAccess` | Matching target | Preserve an overriding deny rule. |
@@ -88,20 +87,35 @@ Creating or managing an object is not automatically traversable. `Vault_ControlO
 
 Identity takeover can expose every policy linked to the controlled identity object:
 
-```text
-Vault_Policy A
-  -> Vault_ControlObject
-Vault_Group
-  -> Vault_LinksPolicy
-Vault_Policy B
+```mermaid
+flowchart LR
+    policyA["Vault_Policy A"] -->|Vault_ControlObject| group[Vault_Group]
+    group -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
 ```
 
-If Policy A can add an attacker-controlled entity to the internal group without restrictive parameter constraints, `Vault_ObtainPolicy` can summarize the proven composition directly from Policy A to Policy B with the group recorded as the via object.
+This path reaches only policies observed as linked to the controlled group. Policy-assignment parameters remain evidence on the relevant management or control edge and do not create a direct policy-to-policy relationship.
 
-```text
-Vault_Policy
-  -> Vault_ReadCredential
-Vault_OidcApplication or Vault_MfaMethod
+Rebinding an alias under attacker control targets the candidate canonical identity directly:
+
+```mermaid
+flowchart LR
+    policyA["Vault_Policy A"] -->|Vault_ControlObject| identity["Vault_Entity or Vault_Group"]
+    identity -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
+```
+
+The `Vault_ControlObject` properties distinguish this path from membership takeover:
+
+| Control Method | Control Target | Via Object |
+| --- | --- | --- |
+| `Modify Group Membership` | Internal `Vault_Group` | Membership parameters on the group operation |
+| `Rebind Controlled Entity Alias` | Candidate `Vault_Entity` | Controlled `Vault_EntityAlias` in `Via Object IDs` and `Via Object Names` |
+| `Rebind Controlled Group Alias` | Candidate `Vault_Group` | Controlled `Vault_GroupAlias` in `Via Object IDs` and `Via Object Names` |
+
+No additional alias hop follows `Vault_ControlObject`: the collector derives control over the canonical entity or group selected by the alias rebinding operation.
+
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ReadCredential| credential["Vault_OidcApplication or Vault_MfaMethod"]
 ```
 
 This path is emitted only when the authenticated read returns usable secret material, such as a confidential OIDC client secret or an enrollment/integration credential. Ordinary identity reads remain non-traversable.
@@ -135,18 +149,16 @@ The direct authentication edge is derived from collected configuration; the inte
 
 ### Attack Paths
 
-```text
-Vault_Entity
-  -> Vault_OidcAuthenticateTo
-Vault_OidcApplication
+```mermaid
+flowchart LR
+    entity[Vault_Entity] -->|Vault_OidcAuthenticateTo| application[Vault_OidcApplication]
 ```
 
 This derived edge requires an applicable assignment, an allowing provider, and compatible application/provider configuration. The assignment and provider edges alone do not create an attack path.
 
-```text
-Vault_Policy
-  -> Vault_GenerateIdentityToken
-Vault_OidcTokenRole
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_GenerateIdentityToken| role[Vault_OidcTokenRole]
 ```
 
 The path represents the ability to mint a Vault identity token through an observed signing role. If the role's signing-key allowlist is empty or incompatible, no attack edge is emitted; an unresolved signing key produces `Vault_PotentialAccess`.
@@ -159,6 +171,7 @@ flowchart LR
     enforcement[Vault_MfaLoginEnforcement] -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]
     policy[Vault_Policy] -->|Vault_MfaSelfEnroll| method
     policy -->|Vault_MfaGenerateSecret| method
+    policy -->|Vault_PotentialAccess| entity[Vault_Entity]
 ```
 
 | Edge | Meaning |
@@ -167,12 +180,13 @@ flowchart LR
 | `Vault_MfaAppliesTo` | Enforcement applies to a collected identity or login surface. |
 | `Vault_MfaSelfEnroll` | Policy can perform MFA self-enrollment. |
 | `Vault_MfaGenerateSecret` | Policy can generate enrollment secret material where supported. |
+| `Vault_PotentialAccess` | Administrative TOTP generation can return enrollment material for a request-selected entity, but the enrollment alone does not prove possession of that entity's primary authentication credential. |
 
 MFA methods and enforcements describe login prerequisites. The collector does not perform enrollment or login challenges.
 
 ### Attack Paths
 
-MFA topology edges and self-enrollment permissions are non-traversable because configuration or enrollment eligibility does not by itself bypass MFA. Only a read that actually returns reusable credential material can produce `Vault_ReadCredential`.
+MFA topology edges and self-enrollment permissions are non-traversable because configuration or enrollment eligibility does not by itself bypass MFA. `identity/mfa/method/totp/admin-generate` resolves `entity_id` parameter constraints to observed entities and emits `Vault_PotentialAccess` with the returned TOTP enrollment secret, the primary-credential prerequisite, and the requirement that no enrollment exists or that it can first be destroyed. An unresolved entity selector remains anchored to the Identity Store. This is deliberately not `Vault_ReadCredential`: a TOTP seed alone is only one factor and does not prove control of the entity's primary login.
 
 ## SCIM
 

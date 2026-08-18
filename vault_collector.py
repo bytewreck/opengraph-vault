@@ -9598,23 +9598,21 @@ class VaultCollector:
         self._compute_mfa_edges()
         self._compute_access_grant_edges()
         self._compute_identity_template_access_edges()
-        self._derive_obtain_policy_edges()
+        self._derive_policy_assignment_potential_edges()
         self._prune_secrets_engine_object_mount_edges()
         self._prune_nested_namespace_containment_edges()
         self._prune_synthetic_containment_edges()
         log.info("  Total edges: %d", len(self.edges))
 
-    def _derive_obtain_policy_edges(self):
-        """Join proven object takeover with policy assignment on the same object."""
+    def _derive_policy_assignment_potential_edges(self):
+        """Preserve unresolved policy-assignment outcomes as potential access."""
         control_edges = [
             edge for edge in self.edges
             if edge.kind == "Vault_ControlObject"
         ]
         assignment_edges: dict[tuple[str, str], list[GraphEdge]] = {}
         for edge in self.edges:
-            if not edge.properties.get("assignable_policies") and not edge.properties.get(
-                "unresolved_policy_selectors"
-            ):
+            if not edge.properties.get("unresolved_policy_selectors"):
                 continue
             assignment_edges.setdefault((edge.source, edge.target), []).append(edge)
 
@@ -9631,14 +9629,6 @@ class VaultCollector:
                 (target_node.properties.get("name") if target_node else "")
                 or control_edge.target
             )
-            assignable_policies = sorted({
-                str(policy_name)
-                for edge in assignments
-                for policy_name in self._listify_property_value(
-                    edge.properties.get("assignable_policies")
-                )
-                if policy_name
-            })
             unresolved_selectors = sorted({
                 str(selector)
                 for edge in assignments
@@ -9654,14 +9644,6 @@ class VaultCollector:
                     edge.properties.get("policy_assignment_parameters")
                 )
                 if parameter
-            })
-            assignment_states = sorted({
-                str(state)
-                for edge in assignments
-                for state in self._listify_property_value(
-                    edge.properties.get("policy_assignment_states")
-                )
-                if state
             })
             matched_policy_paths = sorted({
                 str(path)
@@ -9680,74 +9662,33 @@ class VaultCollector:
                 if capability
             })
 
-            for policy_name in assignable_policies:
-                policy_node = self._policy_node_ids.get(policy_name)
-                if not policy_node or policy_node == control_edge.source:
-                    continue
-                self._emit_or_merge_edge(
-                    control_edge.source,
-                    policy_node,
-                    "Vault_ObtainPolicy",
-                    properties={
-                        "capabilities": capabilities,
-                        "operations": ["Assign Policy Through Controlled Object"],
-                        "control_methods": self._listify_property_value(
-                            control_edge.properties.get("control_methods")
-                        ),
-                        "impacts": ["Obtain Policy Authority"],
-                        "assigned_policy_names": [policy_name],
-                        "policy_assignment_parameters": assignment_parameters,
-                        "policy_assignment_states": assignment_states,
-                        "via_object_ids": [control_edge.target],
-                        "via_object_names": [target_name],
-                        "matched_policy_paths": matched_policy_paths,
-                        "requirements": self._listify_property_value(
-                            control_edge.properties.get("requirements")
-                        ),
-                    },
-                    array_property_keys={
-                        "assigned_policy_names",
-                        "capabilities",
-                        "control_methods",
-                        "impacts",
-                        "matched_policy_paths",
-                        "operations",
-                        "policy_assignment_parameters",
-                        "policy_assignment_states",
-                        "requirements",
-                        "via_object_ids",
-                        "via_object_names",
-                    },
-                )
-
-            if unresolved_selectors:
-                self._emit_or_merge_edge(
-                    control_edge.source,
-                    control_edge.target,
-                    "Vault_PotentialAccess",
-                    properties={
-                        "capabilities": capabilities,
-                        "potential_outcomes": ["Obtain Additional Policy"],
-                        "resolution_status": ["Assignable Policy Is Not Fully Resolved"],
-                        "unresolved_policy_selectors": unresolved_selectors,
-                        "policy_assignment_parameters": assignment_parameters,
-                        "via_object_ids": [control_edge.target],
-                        "via_object_names": [target_name],
-                        "matched_policy_paths": matched_policy_paths,
-                        "potential_only": True,
-                    },
-                    array_property_keys={
-                        "capabilities",
-                        "matched_policy_paths",
-                        "policy_assignment_parameters",
-                        "potential_outcomes",
-                        "resolution_status",
-                        "unresolved_policy_selectors",
-                        "via_object_ids",
-                        "via_object_names",
-                    },
-                    boolean_or_property_keys={"potential_only"},
-                )
+            self._emit_or_merge_edge(
+                control_edge.source,
+                control_edge.target,
+                "Vault_PotentialAccess",
+                properties={
+                    "capabilities": capabilities,
+                    "potential_outcomes": ["Obtain Additional Policy"],
+                    "resolution_status": ["Assignable Policy Is Not Fully Resolved"],
+                    "unresolved_policy_selectors": unresolved_selectors,
+                    "policy_assignment_parameters": assignment_parameters,
+                    "via_object_ids": [control_edge.target],
+                    "via_object_names": [target_name],
+                    "matched_policy_paths": matched_policy_paths,
+                    "potential_only": True,
+                },
+                array_property_keys={
+                    "capabilities",
+                    "matched_policy_paths",
+                    "policy_assignment_parameters",
+                    "potential_outcomes",
+                    "resolution_status",
+                    "unresolved_policy_selectors",
+                    "via_object_ids",
+                    "via_object_names",
+                },
+                boolean_or_property_keys={"potential_only"},
+            )
 
     def _compute_membership_edges(self):
         """Entity -> Group (MemberOf) and Group -> Group (GroupMemberOf)."""
@@ -9929,6 +9870,26 @@ class VaultCollector:
                     ):
                         self.edges.append(GraphEdge(
                             source=team["node_id"],
+                            target=self._group_alias_nodes[alias_id],
+                            kind="Vault_MapsTo",
+                        ))
+                        break
+
+        # Okta groups -> matching group alias reported by the same auth mount.
+        for accessor, groups in self._auth_okta_groups.items():
+            for group in groups.values():
+                group_name = str(group.get("name", ""))
+                if not group_name:
+                    continue
+                normalized_group_name = group_name.lower()
+                for alias_id, alias in self._group_aliases.items():
+                    if (
+                        alias.get("mount_accessor") == accessor
+                        and str(alias.get("name", "")).lower() == normalized_group_name
+                        and alias_id in self._group_alias_nodes
+                    ):
+                        self.edges.append(GraphEdge(
+                            source=group["node_id"],
                             target=self._group_alias_nodes[alias_id],
                             kind="Vault_MapsTo",
                         ))
@@ -20331,6 +20292,8 @@ class VaultCollector:
             return list(self._auth_kubernetes_roles.get(accessor, {}).values())
         if auth_info.get("type") == "saml":
             return list(self._auth_saml_roles.get(accessor, {}).values())
+        if auth_info.get("type") == "cf":
+            return list(self._auth_cf_roles.get(accessor, {}).values())
         return []
 
     def _control_object_derivations(
@@ -20697,6 +20660,53 @@ class VaultCollector:
                                 self._potential_control_properties(
                                     control,
                                     "SAML Identity Provider Trust Is Value-Constrained",
+                                ),
+                            ))
+
+            cf_roles = self._auth_roles_for_method_node(target, {"cf"})
+            if cf_roles:
+                trust_parameter = "identity_ca_certificates"
+                trust_state = self._parameter_write_state(
+                    properties,
+                    trust_parameter,
+                )[0]
+                if trust_state != "blocked":
+                    for role in cf_roles:
+                        role_node = self._graph_node(role["node_id"])
+                        control = self._base_control_properties(
+                            properties,
+                            {"create", "update"},
+                            "Replace Cloud Foundry Instance Identity Trust",
+                            "Forge Accepted Cloud Foundry Identity",
+                            "Cloud Foundry Auth Role",
+                            [trust_parameter],
+                        )
+                        if not control:
+                            continue
+                        control["affected_role_names"] = [str(role.get("name") or "")]
+                        requirements: list[str] = []
+                        if role_node:
+                            if role_node.properties.get("Bound CIDRs"):
+                                requirements.append("Satisfy Role Bound CIDRs")
+                            if not role_node.properties.get("Disable IP Matching", False):
+                                requirements.append("Satisfy Cloud Foundry Instance IP Matching")
+                            if role_node.properties.get("Token Bound CIDRs"):
+                                requirements.append("Satisfy Token Bound CIDRs")
+                        if requirements:
+                            control["requirements"] = requirements
+                        if trust_state == "unrestricted":
+                            derivations.append((
+                                "Vault_ControlObject",
+                                role["node_id"],
+                                control,
+                            ))
+                        else:
+                            derivations.append((
+                                "Vault_PotentialAccess",
+                                role["node_id"],
+                                self._potential_control_properties(
+                                    control,
+                                    "Cloud Foundry Identity Trust Is Value-Constrained",
                                 ),
                             ))
 
@@ -29751,7 +29761,14 @@ class VaultCollector:
                 "Vault_TransitManageKey",
                 {"update"},
             )
-        emit_key_route(f"keys/{key_probe}/csr", key_pattern, "Vault_TransitSign", {"update"})
+        emit_key_route(
+            f"keys/{key_probe}/csr",
+            key_pattern,
+            "Vault_TransitSign",
+            {"update"},
+            extra_properties={"signing_targets": ["Certificate Signing Request"]},
+            array_property_keys={"signing_targets"},
+        )
 
         for surface, edge_kind, allowed_capabilities in (
             ("encrypt", "Vault_TransitEncrypt", {"update"}),
@@ -29792,6 +29809,9 @@ class VaultCollector:
         ):
             base_extra_properties: dict[str, Any] = {}
             base_array_property_keys: set[str] = set()
+            if surface == "sign":
+                base_extra_properties["signing_targets"] = ["Message or Digest"]
+                base_array_property_keys.add("signing_targets")
             if surface == "verify":
                 base_extra_properties["verification_targets"] = ["Signature", "HMAC", "CMAC"]
                 base_array_property_keys.add("verification_targets")
@@ -33475,6 +33495,108 @@ class VaultCollector:
                     emit_object_read("MFA Login Enforcement", segments[3], "name")
             return
 
+    def _emit_totp_admin_enrollment_access(
+        self,
+        policy_node: str,
+        path: str,
+        caps: list[str],
+        policy_path: str,
+        constraint_properties: dict[str, Any],
+        constraint_array_property_keys: set[str],
+    ):
+        """Model admin-generated TOTP enrollment as conditional entity access."""
+        update_caps = filter_capabilities(caps, {"update"})
+        if not update_caps:
+            return
+
+        entity_state, allowed_entity_ids, denied_entity_ids = (
+            self._parameter_write_state(constraint_properties, "entity_id")
+        )
+        if entity_state == "blocked":
+            return
+
+        candidate_entity_ids = [
+            entity_id
+            for entity_id in sorted(self._entity_by_id)
+            if self._value_matches_parameter_constraints(
+                entity_id,
+                entity_state,
+                allowed_entity_ids,
+                denied_entity_ids,
+            )
+        ]
+        common_properties: dict[str, Any] = {
+            **constraint_properties,
+            "capabilities": update_caps,
+            "operations": ["Generate TOTP Enrollment"],
+            "potential_outcomes": ["Satisfy TOTP Challenge for Entity"],
+            "credential_types": ["TOTP Enrollment Secret"],
+            "credential_uses": ["Satisfy TOTP MFA Challenge"],
+            "requirements": [
+                "Possess Primary Authentication Credential",
+                "Entity Has No Existing TOTP Enrollment or Enrollment Can Be Destroyed",
+            ],
+            "resolution_status": ["Primary Authentication Credential Is Not Proven"],
+            "matched_paths": [path],
+            "matched_policy_paths": [policy_path],
+            "scopes": [
+                "parameter-constrained"
+                if entity_state == "constrained"
+                else "runtime-selected"
+            ],
+            "potential_only": True,
+        }
+        array_property_keys = {
+            "capabilities",
+            "credential_types",
+            "credential_uses",
+            "matched_paths",
+            "matched_policy_paths",
+            "operations",
+            "potential_outcomes",
+            "requirements",
+            "resolution_status",
+            "scopes",
+            *constraint_array_property_keys,
+        }
+        if candidate_entity_ids:
+            for entity_id in candidate_entity_ids:
+                self._emit_or_merge_edge(
+                    policy_node,
+                    self._id("entity", entity_id),
+                    "Vault_PotentialAccess",
+                    properties={
+                        **common_properties,
+                        "subject_entity_ids": [entity_id],
+                    },
+                    array_property_keys={
+                        *array_property_keys,
+                        "subject_entity_ids",
+                    },
+                    boolean_or_property_keys={"potential_only"},
+                )
+            return
+
+        unresolved_references = allowed_entity_ids or ["Request entity_id"]
+        self._emit_or_merge_edge(
+            policy_node,
+            self._identity_namespace_node_id(),
+            "Vault_PotentialAccess",
+            properties={
+                **common_properties,
+                "object_references": unresolved_references,
+                "resolution_status": [
+                    "Target Entity Is Not Observed",
+                    "Primary Authentication Credential Is Not Proven",
+                ],
+            },
+            array_property_keys={
+                *array_property_keys,
+                "object_references",
+            },
+            boolean_or_property_keys={"potential_only"},
+        )
+
     def _check_identity_management(
         self,
         policy_node: str,
@@ -33548,6 +33670,20 @@ class VaultCollector:
         segments = normalized_path.split("/")
         if len(segments) < 2:
             return
+
+        totp_admin_generate_path = "identity/mfa/method/totp/admin-generate"
+        if policy_path_matches_resource_path(
+            normalized_path,
+            totp_admin_generate_path,
+        ):
+            self._emit_totp_admin_enrollment_access(
+                policy_node,
+                path,
+                caps,
+                policy_path,
+                extra_properties,
+                extra_array_property_keys,
+            )
 
         if policy_path_matches_resource_path(normalized_path, "identity/oidc/config"):
             config_caps = [cap for cap in ("create", "update") if cap in caps]
@@ -33965,15 +34101,16 @@ class VaultCollector:
                     return
 
                 method_ref = segments[4]
-                if method_ref in {"admin-generate", "admin-destroy"}:
-                    operation = "Generate TOTP Enrollment" if method_ref == "admin-generate" else "Destroy TOTP Enrollment"
+                if method_ref == "admin-generate":
+                    return
+                if method_ref == "admin-destroy":
                     emit_manage_edge(
                         policy_node,
                         self._identity_namespace_node_id(),
                         caps,
                         path,
                         policy_path,
-                        [operation],
+                        ["Destroy TOTP Enrollment"],
                         ["Entity"],
                         "collection",
                         allowed_caps={"update"},

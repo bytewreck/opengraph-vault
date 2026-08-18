@@ -27,6 +27,7 @@ flowchart LR
     entity[Vault_Entity] -->|Vault_LinksPolicy| policy
     group[Vault_Group] -->|Vault_LinksPolicy| policy
     role[Auth role, user, or group] -->|Vault_LinksPolicy| policy
+    method[Auth method default] -->|Vault_LinksPolicy| policy
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -52,33 +53,28 @@ flowchart LR
 | `Vault_CreateObject` | Policy Store or synthetic policy | Create a policy, preserving policy type and API surface in properties. |
 | `Vault_ReadObject` | Concrete policy | Read policy rules. |
 | `Vault_ManageObject` | Concrete policy | Update, patch, or delete policy rules. |
-| `Vault_ObtainPolicy` | Concrete policy | Derived attack path showing that another controlled object can be assigned this policy. |
 
-Ordinary policy management is non-traversable. Merely being able to modify a policy does not prove that the caller or an attacker-controlled identity receives it. `Vault_ObtainPolicy` requires both a proven takeover path and a proven policy-assignment parameter on the same controlled object.
+Ordinary policy management is non-traversable. Merely being able to modify a policy does not prove that the caller or an attacker-controlled identity receives it.
 
 ### Attack Paths
 
 Policies normally serve as the authority-bearing middle of a path:
 
-```text
-Vault_Entity or Vault_Group
-  -> Vault_LinksPolicy
-Vault_Policy
-  -> Traversable security-outcome edge
-Concrete target
+```mermaid
+flowchart LR
+    principal["Identity or authentication object"] -->|Vault_LinksPolicy| policy[Vault_Policy]
+    policy -->|Traversable security-outcome edge| target["Concrete target"]
 ```
 
-Policy administration becomes an escalation path only when a controlled object can actually receive a policy:
+Control of an identity or authentication object can reach policies already linked to that object:
 
-```text
-Vault_Policy A
-  -> Vault_ControlObject
-Identity or auth object
-  -> Vault_ObtainPolicy
-Vault_Policy B
+```mermaid
+flowchart LR
+    policyA["Vault_Policy A"] -->|Vault_ControlObject| object["Identity or auth object"]
+    object -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
 ```
 
-The direct `Vault_ObtainPolicy` edge records the via object, assignable policy, assignment parameter, and control method. A standalone `Vault_ManageObject` edge to Policy B is intentionally not traversable.
+The model does not synthesize a direct Policy A to Policy B shortcut from policy-assignment parameters. Those parameters remain contextual evidence on management, control, or potential-access edges. A standalone `Vault_ManageObject` edge to Policy B is intentionally not traversable.
 
 ## ACL Path Resolution
 

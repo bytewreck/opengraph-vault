@@ -104,9 +104,9 @@ Template-effective edges originate from the identity representation referenced b
 | `Impacts` | string[] | Resulting offensive capability. |
 | `Assignable Policies` | string[] | Concrete policies that can be assigned through the operation. |
 | `Policy Assignment Parameters` | string[] | Parameters that carry policy names. |
-| `Via Object IDs` | string[] | Concrete controlled objects used to derive policy acquisition. |
+| `Via Object IDs` | string[] | Intermediate controlled objects that provide indirect-control or unresolved-assignment evidence. |
 
-`Vault_ObtainPolicy` is emitted only when control and policy assignment are proven on the same object.
+Policy-assignment properties remain contextual evidence on management, control, and potential-access edges; they do not create a direct policy-to-policy relationship.
 
 ## Subsystem Property Families
 
