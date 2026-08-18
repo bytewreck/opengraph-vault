@@ -10,7 +10,7 @@ VaultHound does not invoke login endpoints or assert that a collected external p
 flowchart LR
     namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: AUTH]
     store -->|Vault_Contains| method[Vault_AuthMethod]
-    method -->|Vault_Contains| object[Role, user, group, or CRL]
+    method -->|Vault_Contains| object[Vault_AuthRole,<br>Vault_AuthUser,<br>Vault_AuthGroup,<br>or CRL]
 ```
 
 Specific mounts carry their specific kind first and `Vault_AuthMethod` second. Child records use `Vault_AuthRole`, `Vault_AuthUser`, or `Vault_AuthGroup` as a base kind where applicable. Per-method layout diagrams are structural: policy grants, identity correlation, administrative access, and security outcomes appear in the relevant tables, prose, and attack-path sections instead. Only concrete auth users and groups supported by the collector's alias-correlation logic use `Vault_MapsTo`; auth roles are login selectors rather than identity representations.

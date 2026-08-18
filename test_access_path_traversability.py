@@ -582,6 +582,95 @@ class DatabaseCredentialPrerequisiteTests(unittest.TestCase):
         self.assertTrue(any(edge.kind == "Vault_ReadStaticCredentials" for edge in collector.edges))
 
 
+class DatabaseGenericEdgeTests(unittest.TestCase):
+    @staticmethod
+    def collector():
+        collector = vc.VaultCollector(None, "https://vault.test")
+        engine = {
+            "accessor": "database-accessor",
+            "path": "database/",
+            "node_id": "database-mount",
+        }
+        connection = {
+            "node_id": "database-connection-main",
+            "name": "main",
+            "allowed_roles": ["web"],
+            "collection_complete": True,
+            "synthetic": False,
+            "plugin_name": "postgresql-database-plugin",
+            "properties": {},
+        }
+        role = {
+            "node_id": "database-role-web",
+            "name": "web",
+            "connection_name": "main",
+            "collection_complete": True,
+            "synthetic": False,
+            "properties": {},
+        }
+        collector._secrets_engines["database-accessor"] = engine
+        collector._database_connections["database-accessor"] = {"main": connection}
+        collector._database_roles["database-accessor"] = {"web": role}
+        collector.nodes.extend([
+            graph_node("database-mount", "Vault_SecretsEngineDatabase"),
+            graph_node("database-connection-main", "Vault_DatabaseConnection"),
+            graph_node("database-role-web", "Vault_DatabaseRole"),
+        ])
+        return collector, engine
+
+    def test_role_connection_assignment_uses_generic_reference(self):
+        collector, _ = self.collector()
+
+        collector._compute_database_resource_edges()
+
+        edge = next(
+            edge for edge in collector.edges
+            if edge.kind == "Vault_References"
+            and edge.source == "database-role-web"
+        )
+        self.assertEqual(edge.target, "database-connection-main")
+        self.assertEqual(edge.properties["reference_types"], ["Database Connection"])
+        self.assertEqual(edge.properties["reference_evidence"], ["Role Connection Assignment"])
+        self.assertTrue(edge.properties["allowed_by_connection"])
+        self.assertFalse(any(
+            edge.kind == "Vault_DatabaseUsesConnection"
+            for edge in collector.edges
+        ))
+
+    def test_reset_connection_uses_manage_object(self):
+        collector, engine = self.collector()
+
+        collector._check_database_access(
+            "policy",
+            engine,
+            "database/reset/main",
+            ["update"],
+        )
+
+        edge = next(edge for edge in collector.edges if edge.kind == "Vault_ManageObject")
+        self.assertEqual(edge.target, "database-connection-main")
+        self.assertEqual(edge.properties["object_types"], ["Database Connection"])
+        self.assertEqual(edge.properties["operations"], ["Reset Connection"])
+        self.assertEqual(edge.properties["capabilities"], ["update"])
+
+    def test_reload_plugin_uses_manage_config(self):
+        collector, engine = self.collector()
+
+        collector._check_database_access(
+            "policy",
+            engine,
+            "database/reload/postgresql-database-plugin",
+            ["update"],
+        )
+
+        edge = next(edge for edge in collector.edges if edge.kind == "Vault_ManageConfig")
+        self.assertEqual(edge.target, "database-mount")
+        self.assertEqual(edge.properties["config_targets"], ["Database Plugin Process"])
+        self.assertEqual(edge.properties["operations"], ["Reload Plugin"])
+        self.assertEqual(edge.properties["plugin_names"], ["postgresql-database-plugin"])
+        self.assertEqual(edge.properties["capabilities"], ["update"])
+
+
 class ScimResourceTraversalTests(unittest.TestCase):
     @staticmethod
     def collector(policy_path, capabilities):

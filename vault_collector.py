@@ -271,6 +271,7 @@ BACKEND_MAINTENANCE_EDGE_KINDS = {
     "Vault_AuthTokenTidy": "Vault_ManageConfig",
     "Vault_LdapReadStaticMigration": "Vault_ReadConfig",
     "Vault_LdapManageStaticMigration": "Vault_ManageConfig",
+    "Vault_DatabaseReloadPlugin": "Vault_ManageConfig",
     "Vault_SshReadCaPublicKey": "Vault_ReadConfig",
     "Vault_SshManageCa": "Vault_ManageConfig",
     "Vault_SshReadZeroAddressRoles": "Vault_ReadConfig",
@@ -289,6 +290,7 @@ BACKEND_MAINTENANCE_EDGE_TARGETS = {
     "Vault_AuthTokenTidy": "tidy",
     "Vault_LdapReadStaticMigration": "static-migration",
     "Vault_LdapManageStaticMigration": "static-migration",
+    "Vault_DatabaseReloadPlugin": "Database Plugin Process",
     "Vault_SshReadCaPublicKey": "config/ca",
     "Vault_SshManageCa": "config/ca",
     "Vault_SshReadZeroAddressRoles": "config/zeroaddress",
@@ -365,6 +367,7 @@ OBJECT_MANAGE_EDGE_TYPES = {
     "Vault_AuthManageUser": "Auth User",
     "Vault_AuthManageGroup": "Auth Group",
     "Vault_DatabaseManageConnection": "Database Connection",
+    "Vault_DatabaseResetConnection": "Database Connection",
     "Vault_GcpManageRoleset": "GCP Roleset",
     "Vault_GcpManageStaticAccount": "GCP Static Account",
     "Vault_GcpManageImpersonatedAccount": "GCP Impersonated Account",
@@ -381,7 +384,6 @@ SECRETS_ENGINE_OBJECT_BOUND_EDGE_KINDS = {
     "Vault_GenerateCredentials",
     "Vault_ReadStaticCredentials",
     "Vault_AzureImportStaticRole",
-    "Vault_DatabaseResetConnection",
     "Vault_LdapReadLibraryStatus",
     "Vault_LdapCheckoutServiceAccount",
     "Vault_LdapCheckinServiceAccount",
@@ -11089,13 +11091,25 @@ class VaultCollector:
                     connection = self._database_connections.get(accessor, {}).get(connection_name)
                     if not connection:
                         connection = self._ensure_database_connection(accessor, engine, connection_name)
-                    reference_properties, _ = self._database_role_connection_reference_properties(connection, role)
-                    self.edges.append(GraphEdge(
-                        source=role["node_id"],
-                        target=connection["node_id"],
-                        kind="Vault_DatabaseUsesConnection",
-                        properties=reference_properties,
-                    ))
+                    reference_properties, reference_array_keys = self._database_role_connection_reference_properties(
+                        connection,
+                        role,
+                    )
+                    self._emit_or_merge_edge(
+                        role["node_id"],
+                        connection["node_id"],
+                        "Vault_References",
+                        properties={
+                            "reference_types": ["Database Connection"],
+                            "reference_evidence": ["Role Connection Assignment"],
+                            **reference_properties,
+                        },
+                        array_property_keys={
+                            "reference_types",
+                            "reference_evidence",
+                            *reference_array_keys,
+                        },
+                    )
 
     def _compute_gcp_resource_edges(self):
         """GCP containment edges for rolesets, static accounts, and impersonated accounts."""
@@ -13467,6 +13481,9 @@ class VaultCollector:
 
             merged_extra_properties = dict(extra_properties or {})
             merged_array_property_keys = set(array_property_keys or set())
+            if edge_kind == "Vault_DatabaseResetConnection":
+                merged_extra_properties.setdefault("operations", ["Reset Connection"])
+                merged_array_property_keys.add("operations")
             if is_dynamic_credentials_edge:
                 credential_properties, credential_array_keys = self._database_credential_request_properties(
                     info["accessor"],
@@ -13608,6 +13625,11 @@ class VaultCollector:
 
         if "update" in caps:
             for edge_kind in ("Vault_DatabaseResetConnection", "Vault_DatabaseRotateStaticRole"):
+                operation_properties = (
+                    {"operations": ["Reset Connection"]}
+                    if edge_kind == "Vault_DatabaseResetConnection"
+                    else None
+                )
                 self._emit_database_edge(
                     policy_node,
                     mount_node,
@@ -13615,6 +13637,8 @@ class VaultCollector:
                     caps,
                     matched_path,
                     policy_path,
+                    extra_properties=operation_properties,
+                    array_property_keys={"operations"} if operation_properties else None,
                 )
             if self._database_mount_supports_capability(info["accessor"], "supports_root_rotation"):
                 plugin_properties, plugin_array_keys = self._database_plugin_edge_properties(
@@ -13638,8 +13662,11 @@ class VaultCollector:
                 caps,
                 matched_path,
                 policy_path,
-                extra_properties={"plugin_names": ["*"]},
-                array_property_keys={"plugin_names"},
+                extra_properties={
+                    "operations": ["Reload Plugin"],
+                    "plugin_names": ["*"],
+                },
+                array_property_keys={"operations", "plugin_names"},
             )
 
     def _iter_terraform_roles(self, accessor: str) -> list[dict[str, Any]]:
@@ -28323,8 +28350,11 @@ class VaultCollector:
                 caps,
                 path,
                 policy_path,
-                extra_properties={"plugin_names": [reload_pattern]},
-                array_property_keys={"plugin_names"},
+                extra_properties={
+                    "operations": ["Reload Plugin"],
+                    "plugin_names": [reload_pattern],
+                },
+                array_property_keys={"operations", "plugin_names"},
             )
 
         rotate_root_pattern = named_pattern("rotate-root")

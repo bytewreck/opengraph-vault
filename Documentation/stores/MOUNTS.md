@@ -115,14 +115,14 @@ flowchart LR
     mount -->|Vault_Contains| connection[Vault_DatabaseConnection]
     mount -->|Vault_Contains| role[Vault_DatabaseRole]
     mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]
-    role -.->|Vault_DatabaseUsesConnection| connection
+    role -.->|Vault_References: Database Connection| connection
 ```
 
 | Edge | Meaning |
 | --- | --- |
-| `Vault_DatabaseUsesConnection` | Role references a database connection. |
-| `Vault_DatabaseResetConnection` | Reset the connection state; non-traversable maintenance. |
-| `Vault_DatabaseReloadPlugin` | Reload a database plugin; non-traversable maintenance. |
+| `Vault_References` | Role references a database connection; reference and allowed-role properties preserve assignment and viability evidence. |
+| `Vault_ManageObject` | Reset a concrete database connection when `Operations` contains `Reset Connection`. |
+| `Vault_ManageConfig` | Reload a database plugin process when `Config Targets` contains `Database Plugin Process`; `Plugin Names` identifies the selected plugin. |
 | `Vault_GenerateCredentials` | Generate a dynamic database credential from a viable role. |
 | `Vault_ReadStaticCredentials` | Read the current static-role credential. |
 
@@ -133,10 +133,10 @@ Dynamic credential generation requires an observed compatible connection and an 
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]
-    role -.->|Vault_DatabaseUsesConnection: non-traversable| connection[Vault_DatabaseConnection]
+    role -.->|Vault_References: Database Connection| connection[Vault_DatabaseConnection]
 ```
 
-The attack path terminates at the role; `Vault_DatabaseUsesConnection` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
+The attack path terminates at the role; `Vault_References` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
 
 ```mermaid
 flowchart LR

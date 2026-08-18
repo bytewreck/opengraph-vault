@@ -33,7 +33,6 @@ STRUCTURAL_EDGES = {
     "Vault_ScimManages",
     "Vault_AuthSamlDefaultRole",
     "Vault_AuthSpiffeMayMatchRole",
-    "Vault_DatabaseUsesConnection",
 }
 
 
@@ -88,9 +87,6 @@ EDGE_ENDPOINTS = {
     "Vault_AuthTokenManageToken": ("Vault_Policy", "Vault_AuthMethodToken"),
     "Vault_AuthTokenListAccessors": ("Vault_Policy", "Vault_AuthMethodToken"),
     "Vault_AzureImportStaticRole": ("Vault_Policy", "Vault_AzureStaticRole or Azure mount"),
-    "Vault_DatabaseUsesConnection": ("Vault_DatabaseRole or Vault_DatabaseStaticRole", "Vault_DatabaseConnection"),
-    "Vault_DatabaseResetConnection": ("Vault_Policy", "Vault_DatabaseConnection or Database mount"),
-    "Vault_DatabaseReloadPlugin": ("Vault_Policy", "Vault_DatabaseConnection or Database mount"),
     "Vault_GcpKmsEncrypt": ("Vault_Policy", "Vault_GcpKmsKey"),
     "Vault_GcpKmsDecrypt": ("Vault_Policy", "Vault_GcpKmsKey"),
     "Vault_GcpKmsReencrypt": ("Vault_Policy", "Vault_GcpKmsKey"),

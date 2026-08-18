@@ -5,9 +5,9 @@
 - Schema: `HashiCorpVault` (`v0.0.1`)
 - Namespace prefix: `Vault_`
 - Node kinds: `107`
-- Relationship kinds: `97`
-- Traversable relationships: `32`
-- Non-traversable relationships: `65`
+- Relationship kinds: `93`
+- Traversable relationships: `31`
+- Non-traversable relationships: `62`
 
 For interpretation, collection provenance, and offensive semantics, read [MODEL.md](MODEL.md), [COLLECTION.md](COLLECTION.md), and the [store guides](README.md#start-here).
 
@@ -146,7 +146,6 @@ For interpretation, collection provenance, and offensive semantics, read [MODEL.
 | `Vault_ScimManages` | Vault_ScimClient | SCIM-owned Vault_Entity or Vault_Group | `false` | Non-traversable SCIM ownership edge showing that the source SCIM client provisioned and owns the target Vault entity or internal group; effective mutation rights are emitted directly from the access-grant entity to matched resources. |
 | `Vault_AuthSamlDefaultRole` | Vault_AuthMethodSaml | Vault_AuthSamlRole | `false` | Configuration edge showing that a SAML auth method uses the target SAML role when login omits an explicit role name. |
 | `Vault_AuthSpiffeMayMatchRole` | Vault_EntityAlias | Vault_AuthSpiffeRole | `false` | Configuration edge showing that an existing SPIFFE entity alias may select the target SPIFFE role because one or more workload ID patterns match. |
-| `Vault_DatabaseUsesConnection` | Vault_DatabaseRole or Vault_DatabaseStaticRole | Vault_DatabaseConnection | `false` | Reference edge showing that the source database role names the target database connection; allowed_by_connection and allowed-role properties indicate whether the current connection configuration permits that use. |
 
 ## Access-Control and Impact Edges
 
@@ -183,8 +182,6 @@ For interpretation, collection provenance, and offensive semantics, read [MODEL.
 | `Vault_AuthTokenManageToken` | Vault_Policy | Vault_AuthMethodToken | `false` | Non-traversable Token auth maintenance edge showing that a Vault policy can renew or revoke tokens on the target Token auth method mount. |
 | `Vault_AuthTokenListAccessors` | Vault_Policy | Vault_AuthMethodToken | `false` | Token auth access edge showing that a Vault policy can list token accessors on the target token auth method mount when it also has the required sudo capability. |
 | `Vault_AzureImportStaticRole` | Vault_Policy | Vault_AzureStaticRole or Azure mount | `false` | Azure access edge showing that a Vault policy can import existing Azure application credentials into the target static role, including metadata-only, full-import, or rotate-on-import workflows. |
-| `Vault_DatabaseResetConnection` | Vault_Policy | Vault_DatabaseConnection or Database mount | `false` | Database access edge showing that a Vault policy can reset the target database connection. |
-| `Vault_DatabaseReloadPlugin` | Vault_Policy | Vault_DatabaseConnection or Database mount | `false` | Database access edge showing that a Vault policy can reload a database plugin process for the target mount; see plugin_names for the matched plugin reference. |
 | `Vault_GcpKmsEncrypt` | Vault_Policy | Vault_GcpKmsKey | `false` | GCP KMS access edge showing that a Vault policy can encrypt data with the target GCP KMS key. |
 | `Vault_GcpKmsDecrypt` | Vault_Policy | Vault_GcpKmsKey | `true` | GCP KMS access edge showing that a Vault policy can decrypt data with the target GCP KMS key. |
 | `Vault_GcpKmsReencrypt` | Vault_Policy | Vault_GcpKmsKey | `false` | GCP KMS access edge showing that a Vault policy can re-encrypt ciphertext to a newer key version with the target GCP KMS key. |

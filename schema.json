@@ -1115,21 +1115,6 @@
       "is_traversable": false
     },
     {
-      "name": "Vault_DatabaseUsesConnection",
-      "description": "Reference edge showing that the source database role names the target database connection; allowed_by_connection and allowed-role properties indicate whether the current connection configuration permits that use.",
-      "is_traversable": false
-    },
-    {
-      "name": "Vault_DatabaseResetConnection",
-      "description": "Database access edge showing that a Vault policy can reset the target database connection.",
-      "is_traversable": false
-    },
-    {
-      "name": "Vault_DatabaseReloadPlugin",
-      "description": "Database access edge showing that a Vault policy can reload a database plugin process for the target mount; see plugin_names for the matched plugin reference.",
-      "is_traversable": false
-    },
-    {
       "name": "Vault_GcpKmsEncrypt",
       "description": "GCP KMS access edge showing that a Vault policy can encrypt data with the target GCP KMS key.",
       "is_traversable": false
