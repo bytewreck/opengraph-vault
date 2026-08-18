@@ -155,8 +155,8 @@ The path represents the ability to mint a Vault identity token through an observ
 
 ```mermaid
 flowchart LR
-    enforcement[Vault_MfaLoginEnforcement] -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]
     enforcement -->|Vault_MfaAppliesTo| target[Entity, group, or auth method]
+    enforcement[Vault_MfaLoginEnforcement] -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]
     policy[Vault_Policy] -->|Vault_MfaSelfEnroll| method
     policy -->|Vault_MfaGenerateSecret| method
 ```
