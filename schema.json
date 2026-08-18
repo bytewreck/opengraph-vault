@@ -1,0 +1,1363 @@
+{
+  "schema": {
+    "name": "HashiCorpVault",
+    "display_name": "HashiCorp Vault",
+    "version": "v0.0.1",
+    "namespace": "Vault"
+  },
+  "node_kinds": [
+    {
+      "name": "Vault_Server",
+      "display_name": "Vault Server",
+      "description": "A HashiCorp Vault server or cluster instance.",
+      "is_display_kind": true,
+      "icon": "hexagon-nodes",
+      "color": "#8C5E34"
+    },
+    {
+      "name": "Vault_Namespace",
+      "display_name": "Vault Namespace",
+      "description": "A Vault namespace that acts as a tenancy and containment boundary for Vault resources.",
+      "is_display_kind": true,
+      "icon": "share-nodes",
+      "color": "#6C757D"
+    },
+    {
+      "name": "Vault_Store",
+      "display_name": "Vault Store",
+      "description": "A namespace-local registry used to organize and manage a family of Vault objects.",
+      "is_display_kind": true,
+      "icon": "folder-tree",
+      "color": "#5F6B7A"
+    },
+    {
+      "name": "Vault_Policy",
+      "display_name": "Vault Policy",
+      "description": "An ACL, RGP, or EGP policy document that defines path-based capabilities in Vault.",
+      "is_display_kind": true,
+      "icon": "list-check",
+      "color": "#C0392B"
+    },
+    {
+      "name": "Vault_ManagedKey",
+      "display_name": "Vault Managed Key",
+      "description": "A named Enterprise managed key that delegates cryptographic operations to an external KMS or HSM backend.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#B9770E"
+    },
+    {
+      "name": "Vault_Entity",
+      "display_name": "Vault Entity",
+      "description": "A canonical Vault identity that accumulates policies from direct assignment, group membership, and aliases.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#2F80ED"
+    },
+    {
+      "name": "Vault_EntityAlias",
+      "display_name": "Vault Entity Alias",
+      "description": "An authentication pathway that binds an external credential or login name to a Vault entity on a specific auth method mount.",
+      "is_display_kind": true,
+      "icon": "user-tag",
+      "color": "#56CCF2"
+    },
+    {
+      "name": "Vault_Group",
+      "display_name": "Vault Group",
+      "description": "A Vault internal or external group that aggregates entities and grants policies through membership.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#219653"
+    },
+    {
+      "name": "Vault_GroupAlias",
+      "display_name": "Vault Group Alias",
+      "description": "An external group mapping bound to an auth method mount that resolves into a Vault group.",
+      "is_display_kind": true,
+      "icon": "tags",
+      "color": "#6FCF97"
+    },
+    {
+      "name": "Vault_OidcApplication",
+      "display_name": "Vault OIDC Application",
+      "description": "An OIDC application configured to trust a Vault OIDC provider.",
+      "is_display_kind": true,
+      "icon": "code",
+      "color": "#1ABC9C"
+    },
+    {
+      "name": "Vault_OidcKey",
+      "display_name": "Vault OIDC Key",
+      "description": "An OIDC signing key resource used by Vault OIDC applications.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#B9770E"
+    },
+    {
+      "name": "Vault_OidcAssignment",
+      "display_name": "Vault OIDC Assignment",
+      "description": "An OIDC assignment that links Vault entities or groups to OIDC application access.",
+      "is_display_kind": true,
+      "icon": "user-group",
+      "color": "#2980B9"
+    },
+    {
+      "name": "Vault_OidcProvider",
+      "display_name": "Vault OIDC Provider",
+      "description": "An outbound OIDC provider configuration where Vault acts as an identity provider.",
+      "is_display_kind": true,
+      "icon": "globe",
+      "color": "#16A085"
+    },
+    {
+      "name": "Vault_OidcScope",
+      "display_name": "Vault OIDC Scope",
+      "description": "An outbound OIDC scope definition exposed by Vault identity.",
+      "is_display_kind": true,
+      "icon": "file",
+      "color": "#17A589"
+    },
+    {
+      "name": "Vault_OidcTokenRole",
+      "display_name": "Vault OIDC Token Role",
+      "description": "A Vault identity-token role that defines the signing key, claims template, and TTL used to mint OIDC-compliant identity tokens.",
+      "is_display_kind": true,
+      "icon": "ticket",
+      "color": "#148F77"
+    },
+    {
+      "name": "Vault_MfaMethod",
+      "display_name": "Vault MFA Method",
+      "description": "A configured Vault login MFA method such as TOTP, Okta, Duo, or PingID.",
+      "is_display_kind": true,
+      "icon": "shield-halved",
+      "color": "#D35400"
+    },
+    {
+      "name": "Vault_MfaLoginEnforcement",
+      "display_name": "Vault MFA Login Enforcement",
+      "description": "A Vault login MFA enforcement rule that selects entities, groups, or auth methods and requires one of its configured MFA methods.",
+      "is_display_kind": true,
+      "icon": "shield",
+      "color": "#E67E22"
+    },
+    {
+      "name": "Vault_ScimClient",
+      "display_name": "Vault SCIM Client",
+      "description": "A Vault Enterprise SCIM client registration that authorizes a principal to provision identity data through SCIM.",
+      "is_display_kind": true,
+      "icon": "address-card",
+      "color": "#2471A3"
+    },
+    {
+      "name": "Vault_AuthMethod",
+      "display_name": "Vault Auth Method",
+      "description": "A mounted authentication method that maps external identities into Vault entities.",
+      "is_display_kind": true,
+      "icon": "lock",
+      "color": "#8E44AD"
+    },
+    {
+      "name": "Vault_AuthRole",
+      "display_name": "Vault Auth Role",
+      "description": "A named role within an auth method that binds external identity attributes to Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#9B59B6"
+    },
+    {
+      "name": "Vault_AuthUser",
+      "display_name": "Vault Auth User",
+      "description": "A user principal managed by or referenced from a Vault authentication method.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthGroup",
+      "display_name": "Vault Auth Group",
+      "description": "A group principal managed by or referenced from a Vault authentication method.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#5499C7"
+    },
+    {
+      "name": "Vault_AuthMethodAliCloud",
+      "display_name": "Vault AliCloud Auth Method",
+      "description": "An AliCloud authentication method mount that validates AliCloud identity material and authorizes logins through named AliCloud auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#E67E22"
+    },
+    {
+      "name": "Vault_AuthAliCloudRole",
+      "display_name": "Vault AliCloud Auth Role",
+      "description": "A named AliCloud auth role that constrains AliCloud login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#EB984E"
+    },
+    {
+      "name": "Vault_AuthMethodApprole",
+      "display_name": "Vault AppRole Auth Method",
+      "description": "An AppRole authentication method mount that issues tokens to machines or applications using RoleID and SecretID credentials.",
+      "is_display_kind": true,
+      "icon": "microchip",
+      "color": "#2980B9"
+    },
+    {
+      "name": "Vault_AuthApproleRole",
+      "display_name": "Vault AppRole Role",
+      "description": "A named AppRole role that defines token policies and login constraints for machine authentication.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthMethodAws",
+      "display_name": "Vault AWS Auth Method",
+      "description": "An AWS authentication method mount that validates AWS identity material and authorizes logins through named AWS auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#F39C12"
+    },
+    {
+      "name": "Vault_AuthAwsRole",
+      "display_name": "Vault AWS Auth Role",
+      "description": "A named AWS auth role that constrains AWS login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#F5B041"
+    },
+    {
+      "name": "Vault_AuthMethodAzure",
+      "display_name": "Vault Azure Auth Method",
+      "description": "An Azure authentication method mount that validates Azure-issued JWTs and authorizes logins through named Azure auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#2D9CDB"
+    },
+    {
+      "name": "Vault_AuthAzureRole",
+      "display_name": "Vault Azure Auth Role",
+      "description": "A named Azure auth role that constrains Azure JWT login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthMethodCf",
+      "display_name": "Vault Cloud Foundry Auth Method",
+      "description": "A Cloud Foundry authentication method mount that validates Cloud Foundry identity material and authorizes logins through named Cloud Foundry auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthCfRole",
+      "display_name": "Vault Cloud Foundry Auth Role",
+      "description": "A named Cloud Foundry auth role that constrains Cloud Foundry login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#85C1E9"
+    },
+    {
+      "name": "Vault_AuthMethodGithub",
+      "display_name": "Vault GitHub Auth Method",
+      "description": "A GitHub authentication method mount that maps GitHub teams and users to Vault policies.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#34495E"
+    },
+    {
+      "name": "Vault_AuthGithubUser",
+      "display_name": "Vault GitHub Auth User",
+      "description": "A mapped GitHub user entry within a GitHub auth method mount.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#85929E"
+    },
+    {
+      "name": "Vault_AuthGithubTeam",
+      "display_name": "Vault GitHub Auth Team",
+      "description": "A mapped GitHub team entry within a GitHub auth method mount.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#5D6D7E"
+    },
+    {
+      "name": "Vault_AuthMethodGcp",
+      "display_name": "Vault GCP Auth Method",
+      "description": "A Google Cloud authentication method mount that validates GCP-issued identity material and authorizes logins through named GCP auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#3498DB"
+    },
+    {
+      "name": "Vault_AuthGcpRole",
+      "display_name": "Vault GCP Auth Role",
+      "description": "A named GCP auth role that constrains Google Cloud login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthMethodJwtOidc",
+      "display_name": "Vault JWT/OIDC Auth Method",
+      "description": "A shared JWT/OIDC authentication method mount that validates direct JWT logins and browser-based OIDC logins through named roles.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#8E44AD"
+    },
+    {
+      "name": "Vault_AuthJwtOidcRole",
+      "display_name": "Vault JWT/OIDC Auth Role",
+      "description": "A named JWT/OIDC auth role that constrains token or browser-based login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#9B59B6"
+    },
+    {
+      "name": "Vault_AuthMethodKerberos",
+      "display_name": "Vault Kerberos Auth Method",
+      "description": "A Kerberos authentication method mount that authenticates principals against a Kerberos realm and maps LDAP-backed groups to Vault policies.",
+      "is_display_kind": true,
+      "icon": "ticket",
+      "color": "#7D3C98"
+    },
+    {
+      "name": "Vault_AuthKerberosGroup",
+      "display_name": "Vault Kerberos Auth Group",
+      "description": "A mapped Kerberos group entry within a Kerberos auth method mount.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#BB8FCE"
+    },
+    {
+      "name": "Vault_AuthMethodKubernetes",
+      "display_name": "Vault Kubernetes Auth Method",
+      "description": "A Kubernetes authentication method mount that validates service account JWTs and authorizes them through named Kubernetes auth roles.",
+      "is_display_kind": true,
+      "icon": "dharmachakra",
+      "color": "#2D9CDB"
+    },
+    {
+      "name": "Vault_AuthKubernetesRole",
+      "display_name": "Vault Kubernetes Auth Role",
+      "description": "A named Kubernetes auth role that constrains service account JWT login and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#2D9CDB"
+    },
+    {
+      "name": "Vault_AuthMethodLdap",
+      "display_name": "Vault LDAP Auth Method",
+      "description": "An LDAP authentication method mount that authenticates users against an LDAP directory and maps users or groups to Vault policies.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#1ABC9C"
+    },
+    {
+      "name": "Vault_AuthLdapUser",
+      "display_name": "Vault LDAP Auth User",
+      "description": "A mapped LDAP username entry within an LDAP auth method mount.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#48C9B0"
+    },
+    {
+      "name": "Vault_AuthLdapGroup",
+      "display_name": "Vault LDAP Auth Group",
+      "description": "A mapped LDAP group entry within an LDAP auth method mount.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#76D7C4"
+    },
+    {
+      "name": "Vault_AuthMethodOci",
+      "display_name": "Vault OCI Auth Method",
+      "description": "An OCI authentication method mount that validates OCI signed identity requests and authorizes logins through named OCI auth roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#C74634"
+    },
+    {
+      "name": "Vault_AuthOciRole",
+      "display_name": "Vault OCI Auth Role",
+      "description": "A named OCI auth role that maps OCI group or dynamic-group OCIDs to Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#E57368"
+    },
+    {
+      "name": "Vault_AuthMethodOkta",
+      "display_name": "Vault Okta Auth Method",
+      "description": "An Okta authentication method mount that maps configured Okta users and groups to Vault policies.",
+      "is_display_kind": true,
+      "icon": "circle-dot",
+      "color": "#4A90E2"
+    },
+    {
+      "name": "Vault_AuthOktaUser",
+      "display_name": "Vault Okta Auth User",
+      "description": "A mapped Okta user entry within an Okta auth method mount.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthOktaGroup",
+      "display_name": "Vault Okta Auth Group",
+      "description": "A mapped Okta group entry within an Okta auth method mount.",
+      "is_display_kind": true,
+      "icon": "users",
+      "color": "#76D7C4"
+    },
+    {
+      "name": "Vault_AuthMethodRadius",
+      "display_name": "Vault RADIUS Auth Method",
+      "description": "A RADIUS authentication method mount that delegates login validation to an upstream RADIUS server.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#5D6D7E"
+    },
+    {
+      "name": "Vault_AuthRadiusUser",
+      "display_name": "Vault RADIUS Auth User",
+      "description": "A mapped RADIUS username entry within a RADIUS auth method mount.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#85929E"
+    },
+    {
+      "name": "Vault_AuthMethodSaml",
+      "display_name": "Vault SAML Auth Method",
+      "description": "A SAML authentication method mount that validates SAML assertions and authorizes logins through named SAML auth roles.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#D35400"
+    },
+    {
+      "name": "Vault_AuthSamlRole",
+      "display_name": "Vault SAML Auth Role",
+      "description": "A named SAML auth role that constrains assertion subject and attribute matching and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#E67E22"
+    },
+    {
+      "name": "Vault_AuthMethodScep",
+      "display_name": "Vault SCEP Auth Method",
+      "description": "A SCEP authentication method mount that provides delegated static-challenge or Intune authentication for PKI SCEP enrollment workflows.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#117A65"
+    },
+    {
+      "name": "Vault_AuthScepRole",
+      "display_name": "Vault SCEP Auth Role",
+      "description": "A named SCEP auth role that controls delegated PKI SCEP authentication behavior and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#45B39D"
+    },
+    {
+      "name": "Vault_AuthMethodSpiffe",
+      "display_name": "Vault SPIFFE Auth Method",
+      "description": "A SPIFFE authentication method mount that validates JWT or X.509 SPIFFE SVIDs against a configured trust domain and trust bundle.",
+      "is_display_kind": true,
+      "icon": "image-portrait",
+      "color": "#148F77"
+    },
+    {
+      "name": "Vault_AuthSpiffeRole",
+      "display_name": "Vault SPIFFE Auth Role",
+      "description": "A named SPIFFE auth role that maps workload ID patterns to Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#48C9B0"
+    },
+    {
+      "name": "Vault_AuthMethodTlsCert",
+      "display_name": "Vault TLS Certificate Auth Method",
+      "description": "A TLS certificate authentication method mount that authenticates clients against configured trusted certificate roles and CRLs.",
+      "is_display_kind": true,
+      "icon": "certificate",
+      "color": "#AF601A"
+    },
+    {
+      "name": "Vault_AuthTlsCertRole",
+      "display_name": "Vault TLS Certificate Auth Role",
+      "description": "A named trusted certificate role that authenticates TLS clients and grants Vault token policies.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#C97A1E"
+    },
+    {
+      "name": "Vault_AuthTlsCertCrl",
+      "display_name": "Vault TLS Certificate CRL",
+      "description": "A configured certificate revocation list resource within the TLS certificate auth method.",
+      "is_display_kind": true,
+      "icon": "file-circle-xmark",
+      "color": "#B85C38"
+    },
+    {
+      "name": "Vault_AuthMethodToken",
+      "display_name": "Vault Token Auth Method",
+      "description": "The built-in token authentication method mount that issues, revokes, and constrains Vault tokens.",
+      "is_display_kind": true,
+      "icon": "gear",
+      "color": "#7D3C98"
+    },
+    {
+      "name": "Vault_AuthTokenRole",
+      "display_name": "Vault Token Role",
+      "description": "A named token role that constrains token issuance behavior on the token auth method.",
+      "is_display_kind": true,
+      "icon": "user-shield",
+      "color": "#AF7AC5"
+    },
+    {
+      "name": "Vault_AuthMethodUserpass",
+      "display_name": "Vault UserPass Auth Method",
+      "description": "A UserPass authentication method mount that manages local username and password identities.",
+      "is_display_kind": true,
+      "icon": "id-card",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_AuthUserpassUser",
+      "display_name": "Vault Auth Userpass User",
+      "description": "A managed username entry within a UserPass auth method mount.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_SecretsEngine",
+      "display_name": "Vault Secrets Engine",
+      "description": "A mounted secrets engine that stores or generates secrets and credentials.",
+      "is_display_kind": true,
+      "icon": "lock",
+      "color": "#D35400"
+    },
+    {
+      "name": "Vault_SecretsRole",
+      "display_name": "Vault Secrets Role",
+      "description": "A named role within a secrets engine that defines a credential generation template or access pattern.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#F39C12"
+    },
+    {
+      "name": "Vault_SecretsEngineAws",
+      "display_name": "Vault AWS Secrets Engine",
+      "description": "An AWS secrets engine mount that manages dynamic IAM or STS credentials and static IAM-user access keys.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#FF9900"
+    },
+    {
+      "name": "Vault_AwsRole",
+      "display_name": "Vault AWS Role",
+      "description": "A named AWS secrets engine role that defines how Vault generates dynamic IAM-user or STS credentials.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#F39C12"
+    },
+    {
+      "name": "Vault_AwsStaticRole",
+      "display_name": "Vault AWS Static Role",
+      "description": "A named AWS static role that manages long-lived access keys for a mapped IAM user.",
+      "is_display_kind": true,
+      "icon": "user-lock",
+      "color": "#B9770E"
+    },
+    {
+      "name": "Vault_SecretsEngineAzure",
+      "display_name": "Vault Azure Secrets Engine",
+      "description": "An Azure secrets engine mount that manages dynamic Azure service-principal credentials and Enterprise static Azure application credentials.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#0078D4"
+    },
+    {
+      "name": "Vault_AzureRole",
+      "display_name": "Vault Azure Role",
+      "description": "A named Azure secrets engine role that defines how Vault generates Azure service-principal credentials.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#2E86DE"
+    },
+    {
+      "name": "Vault_AzureStaticRole",
+      "display_name": "Vault Azure Static Role",
+      "description": "A named Enterprise Azure static role that manages long-lived client secrets for an existing Azure application.",
+      "is_display_kind": true,
+      "icon": "user-lock",
+      "color": "#1B4F72"
+    },
+    {
+      "name": "Vault_SecretsEngineDatabase",
+      "display_name": "Vault Database Secrets Engine",
+      "description": "A database secrets engine mount that manages database connections plus dynamic and static database credential roles.",
+      "is_display_kind": true,
+      "icon": "database",
+      "color": "#7F8C8D"
+    },
+    {
+      "name": "Vault_DatabaseConnection",
+      "display_name": "Vault Database Connection",
+      "description": "A named database connection configuration used by database secrets engine roles.",
+      "is_display_kind": true,
+      "icon": "network-wired",
+      "color": "#566573"
+    },
+    {
+      "name": "Vault_DatabaseRole",
+      "display_name": "Vault Database Role",
+      "description": "A named dynamic database role that generates lease-backed database credentials through an associated connection.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#5D6D7E"
+    },
+    {
+      "name": "Vault_DatabaseStaticRole",
+      "display_name": "Vault Database Static Role",
+      "description": "A named static database role that manages the current credentials of an existing database account.",
+      "is_display_kind": true,
+      "icon": "user-lock",
+      "color": "#34495E"
+    },
+    {
+      "name": "Vault_SecretsEngineGcp",
+      "display_name": "Vault GCP Secrets Engine",
+      "description": "A Google Cloud secrets engine mount that manages Vault-owned rolesets, externally managed static accounts, and impersonated-account token generation.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#4285F4"
+    },
+    {
+      "name": "Vault_GcpRoleset",
+      "display_name": "Vault GCP Roleset",
+      "description": "A Vault-managed GCP roleset that owns a service account and generates OAuth2 access tokens or service account keys.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#4285F4"
+    },
+    {
+      "name": "Vault_GcpStaticAccount",
+      "display_name": "Vault GCP Static Account",
+      "description": "A GCP static account configuration that lets Vault generate credentials for an externally managed service account.",
+      "is_display_kind": true,
+      "icon": "user-lock",
+      "color": "#3367D6"
+    },
+    {
+      "name": "Vault_GcpImpersonatedAccount",
+      "display_name": "Vault GCP Impersonated Account",
+      "description": "A GCP impersonated-account configuration that generates short-lived OAuth2 access tokens for an existing service account.",
+      "is_display_kind": true,
+      "icon": "user-tag",
+      "color": "#5C6BC0"
+    },
+    {
+      "name": "Vault_SecretsEngineGcpKms",
+      "display_name": "Vault GCP KMS Secrets Engine",
+      "description": "A Google Cloud KMS secrets engine mount that performs cryptographic operations against Cloud KMS-backed keys.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#34A853"
+    },
+    {
+      "name": "Vault_GcpKmsKey",
+      "display_name": "Vault GCP KMS Key",
+      "description": "A named Vault GCP KMS key backed by a Google Cloud KMS crypto key and used for cryptographic operations or lifecycle management.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#0F9D58"
+    },
+    {
+      "name": "Vault_SecretsEngineKv",
+      "display_name": "Vault KV Secrets Engine",
+      "description": "A KV secrets engine mount that stores versioned or unversioned secret data.",
+      "is_display_kind": true,
+      "icon": "list",
+      "color": "#CA6F1E"
+    },
+    {
+      "name": "Vault_KvDirectory",
+      "display_name": "Vault KV Directory",
+      "description": "A logical KV directory path discovered beneath a KV secrets engine mount.",
+      "is_display_kind": true,
+      "icon": "folder",
+      "color": "#D68910"
+    },
+    {
+      "name": "Vault_KvFile",
+      "display_name": "Vault KV File",
+      "description": "A logical KV secret path that may expose data, metadata, and lifecycle endpoints.",
+      "is_display_kind": true,
+      "icon": "file",
+      "color": "#F5B041"
+    },
+    {
+      "name": "Vault_KvPair",
+      "display_name": "Vault KV Pair",
+      "description": "A top-level key entry within a KV file. The key name is stored for visibility, but not the plaintext value.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#F8C471"
+    },
+    {
+      "name": "Vault_SecretsEngineKubernetes",
+      "display_name": "Vault Kubernetes Secrets Engine",
+      "description": "A Kubernetes secrets engine mount that generates Kubernetes service account tokens and related RBAC objects.",
+      "is_display_kind": true,
+      "icon": "dharmachakra",
+      "color": "#2F80ED"
+    },
+    {
+      "name": "Vault_KubernetesRole",
+      "display_name": "Vault Kubernetes Role",
+      "description": "A named Kubernetes secrets engine role that defines how Kubernetes service account credentials are generated.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#2D9CDB"
+    },
+    {
+      "name": "Vault_SecretsEngineLdap",
+      "display_name": "Vault LDAP Secrets Engine",
+      "description": "An LDAP secrets engine mount that manages static and dynamic LDAP credentials as well as service-account libraries.",
+      "is_display_kind": true,
+      "icon": "address-book",
+      "color": "#2874A6"
+    },
+    {
+      "name": "Vault_LdapDynamicRole",
+      "display_name": "Vault LDAP Dynamic Role",
+      "description": "A named LDAP dynamic role that generates ephemeral LDAP credentials from a creation template.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#3498DB"
+    },
+    {
+      "name": "Vault_LdapStaticRole",
+      "display_name": "Vault LDAP Static Role",
+      "description": "A named LDAP static role that binds Vault to a managed LDAP account and exposes credential rotation and retrieval surfaces.",
+      "is_display_kind": true,
+      "icon": "user-lock",
+      "color": "#1F618D"
+    },
+    {
+      "name": "Vault_LdapLibrarySet",
+      "display_name": "Vault LDAP Library Set",
+      "description": "A named LDAP library set that manages a pool of service accounts which can be checked out and checked in.",
+      "is_display_kind": true,
+      "icon": "books",
+      "color": "#2E86C1"
+    },
+    {
+      "name": "Vault_LdapServiceAccount",
+      "display_name": "Vault LDAP Service Account",
+      "description": "A service account member of an LDAP library set.",
+      "is_display_kind": true,
+      "icon": "user",
+      "color": "#5DADE2"
+    },
+    {
+      "name": "Vault_SecretsEnginePki",
+      "display_name": "Vault PKI Secrets Engine",
+      "description": "A PKI secrets engine mount that issues or signs X.509 material.",
+      "is_display_kind": true,
+      "icon": "file-lines",
+      "color": "#AF601A"
+    },
+    {
+      "name": "Vault_PkiRole",
+      "display_name": "Vault PKI Role",
+      "description": "A named PKI role that constrains certificate issuance and signing behavior.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#C97A1E"
+    },
+    {
+      "name": "Vault_PkiIssuer",
+      "display_name": "Vault PKI Issuer",
+      "description": "A CA issuer object within a PKI mount.",
+      "is_display_kind": true,
+      "icon": "stamp",
+      "color": "#B85C38"
+    },
+    {
+      "name": "Vault_PkiKey",
+      "display_name": "Vault PKI Key",
+      "description": "A private or managed key object referenced by a PKI issuer.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#A04000"
+    },
+    {
+      "name": "Vault_SecretsEngineSsh",
+      "display_name": "Vault SSH Secrets Engine",
+      "description": "An SSH secrets engine mount that generates SSH OTPs or signs SSH certificates.",
+      "is_display_kind": true,
+      "icon": "terminal",
+      "color": "#5D6D7E"
+    },
+    {
+      "name": "Vault_SshRole",
+      "display_name": "Vault SSH Role",
+      "description": "A named SSH role that defines either OTP generation or SSH certificate issuance behavior.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#7D8A99"
+    },
+    {
+      "name": "Vault_SecretsEngineTerraform",
+      "display_name": "Vault Terraform Secrets Engine",
+      "description": "A Terraform secrets engine mount that generates HCP Terraform or Terraform Enterprise API tokens from named roles.",
+      "is_display_kind": true,
+      "icon": "cloud",
+      "color": "#7B42BC"
+    },
+    {
+      "name": "Vault_TerraformRole",
+      "display_name": "Vault Terraform Role",
+      "description": "A named Terraform secrets engine role that maps Vault access to HCP Terraform organization, team, legacy team, or user API tokens.",
+      "is_display_kind": true,
+      "icon": "user-gear",
+      "color": "#5C2D91"
+    },
+    {
+      "name": "Vault_SecretsEngineTotp",
+      "display_name": "Vault TOTP Secrets Engine",
+      "description": "A TOTP secrets engine mount that stores TOTP key definitions and generates or validates time-based one-time passwords.",
+      "is_display_kind": true,
+      "icon": "clock-rotate-left",
+      "color": "#16A085"
+    },
+    {
+      "name": "Vault_TotpKey",
+      "display_name": "Vault TOTP Key",
+      "description": "A named TOTP key definition used to generate or validate time-based one-time passwords.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#138D75"
+    },
+    {
+      "name": "Vault_SecretsEngineTransit",
+      "display_name": "Vault Transit Secrets Engine",
+      "description": "A Transit secrets engine mount that performs cryptographic operations using managed key material.",
+      "is_display_kind": true,
+      "icon": "right-left",
+      "color": "#A569BD"
+    },
+    {
+      "name": "Vault_TransitKey",
+      "display_name": "Vault Transit Key",
+      "description": "A Transit key object used for cryptographic operations and key lifecycle management.",
+      "is_display_kind": true,
+      "icon": "key",
+      "color": "#8E44AD"
+    }
+  ],
+  "relationship_kinds": [
+    {
+      "name": "Vault_Contains",
+      "description": "Containment edge showing that a Vault server contains a namespace, a namespace contains a top-level Vault object, or a parent object contains its immediate observed child object.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_References",
+      "description": "Non-hierarchical configuration reference from one resolved Vault object to another; Reference Types and Reference Evidence describe the relationship.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ParentOf",
+      "description": "Namespace authority edge showing that a parent namespace can assert control over a child namespace.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_MemberOf",
+      "description": "Membership edge indicating that an entity or child group inherits permissions from a Vault group.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_MapsTo",
+      "description": "Identity resolution edge showing that the source identity representation maps to the target identity representation.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_LinksPolicy",
+      "description": "Policy relationship showing that the source is directly assigned, configured to grant, or otherwise linked to the target Vault policy. Policy Link Types distinguishes direct assignments, authentication grants, auth-method defaults, and unregistered-user defaults.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_DenyAccess",
+      "description": "Access capability edge showing that a Vault policy explicitly denies access on the target path or resource.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PotentialAccess",
+      "description": "Non-traversable evidence edge showing that an otherwise attack-path-producing operation has an unobserved synthetic target, a target selected only at runtime, or an unresolved compatibility prerequisite; Potential Outcomes identifies what access could become possible after resolution.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OnAuthMethod",
+      "description": "Structural edge showing that an entity alias or group alias exists on an auth method mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ManagedBy",
+      "description": "Evidence-backed reference edge showing that the source Vault object delegates cryptographic operations to the target managed key. Reference Evidence identifies the Vault response that exposed the exact link; compatibility remains a separate authorization question.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_CanUseManagedKey",
+      "description": "Reference edge showing that a PKI, SSH, or Transit mount is authorized to consume the target managed key through its mount allowlist or the managed key's any-mount setting. Authorization Sources, Compatible Usages, and Compatibility Known distinguish permission from usable cryptographic operations.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ReadIdentity",
+      "description": "Non-traversable identity visibility edge showing that a Vault policy or derived effective identity permission can read, look up, or introspect identity records and token claims; edge properties identify the query operation and information returned.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ReadCredential",
+      "description": "Credential-exposure edge showing that a Vault policy can read confirmed reusable credential material from a concrete identity object, such as a confidential OIDC application client secret or a Duo or Okta MFA integration credential.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_GenerateIdentityToken",
+      "description": "Identity-token access edge showing that a Vault policy can mint an OIDC-compliant identity token from the target role or a namespace-scoped role surface when the signing key permits that role client ID.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_OidcAllowsApplication",
+      "description": "Configuration edge showing that a Vault OIDC provider authorizes the target OIDC application.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OidcGrantsAccess",
+      "description": "Configuration edge showing that a Vault OIDC assignment is referenced by an OIDC application; application use still requires provider authorization.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OidcSupportsScope",
+      "description": "Configuration edge showing that a Vault OIDC provider advertises support for the target OIDC scope.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OidcAssignedTo",
+      "description": "Assignment edge showing that an entity or group is included in a Vault OIDC assignment.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OidcAuthorize",
+      "description": "OIDC access edge showing that a Vault policy can invoke the authorize endpoint for the target provider or provider pattern.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_OidcAuthenticateTo",
+      "description": "Derived OIDC access edge showing that an entity both satisfies an application's assignment requirements and has effective identity-policy or resolvable token-policy access to an allowed provider authorize endpoint.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_MfaUsesMethod",
+      "description": "Constraint edge showing that a Vault MFA login enforcement accepts the target MFA method as one way to satisfy the rule.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_MfaAppliesTo",
+      "description": "Constraint edge showing that a Vault MFA login enforcement applies to the target entity, group, or auth method selector.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_MfaSelfEnroll",
+      "description": "Identity MFA edge showing that a Vault policy can invoke TOTP self-enrollment on an eligible MFA method.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_MfaGenerateSecret",
+      "description": "Identity MFA edge showing that a Vault policy can generate a TOTP secret for the calling token's entity through a TOTP MFA method.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ScimUsesPrincipal",
+      "description": "SCIM configuration edge showing that the source SCIM client uses the target entity as its access-grant principal.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ScimProtocolAccess",
+      "description": "SCIM protocol access edge showing that a Vault policy grants authenticated access to SCIM user, group, or discovery surfaces; effective use still requires a matching SCIM access-grant principal.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ScimManages",
+      "description": "Non-traversable SCIM ownership edge showing that the source SCIM client provisioned and owns the target Vault entity or internal group; effective mutation rights are emitted directly from the access-grant entity to matched resources.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ScimReadResources",
+      "description": "Derived SCIM visibility edge showing that the target client's access-grant entity has effective permission to read, query, list, or discover SCIM resources.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ScimProvisionResources",
+      "description": "Derived SCIM provisioning edge from a client's access-grant entity directly to an observed client-owned Vault entity or internal group matched by effective replace, patch, or delete permission; collection creation and unresolved targets use Vault_PotentialAccess.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ListObjects",
+      "description": "Visibility edge showing that a Vault policy can enumerate durable objects in the target store, auth method, secrets engine collection, or KV directory; Object Types and Operations identify the normalized resource family and returned resources.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_CreateObject",
+      "description": "Access edge showing that a Vault policy can create the exact synthetic target object or potentially create objects beneath the target mount or namespace-scoped store; Object Types and Scope identify the normalized resource family and affected collection.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ReadObject",
+      "description": "Visibility edge showing that a Vault policy can read a concrete durable object; the target node kind and normalized Object Types identify the resource and available read surface.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ManageObject",
+      "description": "Access edge showing that a Vault policy can update, delete, rotate, import, or otherwise manage a concrete durable object; the target node kind, normalized Object Types, Operations, and Requirements identify the available actions.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ControlObject",
+      "description": "Derived attack-path edge showing that the source authority can directly obtain effective control of the concrete target object through a proven security-bearing mutation such as credential reset, membership modification, alias rebinding, or authentication-trust replacement. Control Methods, Control Parameters, and Impacts identify the takeover mechanism and outcome; ordinary administrative mutation remains Vault_ManageObject.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_ObtainPolicy",
+      "description": "Derived attack-path edge showing that the source can obtain the target policy's authority by controlling a concrete identity or authentication object and assigning the policy through that same object. Via Object and policy-assignment properties identify the proven composition.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_ReadConfig",
+      "description": "Access edge showing that a Vault policy can read configuration or backend-maintenance state on the target auth method, secrets engine mount, or concrete configuration child object; Operations and configuration targets identify the readable state.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_ManageConfig",
+      "description": "Access edge showing that a Vault policy can create, update, delete, rotate, tidy, or otherwise operate on configuration and backend-maintenance surfaces on the target namespace, auth method, secrets engine mount, or concrete configuration child object; Operations and Requirements identify endpoint-specific actions and sudo requirements.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_GenerateCredentials",
+      "description": "Access edge showing that a Vault policy has at least one proven viable mode for generating dynamic or lease-backed credentials from the target role-like object; Modes summarizes those viable outcomes. Credential generation with only unresolved external or configuration prerequisites uses Vault_PotentialAccess instead.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_ReadStaticCredentials",
+      "description": "Access edge showing that a Vault policy can read current static credentials from the target static role-like object; engine_types, request_surfaces, credential_types, and operations identify the concrete backend behavior.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_AuthApproleReadSecretId",
+      "description": "AppRole visibility edge showing that a Vault policy can enumerate SecretID accessors or look up SecretID metadata for the target AppRole role.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthApproleGenerateSecretId",
+      "description": "Traversable AppRole credential edge showing that a Vault policy can generate a standard or custom SecretID for the target observed AppRole role and can read or set the RoleID required for login; edge properties identify the RoleID source, SecretID constraints, token constraints, and applicable CIDR restrictions.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_AuthApproleManageSecretId",
+      "description": "Non-traversable AppRole maintenance edge showing that a Vault policy can destroy SecretIDs or SecretID accessors for the target AppRole role.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthAwsCreateRoleTag",
+      "description": "AWS auth access edge showing that a Vault policy can generate a signed AWS auth role tag for the target role or a broad AWS-role surface.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthSamlDefaultRole",
+      "description": "Configuration edge showing that a SAML auth method uses the target SAML role when login omits an explicit role name.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthSpiffeMayMatchRole",
+      "description": "Configuration edge showing that an existing SPIFFE entity alias may select the target SPIFFE role because one or more workload ID patterns match.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthTokenReadToken",
+      "description": "Token auth access edge showing that a Vault policy can inspect token state through lookup, self-lookup, or accessor-lookup surfaces on the target token auth method mount; Requirements records the capability needed for each merged lookup surface.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthTokenCreateRestrictedToken",
+      "description": "Non-traversable Token auth issuance edge showing that a Vault policy can create a child, orphan, or role-backed token whose authority remains constrained by caller-policy inheritance or subset rules.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthTokenCreatePrivilegedToken",
+      "description": "Traversable Token auth issuance edge showing that a Vault policy can provably mint tokens with additional authority through sudo policy override on the target Policy Store, delegated policies on the target Token role, or identity policies reached through the target allowed Entity Alias.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_AuthTokenManageToken",
+      "description": "Non-traversable Token auth maintenance edge showing that a Vault policy can renew or revoke tokens on the target Token auth method mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AuthTokenListAccessors",
+      "description": "Token auth access edge showing that a Vault policy can list token accessors on the target token auth method mount when it also has the required sudo capability.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_AzureImportStaticRole",
+      "description": "Azure access edge showing that a Vault policy can import existing Azure application credentials into the target static role, including metadata-only, full-import, or rotate-on-import workflows.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_DatabaseUsesConnection",
+      "description": "Reference edge showing that the source database role names the target database connection; allowed_by_connection and allowed-role properties indicate whether the current connection configuration permits that use.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_DatabaseResetConnection",
+      "description": "Database access edge showing that a Vault policy can reset the target database connection.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_DatabaseReloadPlugin",
+      "description": "Database access edge showing that a Vault policy can reload a database plugin process for the target mount; see plugin_names for the matched plugin reference.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_GcpKmsEncrypt",
+      "description": "GCP KMS access edge showing that a Vault policy can encrypt data with the target GCP KMS key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_GcpKmsDecrypt",
+      "description": "GCP KMS access edge showing that a Vault policy can decrypt data with the target GCP KMS key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_GcpKmsReencrypt",
+      "description": "GCP KMS access edge showing that a Vault policy can re-encrypt ciphertext to a newer key version with the target GCP KMS key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_GcpKmsSign",
+      "description": "GCP KMS access edge showing that a Vault policy can sign digests with the target GCP KMS key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_GcpKmsVerify",
+      "description": "GCP KMS access edge showing that a Vault policy can verify signatures with the target GCP KMS key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_KvReadSecret",
+      "description": "KV access edge showing that a Vault policy can read a KV secret value, and on KV v2 also expose version and custom metadata returned by the data surface.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_KvManageSecret",
+      "description": "KV access edge showing that a Vault policy can manage KV secret data or lifecycle endpoints; see the operations property for the concrete actions covered by the edge, and CAS-related properties for KV v2 write preconditions.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_KvReadMetadata",
+      "description": "KV access edge showing that a Vault policy can read KV v2 metadata for a secret or subtree.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_KvManageMetadata",
+      "description": "KV access edge showing that a Vault policy can manage KV v2 metadata for a secret or subtree; see the operations property for the concrete actions covered by the edge.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_LdapReadLibraryStatus",
+      "description": "LDAP access edge showing that a Vault policy can read checkout status for the target LDAP library set.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_LdapCheckoutServiceAccount",
+      "description": "Traversable LDAP credential edge from a Vault policy to a concrete service account that was available in the target library set when collected. Unavailable or unresolved checkout outcomes use Vault_PotentialAccess instead.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_LdapCheckinServiceAccount",
+      "description": "LDAP access edge showing that a Vault policy can check a service account back into the target LDAP library set.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_LdapForceCheckinServiceAccount",
+      "description": "LDAP access edge showing that a Vault policy can forcibly check a service account back into the target LDAP library set.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiListCertificateInfo",
+      "description": "PKI access edge showing that a Vault policy can access authenticated certificate inventory or retrieval surfaces on the target PKI mount, such as certificate listings, certificate metadata, or batch certificate retrieval.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiIssueCertificate",
+      "description": "PKI access edge showing that a Vault policy can issue certificates through the target resolved PKI role or issuer; Issuance Protocols identifies native Vault, CMPv2, EST, or SCEP issuance, and Targets distinguishes default from explicitly selected issuers. Runtime-selected external-policy targets are represented as potential access instead.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_PkiSignCertificate",
+      "description": "PKI access edge showing that a Vault policy can sign CSRs through the target resolved PKI role or issuer. Runtime-selected external-policy targets are represented as potential access instead.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_PkiSignVerbatim",
+      "description": "PKI access edge showing that a Vault policy can use sign-verbatim through the target resolved default or selected issuer, or through the target role when role-qualified.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_PkiSignIntermediate",
+      "description": "PKI access edge showing that a Vault policy can sign an intermediate CA with the target resolved issuer. Runtime-selected external-policy targets are represented as potential access instead.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_PkiSignSelfIssued",
+      "description": "PKI access edge showing that a Vault policy can sign a self-issued certificate with the target issuer.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_PkiRevokeCertificate",
+      "description": "PKI access edge showing that a Vault policy can revoke certificates on the target PKI mount or issuer.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiRevokeIssuer",
+      "description": "PKI access edge showing that a Vault policy can revoke the target PKI issuer.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiProvisionIssuer",
+      "description": "PKI access edge showing that a Vault policy can provision issuer material on the target mount by generating or importing an issuer.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiManageRoot",
+      "description": "PKI access edge showing that a Vault policy can run root CA lifecycle operations on the target PKI mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiDeleteRoot",
+      "description": "PKI access edge showing that a Vault policy can delete all issuers and keys from the target PKI mount through the root deletion endpoint.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiManageIntermediate",
+      "description": "PKI access edge showing that a Vault policy can run intermediate CA lifecycle operations on the target PKI mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiAcmeCreateEab",
+      "description": "PKI access edge showing that a Vault policy can create ACME external account binding material on the target PKI mount, issuer, or role surface.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_PkiAcmeManageAccounts",
+      "description": "PKI access edge showing that a Vault policy can list, read, update, or delete ACME account or EAB-token state on the target PKI mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_SshGenerateOtp",
+      "description": "SSH access edge showing that a Vault policy can generate OTP credentials from the target SSH OTP role.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_SshLookupRoles",
+      "description": "SSH access edge showing that a Vault policy can look up which SSH roles match a target IP on the SSH mount.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_SshSignKey",
+      "description": "SSH access edge showing that a Vault policy can sign an SSH public key with the target SSH CA role when both create and update capabilities are present.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_SshIssueKeyPair",
+      "description": "SSH access edge showing that a Vault policy can issue a new SSH key pair and certificate from the target SSH CA role.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TotpGenerateCode",
+      "description": "TOTP access edge showing that a Vault policy can generate a time-based one-time password from the target TOTP key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TotpValidateCode",
+      "description": "TOTP access edge showing that a Vault policy can validate a time-based one-time password against the target TOTP key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_TransitEncrypt",
+      "description": "Transit access edge showing that a Vault policy can encrypt data with the target Transit key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_TransitDecrypt",
+      "description": "Transit access edge showing that a Vault policy can decrypt data with the target Transit key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TransitGenerateDataKey",
+      "description": "Transit access edge showing that a Vault policy can generate data keys from the target Transit key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_TransitRewrap",
+      "description": "Transit access edge showing that a Vault policy can rewrap ciphertext with the target Transit key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_TransitSign",
+      "description": "Transit access edge showing that a Vault policy can sign data or CSRs with the target Transit key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TransitGenerateCmac",
+      "description": "Transit access edge showing that a Vault policy can generate CMAC values with the target Transit key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TransitGenerateHmac",
+      "description": "Transit access edge showing that a Vault policy can generate HMAC values with the target Transit key.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TransitVerify",
+      "description": "Transit access edge showing that a Vault policy can verify signatures or MACs with the target Transit key.",
+      "is_traversable": false
+    },
+    {
+      "name": "Vault_TransitExportKey",
+      "description": "Traversable Transit access edge showing that a Vault policy can export usable secret key material from an observed, exportable Transit key of a compatible type.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_TransitExportByokKey",
+      "description": "Non-traversable Transit access edge showing that a Vault policy can export the target Transit key as BYOK-wrapped material for an RSA destination key.",
+      "is_traversable": false
+    }
+  ],
+  "environments": [
+    {
+      "source_kind": "Vault",
+      "environment_kind": "Vault_Server",
+      "principal_kinds": [
+        "Vault_Entity"
+      ]
+    }
+  ],
+  "relationship_findings": []
+}

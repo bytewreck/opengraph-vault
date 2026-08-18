@@ -1,0 +1,87 @@
+# Managed Keys Store
+
+The Managed Keys Store represents the namespace-local Enterprise registry at `sys/managed-keys`. A managed key delegates cryptographic operations to an external KMS or HSM while Vault stores the registration and provider configuration.
+
+```mermaid
+flowchart LR
+    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MANAGED KEYS]
+    store -->|Vault_Contains| managed[Vault_ManagedKey]
+    transit[Vault_TransitKey] -->|Vault_ManagedBy| managed
+    pki[Vault_PkiKey] -->|Vault_ManagedBy| managed
+    policy[Vault_Policy] -->|Vault_CanUseManagedKey| managed
+```
+
+## Nodes
+
+| Node | Description |
+| --- | --- |
+| `Vault_Store` | Namespace-local Managed Keys registry and collection anchor. |
+| `Vault_ManagedKey` | Named Enterprise external-key registration, including provider type, key identifier, library or endpoint settings, mechanism configuration, and returned status. |
+
+Provider-specific configuration is retained in human-readable properties where possible. The collector does not retrieve raw external key material.
+
+## Containment And References
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Managed Keys Store | Managed key | Yes | The observed registration belongs to this namespace. |
+| `Vault_ManagedBy` | Transit key, PKI key, or compatible Vault object | Managed key | No | The Vault resource delegates cryptographic operations to the external key. |
+| `Vault_References` | Other configured object | Managed key | No | A non-owning configuration reference where managed-key semantics are less specific. |
+
+`Vault_ManagedBy` points from the Vault object that performs an operation to the external managed-key registration. It does not imply that reading the registration reveals the external key.
+
+## Access Edges
+
+```mermaid
+flowchart LR
+    policy[Vault_Policy] -->|Vault_ListObjects| store[Managed Keys Store]
+    policy -->|Vault_CreateObject| store
+    policy -->|Vault_ReadObject| managed[Vault_ManagedKey]
+    policy -->|Vault_ManageObject| managed
+    policy -->|Vault_CanUseManagedKey| managed
+```
+
+| Edge | Destination | Traversable | Meaning |
+| --- | --- | --- | --- |
+| `Vault_ListObjects` | Managed Keys Store | No | List registered managed keys. |
+| `Vault_CreateObject` | Store or synthetic exact key | No | Register a new managed key. |
+| `Vault_ReadObject` | Concrete managed key | No | Read registration and provider configuration. |
+| `Vault_ManageObject` | Concrete managed key | No | Update or delete the registration where supported. |
+| `Vault_CanUseManagedKey` | Concrete managed key | No | Invoke a managed-key operation through the system endpoint, with mechanisms and operations preserved as properties. |
+
+Managed-key use remains non-traversable by itself because provider mechanisms differ and using a registration does not necessarily reveal or control the external key. Traversable outcomes are represented at the consuming object when the operation is concrete, such as signing or decryption through a compatible Transit key.
+
+## Attack-Path Semantics
+
+There is no direct traversable edge into `Vault_ManagedKey`. The registration is an external cryptographic dependency, not raw key material:
+
+```text
+Vault_Policy
+  -> Vault_TransitDecrypt or Vault_TransitSign
+Vault_TransitKey
+  -> Vault_ManagedBy
+Vault_ManagedKey
+```
+
+The attack path terminates at the Transit operation. `Vault_ManagedBy` remains non-traversable evidence showing which external key backs that operation. `Vault_CanUseManagedKey` is also non-traversable because system mechanisms can expose materially different outcomes and do not necessarily reveal or confer control of the provider key.
+
+## System Endpoints
+
+VaultHound distinguishes registry CRUD from managed-key use:
+
+- Collection endpoints become `Vault_ListObjects` or `Vault_CreateObject` on the store.
+- Exact registration endpoints become `Vault_ReadObject` or `Vault_ManageObject` on the key.
+- Cryptographic system endpoints become `Vault_CanUseManagedKey` on the key with operation, mechanism, and request-surface properties.
+
+Globs expand exact read/manage/use rights to observed compatible keys. Exact missing keys may be represented as synthetic, but do not receive traversable cryptographic outcomes.
+
+## External-System Boundary
+
+The model proves what Vault is configured and authorized to request. It does not independently validate:
+
+- External KMS or HSM IAM policy.
+- Provider-side key enablement, destruction, or rotation state.
+- Network reachability to the provider.
+- Whether a mechanism is permitted outside the state returned by Vault.
+
+Hybrid edges should be added by an external-system collector only when the provider key can be resolved unambiguously.

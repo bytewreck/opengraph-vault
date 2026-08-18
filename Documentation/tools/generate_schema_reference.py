@@ -183,8 +183,8 @@ def render(schema: dict) -> str:
         f"- Non-traversable relationships: `{len(edges) - traversable_count}`",
         "",
         "For interpretation, collection provenance, and offensive semantics, read "
-        "[MODEL.md](MODEL.md), [COLLECTION.md](COLLECTION.md), and "
-        "[TRAVERSABILITY.md](TRAVERSABILITY.md).",
+        "[MODEL.md](MODEL.md), [COLLECTION.md](COLLECTION.md), and the "
+        "[store guides](README.md#start-here).",
         "",
         "## Node Types",
         "",

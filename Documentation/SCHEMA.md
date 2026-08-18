@@ -4,12 +4,12 @@
 
 - Schema: `HashiCorpVault` (`v0.0.1`)
 - Namespace prefix: `Vault_`
-- Node kinds: `108`
+- Node kinds: `107`
 - Relationship kinds: `97`
 - Traversable relationships: `32`
 - Non-traversable relationships: `65`
 
-For interpretation, collection provenance, and offensive semantics, read [MODEL.md](MODEL.md), [COLLECTION.md](COLLECTION.md), and [TRAVERSABILITY.md](TRAVERSABILITY.md).
+For interpretation, collection provenance, and offensive semantics, read [MODEL.md](MODEL.md), [COLLECTION.md](COLLECTION.md), and the [store guides](README.md#start-here).
 
 ## Node Types
 
@@ -100,7 +100,6 @@ For interpretation, collection provenance, and offensive semantics, read [MODEL.
 | `Vault_SecretsEngineGcpKms` | Vault GCP KMS Secrets Engine | `cloud` | A Google Cloud KMS secrets engine mount that performs cryptographic operations against Cloud KMS-backed keys. |
 | `Vault_GcpKmsKey` | Vault GCP KMS Key | `key` | A named Vault GCP KMS key backed by a Google Cloud KMS crypto key and used for cryptographic operations or lifecycle management. |
 | `Vault_SecretsEngineKv` | Vault KV Secrets Engine | `list` | A KV secrets engine mount that stores versioned or unversioned secret data. |
-| `Vault_KvObject` | Vault KV Object | `folder-open` | A base node kind for concrete KV filesystem-like objects discovered beneath a KV secrets engine mount. |
 | `Vault_KvDirectory` | Vault KV Directory | `folder` | A logical KV directory path discovered beneath a KV secrets engine mount. |
 | `Vault_KvFile` | Vault KV File | `file` | A logical KV secret path that may expose data, metadata, and lifecycle endpoints. |
 | `Vault_KvPair` | Vault KV Pair | `key` | A top-level key entry within a KV file. The key name is stored for visibility, but not the plaintext value. |
