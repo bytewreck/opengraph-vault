@@ -9,11 +9,10 @@ flowchart LR
     namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MOUNTS]
     store -->|Vault_Contains| mount[Vault_SecretsEngine]
     mount -->|Vault_Contains| object[Observed child resource]
-    object -->|Vault_References| dependency[Referenced resource]
-    policy[Vault_Policy] -->|Endpoint-aware access| object
+    object -.->|Vault_References| dependency[Referenced resource]
 ```
 
-Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries.
+Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
 
 ## Common Nodes And Edges
 
@@ -61,8 +60,6 @@ flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineAws]
     mount -->|Vault_Contains| dynamic[Vault_AwsRole]
     mount -->|Vault_Contains| static[Vault_AwsStaticRole]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic
-    policy -->|Vault_ReadStaticCredentials| static
 ```
 
 Dynamic-role properties include policy documents and ARNs, role ARNs, IAM groups, tags, permissions boundaries, credential modes, TTLs, and MFA configuration. Traversable generation requires at least one proven viable mode; session-token-only access requiring an MFA code becomes `Vault_PotentialAccess` when that prerequisite is unresolved.
@@ -94,9 +91,6 @@ flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineAzure]
     mount -->|Vault_Contains| dynamic[Vault_AzureRole]
     mount -->|Vault_Contains| static[Vault_AzureStaticRole]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic
-    policy -->|Vault_ReadStaticCredentials| static
-    policy -->|Vault_AzureImportStaticRole| static
 ```
 
 Roles retain Azure role assignments, groups, application settings, TTL behavior, and generated credential effects. `Vault_AzureImportStaticRole` is a specialized non-traversable administrative operation; ordinary role CRUD uses generic object edges.
@@ -121,9 +115,7 @@ flowchart LR
     mount -->|Vault_Contains| connection[Vault_DatabaseConnection]
     mount -->|Vault_Contains| role[Vault_DatabaseRole]
     mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]
-    role -->|Vault_DatabaseUsesConnection| connection
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role
-    policy -->|Vault_ReadStaticCredentials| static
+    role -.->|Vault_DatabaseUsesConnection| connection
 ```
 
 | Edge | Meaning |
@@ -163,9 +155,6 @@ flowchart LR
     mount -->|Vault_Contains| roleset[Vault_GcpRoleset]
     mount -->|Vault_Contains| static[Vault_GcpStaticAccount]
     mount -->|Vault_Contains| impersonated[Vault_GcpImpersonatedAccount]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| roleset
-    policy -->|Vault_GenerateCredentials| static
-    policy -->|Vault_GenerateCredentials| impersonated
 ```
 
 Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and credential effects. Static and impersonated accounts retain OAuth token or service-account-key surfaces supported by their endpoint. The collector does not independently verify Google Cloud IAM.
@@ -189,9 +178,6 @@ GCP KMS nodes represent Vault registrations of external Google Cloud KMS keys.
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineGcpKms]
     mount -->|Vault_Contains| key[Vault_GcpKmsKey]
-    policy[Vault_Policy] -->|Vault_GcpKmsEncrypt| key
-    policy -->|Vault_GcpKmsDecrypt| key
-    policy -->|Vault_GcpKmsSign| key
 ```
 
 | Edge | Traversable | Meaning |
@@ -224,8 +210,6 @@ flowchart LR
     mount -->|Vault_Contains| directory[Vault_KvDirectory]
     directory -->|Vault_Contains| file[Vault_KvFile]
     file -->|Vault_Contains| pair[Vault_KvPair]
-    policy[Vault_Policy] -->|Vault_KvReadSecret| file
-    policy -->|Vault_ListObjects| directory
 ```
 
 `Vault_KvDirectory` is a logical path prefix, not a mutable Vault object. `Vault_KvFile` is a secret path. `Vault_KvPair` exposes only top-level key names; values are never exported.
@@ -283,8 +267,6 @@ Kubernetes secrets roles describe the service account and optional RBAC objects 
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineKubernetes]
     mount -->|Vault_Contains| role[Vault_KubernetesRole]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role
-    policy -->|Vault_ReadObject / Vault_ManageObject| role
 ```
 
 Roles retain service-account name, allowed namespaces, namespace selectors, token TTL, generated role or cluster-role bindings, and request parameters. Generation effects identify namespaced versus cluster-scoped outcomes. Live Kubernetes RBAC is not independently verified.
@@ -309,9 +291,6 @@ flowchart LR
     mount -->|Vault_Contains| static[Vault_LdapStaticRole]
     mount -->|Vault_Contains| library[Vault_LdapLibrarySet]
     library -->|Vault_Contains| account[Vault_LdapServiceAccount]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic
-    policy -->|Vault_ReadStaticCredentials| static
-    policy -->|Vault_LdapCheckoutServiceAccount| account
 ```
 
 | Edge | Meaning |
@@ -344,11 +323,7 @@ flowchart LR
     mount -->|Vault_Contains| role[Vault_PkiRole]
     mount -->|Vault_Contains| issuer[Vault_PkiIssuer]
     mount -->|Vault_Contains| key[Vault_PkiKey]
-    issuer -->|Vault_References| key
-    policy[Vault_Policy] -->|Vault_PkiIssueCertificate| role
-    policy -->|Vault_PkiIssueCertificate| issuer
-    policy -->|Vault_PkiSignCertificate| issuer
-    policy -->|Vault_PkiSignIntermediate| issuer
+    issuer -.->|Vault_References| key
 ```
 
 ### PKI Access Families
@@ -412,9 +387,6 @@ SSH uses one role node kind for OTP and CA role modes. The role properties ident
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineSsh]
     mount -->|Vault_Contains| role[Vault_SshRole]
-    policy[Vault_Policy] -->|Vault_SshGenerateOtp| role
-    policy -->|Vault_SshSignKey| role
-    policy -->|Vault_SshIssueKeyPair| role
 ```
 
 | Edge | Compatible target | Traversable | Meaning |
@@ -445,8 +417,6 @@ Terraform Cloud roles generate organization, team, or user API tokens.
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTerraform]
     mount -->|Vault_Contains| role[Vault_TerraformRole]
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role
-    policy -->|Vault_ReadObject / Vault_ManageObject| role
 ```
 
 The mount stores Terraform Cloud address and token configuration. Role and generation properties identify token mode, organization, team or user target, TTL, and generated credential material.
@@ -468,8 +438,6 @@ TOTP mounts contain named key configurations.
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTotp]
     mount -->|Vault_Contains| key[Vault_TotpKey]
-    policy[Vault_Policy] -->|Vault_TotpGenerateCode| key
-    policy -->|Vault_TotpValidateCode| key
 ```
 
 | Edge | Traversable | Meaning |
@@ -496,10 +464,7 @@ Transit mounts contain cryptographic keys and expose operations without returnin
 flowchart LR
     store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTransit]
     mount -->|Vault_Contains| key[Vault_TransitKey]
-    key -->|Vault_ManagedBy| managed[Vault_ManagedKey]
-    policy[Vault_Policy] -->|Vault_TransitDecrypt| key
-    policy -->|Vault_TransitSign| key
-    policy -->|Vault_TransitExportKey| key
+    key -.->|Vault_ManagedBy| managed[Vault_ManagedKey]
 ```
 
 | Edge | Traversable | Meaning |

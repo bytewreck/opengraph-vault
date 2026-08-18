@@ -192,26 +192,28 @@ MFA topology edges and self-enrollment permissions are non-traversable because c
 
 ```mermaid
 flowchart LR
-    client[Vault_ScimClient] -->|Vault_ScimUsesPrincipal| principal[Vault_Entity]
-    client -->|Vault_ScimManages| resource[Vault_Entity or Vault_Group]
-    policy[Vault_Policy] -->|Vault_ScimProtocolAccess| client
-    policy -->|Vault_ScimReadResources| client
-    policy -->|Vault_ScimProvisionResources| client
+    client[Vault_ScimClient] -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]
+    client -.->|Vault_ScimManages| resource["Client-owned Vault_Entity or Vault_Group"]
+    policy[Vault_Policy] -.->|Vault_ScimProtocolAccess| client
+    principal -.->|Vault_ScimReadResources| client
+    principal -.->|Vault_ScimProvisionResources| resource
+    principal -.->|Vault_PotentialAccess| client
 ```
 
-| Edge | Traversable | Meaning |
-| --- | --- | --- |
-| `Vault_ScimUsesPrincipal` | No | Client uses the entity as its access-grant principal. |
-| `Vault_ScimManages` | No | Client is configured to provision the identity resource. |
-| `Vault_ScimProtocolAccess` | No | Discovery or general SCIM protocol access. |
-| `Vault_ScimReadResources` | No | Read/list SCIM users or groups. |
-| `Vault_ScimProvisionResources` | No | Create/update/delete SCIM resources when the access-grant principal and ACL prerequisites are satisfied. |
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_ScimUsesPrincipal` | SCIM client | Entity | No | Identifies the client's configured access-grant principal. |
+| `Vault_ScimManages` | SCIM client | Entity or group | No | Records that the resource is owned by that SCIM client. |
+| `Vault_ScimProtocolAccess` | Policy | SCIM client | No | Declared ACL access to authenticated SCIM surfaces. |
+| `Vault_ScimReadResources` | Access-grant entity | SCIM client | No | Derived effective permission to query, read, list, or discover SCIM resources. |
+| `Vault_ScimProvisionResources` | Access-grant entity | Observed entity or group | No | Derived effective permission to create, update, patch, or delete the concrete client-owned resource. |
+| `Vault_PotentialAccess` | Access-grant entity | SCIM client | No | Provisioning may create an unobserved resource, or target ownership and resolution are incomplete. |
 
-SCIM fan-out is kept as explicit evidence rather than making the client a traversable container. This avoids implying control of every identity merely from read-only protocol access.
+`Vault_ScimProtocolAccess` preserves the declaring policy's authority but does not prove that the policy belongs to the client's configured access-grant principal. Effective read and provisioning relationships are derived only after that principal resolves to an enabled entity and its effective ACLs are evaluated. Provisioning reaches an observed client-owned resource directly; collection creation and unresolved targets remain potential access anchored to the client.
 
 ### Attack Paths
 
-SCIM read, protocol, and provisioning edges are currently non-traversable evidence. A client-to-resource `Vault_ScimManages` edge describes configured scope but is not used as a containment fan-out. This prevents read-only or collection-level SCIM access from implying control of every entity and group.
+SCIM read, protocol, provisioning, ownership, and principal relationships are currently non-traversable evidence. `Vault_ScimManages` describes configured ownership but is not used as a containment fan-out or attack-path hop. This prevents read-only, collection-level, or unresolved SCIM access from implying control of every entity and group.
 
 ## Template Policies
 

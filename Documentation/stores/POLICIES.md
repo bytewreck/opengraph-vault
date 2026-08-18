@@ -63,8 +63,13 @@ Policies normally serve as the authority-bearing middle of a path:
 ```mermaid
 flowchart LR
     principal["Identity or authentication object"] -->|Vault_LinksPolicy| policy[Vault_Policy]
-    policy -->|Traversable security-outcome edge| target["Concrete target"]
+    policy -->|Vault_KvReadSecret| secret[Vault_KvFile]
+    policy -->|Vault_GenerateCredentials| role[Secrets role]
+    policy -->|Vault_ControlObject| controlled["Identity or auth object"]
+    controlled -->|Vault_LinksPolicy| elevated["Additional Vault_Policy"]
 ```
+
+These are representative concrete outcomes rather than an exhaustive list. Each relationship label is an edge kind defined by the schema; the relevant subsystem guide documents its complete set of traversable operations.
 
 Control of an identity or authentication object can reach policies already linked to that object:
 
