@@ -4,7 +4,7 @@ The Auth Store represents the namespace-local authentication-method registry at 
 
 VaultHound does not invoke login endpoints or assert that a collected external principal possesses valid credentials. It models the configuration that controls matching, the policies granted after authentication, and policy authority over durable auth objects.
 
-## Common Topology
+## Common Auth Topology
 
 ```mermaid
 flowchart LR
@@ -17,7 +17,7 @@ flowchart LR
 
 Specific mounts carry their specific kind first and `Vault_AuthMethod` second. Child records use `Vault_AuthRole`, `Vault_AuthUser`, or `Vault_AuthGroup` as a base kind where applicable. Per-method layout diagrams are structural: policy grants, identity correlation, administrative access, and security outcomes appear in the relevant tables, prose, and attack-path sections instead. Only concrete auth users and groups supported by the collector's alias-correlation logic use `Vault_MapsTo`; auth roles are login selectors rather than identity representations.
 
-### Common Nodes
+### Common Auth Nodes
 
 | Type | Meaning |
 | --- | --- |
@@ -28,16 +28,20 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
-### Common Attack-Path Patterns
+### Common Auth Attack-Path Patterns
 
 Auth configuration participates in attack paths in four ways:
 
 ```mermaid
 flowchart LR
-    principal["Vault_AuthUser or Vault_AuthGroup"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
-    principal -->|Vault_LinksPolicy| direct[Backend-granted Vault_Policy]
-    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
-    identity -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
+    AU[Vault_AuthUser] -->|Vault_MapsTo| EA[Vault_EntityAlias]
+    EA -->|Vault_MapsTo| VE[Vault_Entity]
+    AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
+    GA -->|Vault_MapsTo| VG[Vault_Group]
+    U -->|Vault_LinksPolicy| P1[Vault_Policy]
+    G -->|Vault_LinksPolicy| P1
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]
+    VG -->|Vault_LinksPolicy| P2
 ```
 
 The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
@@ -68,9 +72,9 @@ This chain is emitted only when parameter-aware mutation proves takeover of the 
 
 AppRole SecretID generation and privileged token issuance have their own traversable edge families because those endpoints can produce authentication material directly.
 
-## Supported Methods
+## Supported Auth Methods
 
-| Method | Mount node | Child nodes |
+| Auth Method | Mount node | Child nodes |
 | --- | --- | --- |
 | AliCloud | `Vault_AuthMethodAliCloud` | `Vault_AuthAliCloudRole` |
 | AppRole | `Vault_AuthMethodApprole` | `Vault_AuthApproleRole` |
