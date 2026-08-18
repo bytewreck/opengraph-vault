@@ -13,12 +13,11 @@ flowchart LR
     method -->|Vault_Contains| A[Vault_AuthRole]
     method -->|Vault_Contains| B[Vault_AuthUser]
     method -->|Vault_Contains| C[Vault_AuthGroup]
-    method -->|Vault_Contains| D[CRL]
 ```
 
 Specific mounts carry their specific kind first and `Vault_AuthMethod` second. Child records use `Vault_AuthRole`, `Vault_AuthUser`, or `Vault_AuthGroup` as a base kind where applicable. Per-method layout diagrams are structural: policy grants, identity correlation, administrative access, and security outcomes appear in the relevant tables, prose, and attack-path sections instead. Only concrete auth users and groups supported by the collector's alias-correlation logic use `Vault_MapsTo`; auth roles are login selectors rather than identity representations.
 
-## Common Nodes And Edges
+### Common Nodes
 
 | Type | Meaning |
 | --- | --- |
@@ -26,20 +25,10 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 | `Vault_AuthRole` | Base node for role-like login configuration. |
 | `Vault_AuthUser` | Base node for user-like login configuration. |
 | `Vault_AuthGroup` | Base node for group-like policy mapping. |
-| `Vault_Contains` | Auth Store to method, and method to immediate observed children. |
-| `Vault_ListObjects` | List child roles, users, groups, CRLs, or related records. |
-| `Vault_CreateObject` | Create a child object or target an exact synthetic child. |
-| `Vault_ReadObject` | Read a concrete child configuration. |
-| `Vault_ManageObject` | Update or delete a concrete child configuration. |
-| `Vault_ReadConfig` | Read mount, tuning, or method-wide configuration. |
-| `Vault_ManageConfig` | Change method configuration, tuning, credentials, or maintenance state. |
-| `Vault_ControlObject` | Perform a parameter-aware mutation that proves takeover of a concrete auth object. |
-| `Vault_LinksPolicy` | Role, user, group, or backend default grants a policy after authentication. |
-| `Vault_MapsTo` | Auth principal resolves through an alias into canonical Vault identity. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
-## Common Attack-Path Patterns
+### Common Attack-Path Patterns
 
 Auth configuration participates in attack paths in four ways:
 
