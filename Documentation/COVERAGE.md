@@ -17,7 +17,7 @@ This document describes first-class collector coverage. It is not a claim that e
 ## Supported Auth Methods
 
 | Auth Method | Mount config | Child objects | Policy grants | Specialized operations |
-| --- | --- | --- | --- | --- |
+| --- | :---: | --- | :---: | --- |
 | AliCloud | :white_check_mark: | Roles | :white_check_mark: | Login constraints and role management. |
 | AppRole | :white_check_mark: | Roles | :white_check_mark: | RoleID visibility, SecretID generation and destruction. |
 | AWS | :white_check_mark: | Roles | :white_check_mark: | Role tags and AWS-specific login constraints. |

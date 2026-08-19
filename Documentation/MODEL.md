@@ -102,7 +102,7 @@ The collector-generated node ID is graph identity rather than a displayed busine
 ## Base Structural Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Administrative parent | Immediate observed child | :white_check_mark: | Hierarchy and implied control over immediate children. |
 | `Vault_ParentOf` | Parent namespace | Child namespace | :white_check_mark: | Enterprise namespace administration. |
 | `Vault_References` | Configured object | Referenced object | :x: | Non-owning dependency, such as a PKI issuer referencing a key. |
@@ -119,7 +119,7 @@ The collector-generated node ID is graph identity rather than a displayed busine
 Generic edge families reduce visual clutter while preserving subsystem context in properties.
 
 | Edge | Typical target | Traversable | Meaning |
-| --- | --- | --- | --- |
+| --- | --- | :---: | --- |
 | `Vault_ListObjects` | Store, mount, or collection anchor | :x: | Enumerate child objects. |
 | `Vault_CreateObject` | Collection anchor or exact synthetic target | :x: | Create an object without proving control of a concrete observed object. |
 | `Vault_ReadObject` | Concrete object | :x: | Read durable object configuration. |

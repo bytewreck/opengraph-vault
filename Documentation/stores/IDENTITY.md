@@ -14,25 +14,19 @@ flowchart LR
 
 The store is the destination for collection-wide list/create and identity configuration rights. Exact reads and management rights target concrete identity objects.
 
-## Nodes
+## Core Identity
+
+### Nodes
 
 | Node | Description |
 | --- | --- |
+| `Vault_Store` | Namespace-local Identity Store and collection-wide administration anchor. |
 | `Vault_Entity` | Canonical identity with direct policies, effective groups, metadata, aliases, creation time, and update time. |
 | `Vault_EntityAlias` | Auth-mount-specific external name that resolves to a canonical entity. |
 | `Vault_Group` | Internal or external group with policies, member entities, child groups, aliases, and metadata. |
 | `Vault_GroupAlias` | External group name on an auth mount that resolves to a canonical group. |
-| `Vault_OidcApplication` | Outbound OIDC client application configured to trust Vault as an identity provider. |
-| `Vault_OidcKey` | Signing key used by outbound OIDC applications or providers. |
-| `Vault_OidcAssignment` | Assignment object selecting entities or groups that may access applications. |
-| `Vault_OidcProvider` | Outbound OIDC provider configuration where Vault acts as the identity provider. |
-| `Vault_OidcScope` | OIDC scope and claim template exposed by a provider. |
-| `Vault_OidcTokenRole` | Named identity-token signing role. |
-| `Vault_MfaMethod` | Configured MFA method, such as TOTP, Duo, Okta, or PingID. |
-| `Vault_MfaLoginEnforcement` | Rule that applies one or more MFA methods to selected identities or auth surfaces. |
-| `Vault_ScimClient` | Enterprise SCIM client and access-grant configuration. |
 
-## Identity Resolution
+### Edges
 
 Auth-specific principals do not replace canonical Vault identity. Where mount accessor and name correlation are available, they resolve through aliases.
 
@@ -47,7 +41,7 @@ flowchart LR
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_MapsTo` | Auth principal or alias | Alias or canonical identity | :white_check_mark: | Correlates an external representation with Vault identity. |
 | `Vault_OnAuthMethod` | Entity or group alias | Auth method | :x: | Records the mount accessor on which the alias exists. |
 | `Vault_MemberOf` | Entity or child group | Group | :white_check_mark: | Carries policy-bearing membership. |
@@ -69,6 +63,12 @@ Group membership returned by Vault is modeled; VaultHound does not independently
 
 ## Identity Administration
 
+### Nodes
+
+Identity administration introduces no additional durable object kind. It targets the Identity `Vault_Store` for collection-wide operations and the concrete core identity, OIDC, MFA, or SCIM nodes catalogued in their respective sections.
+
+### Edges
+
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ListObjects| store[Identity Store]
@@ -80,7 +80,7 @@ flowchart LR
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_ListObjects` | Policy | Identity Store | :x: | Lists entity, alias, group, OIDC, MFA, or SCIM collections. |
 | `Vault_CreateObject` | Policy | Identity Store or synthetic exact target | :x: | Creates an identity-subsystem object. |
 | `Vault_ReadIdentity` | Policy | Concrete object or Identity Store | :x: | Reads non-secret identity data or a store-native identity surface. |
@@ -147,6 +147,17 @@ This path is emitted only when the authenticated read returns usable secret mate
 
 The outbound OIDC model is distinct from the JWT/OIDC authentication method. Here Vault is the identity provider and applications consume Vault-issued identity tokens.
 
+### Nodes
+
+| Node | Description |
+| --- | --- |
+| `Vault_OidcApplication` | Outbound OIDC client application configured to trust Vault as its identity provider. |
+| `Vault_OidcKey` | Signing key used by an outbound OIDC application, provider, or token role. |
+| `Vault_OidcAssignment` | Assignment selecting entities or groups eligible to access applications. |
+| `Vault_OidcProvider` | Provider configuration through which Vault exposes OIDC authorization and token endpoints. |
+| `Vault_OidcScope` | Named scope and claims template exposed by a provider. |
+| `Vault_OidcTokenRole` | Named role used to generate Vault identity tokens. |
+
 ```mermaid
 flowchart LR
     provider[Vault_OidcProvider] -->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]
@@ -157,8 +168,10 @@ flowchart LR
     entity[Vault_Entity] -->|Vault_OidcAuthenticateTo| app
 ```
 
+### Edges
+
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_OidcAllowsApplication` | Provider | Application | :x: | Provider configuration allows the client application. |
 | `Vault_OidcSupportsScope` | Provider | Scope | :x: | Provider exposes the scope. |
 | `Vault_References` | Application or provider | OIDC key | :x: | Configuration uses the signing key. |
@@ -202,6 +215,13 @@ The path represents the ability to mint a Vault identity token through an observ
 
 ## MFA
 
+### Nodes
+
+| Node | Description |
+| --- | --- |
+| `Vault_MfaMethod` | Configured MFA method, such as TOTP, Duo, Okta, or PingID. |
+| `Vault_MfaLoginEnforcement` | Rule applying one or more MFA methods to selected identities or authentication surfaces. |
+
 ```mermaid
 flowchart LR
     enforcement -->|Vault_MfaAppliesTo| target[Entity, group, or auth method]
@@ -211,8 +231,10 @@ flowchart LR
     policy -->|Vault_PotentialAccess| entity[Vault_Entity]
 ```
 
+### Edges
+
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_MfaUsesMethod` | MFA login enforcement | MFA method | :x: | Records the method required or referenced by the enforcement. |
 | `Vault_MfaAppliesTo` | MFA login enforcement | Entity, group, or auth method | :x: | Records the collected identity or login surface governed by the enforcement. |
 | `Vault_MfaSelfEnroll` | Policy | MFA method | :x: | Permits MFA self-enrollment. |
@@ -238,6 +260,14 @@ MFA topology edges and self-enrollment permissions are non-traversable because c
 
 ## SCIM
 
+### Nodes
+
+| Node | Description |
+| --- | --- |
+| `Vault_ScimClient` | Enterprise SCIM client and access-grant configuration. |
+| `Vault_Entity` | Canonical identity that may act as the SCIM access-grant principal or a managed User resource. |
+| `Vault_Group` | Canonical group that may be managed as a SCIM Group resource. |
+
 ```mermaid
 flowchart LR
     client[Vault_ScimClient] -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]
@@ -248,8 +278,10 @@ flowchart LR
     principal -.->|Vault_PotentialAccess| client
 ```
 
+### Edges
+
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_ScimUsesPrincipal` | SCIM client | Entity | :x: | Identifies the client's configured access-grant principal. |
 | `Vault_ScimManages` | SCIM client | Entity or group | :x: | Records that the resource is owned by that SCIM client. |
 | `Vault_ScimProtocolAccess` | Policy | SCIM client | :x: | Declared ACL access to authenticated SCIM surfaces. |
@@ -276,6 +308,14 @@ SCIM read, protocol, provisioning, ownership, and principal relationships are cu
 ## Template Policies
 
 Identity templates can reference entity fields, an entity alias on a specific accessor, or an identity group by ID. The rendered effective edge originates from the referenced identity representation:
+
+### Nodes
+
+Template resolution introduces no template-specific node kind. It uses an observed `Vault_Entity`, `Vault_EntityAlias`, or `Vault_Group` as the effective source and a concrete node from the destination subsystem as the target.
+
+### Edges
+
+Template resolution introduces no template-only edge kind. The collector emits the destination subsystem's ordinary operation edge and marks it with template and policy-provenance properties.
 
 | Template reference | Effective source |
 | --- | --- |

@@ -391,7 +391,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Display name (cluster_name if available, otherwise API address) |
 | `api_address` | string | :white_check_mark: | Vault API address (e.g., `https://vault.example.com:8200`) |
 | `cluster_name` | string | :x: | Vault cluster name from health endpoint |
@@ -438,7 +438,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Display name (updatable) |
 | `disabled` | boolean | :x: | Whether entity is disabled (tokens blocked but not revoked) |
 | `namespace_id` | string | :x: | Owning namespace ID |
@@ -474,7 +474,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Identity within the auth method (e.g., username, SA email) |
 | `mount_accessor` | string | :x: | Auth method mount accessor UUID |
 | `mount_type` | string | :x: | Auth method type (ldap, kubernetes, approle, etc.) |
@@ -495,7 +495,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Group display name |
 | `type` | string | :x: | "internal" or "external" |
 | `namespace_id` | string | :x: | Owning namespace ID |
@@ -516,7 +516,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | External group name (e.g., LDAP group CN) |
 | `mount_accessor` | string | :x: | Auth method mount accessor UUID |
 | `mount_type` | string | :x: | Auth method type |
@@ -537,7 +537,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Policy name |
 | `type` | string | :x: | "acl", "rgp", or "egp" |
 | `namespace_id` | string | :x: | Owning namespace ID |
@@ -561,7 +561,7 @@ flowchart LR
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Auth method mount path |
 | `accessor` | string | :x: | Mount accessor UUID |
 | `path` | string | :x: | Full mount path (e.g., "auth/ldap/") |
@@ -600,7 +600,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Role name |
 | `auth_accessor` | string | :x: | Parent auth method accessor |
 | `auth_type` | string | :x: | Auth method type |
@@ -621,7 +621,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Secrets engine mount path |
 | `accessor` | string | :x: | Mount accessor UUID |
 | `path` | string | :x: | Full mount path |
@@ -644,7 +644,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Role name |
 | `engine_accessor` | string | :x: | Parent engine accessor |
 | `engine_type` | string | :x: | Secrets engine type |
@@ -664,7 +664,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Namespace path |
 | `namespace_id` | string | :x: | Namespace ID |
 | `path` | string | :x: | Full namespace path |
@@ -685,7 +685,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Provider name |
 | `issuer` | string | :x: | OIDC issuer URL |
 | `allowed_client_ids` | array[string] | :x: | Client IDs permitted to use this provider |
@@ -722,7 +722,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Client name |
 | `client_id` | string | :x: | OIDC client ID (UUID) |
 | `redirect_uris` | array[string] | :x: | Allowed callback URLs |
@@ -762,7 +762,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 **Properties**:
 
 | Property | Type | Required | Description |
-|----------|------|----------|-------------|
+| ---------- | ------ | :---: | ------------- |
 | `name` | string | :white_check_mark: | Assignment name |
 | `entity_ids` | array[string] | :x: | Entity UUIDs authorized for token issuance |
 | `group_ids` | array[string] | :x: | Group UUIDs authorized for token issuance |
@@ -981,7 +981,7 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 ## Edge Type Summary Table
 
 | Edge Kind | Source | Target | Traversable | Description |
-|-----------|--------|--------|-------------|-------------|
+| ----------- | -------- | -------- | :---: | ------------- |
 | `Vault_MemberOf` | Entity/Group | Group | :white_check_mark: | Direct or nested group membership |
 | `Vault_HasAlias` | Entity/Group | EntityAlias/GroupAlias | :x: | Identity owns alias |
 | `Vault_AuthenticatesAs` | EntityAlias | Entity | :white_check_mark: | Alias resolves to entity |

@@ -41,7 +41,7 @@ flowchart LR
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Policy Store | Policy | :white_check_mark: | Observed policy belongs to this namespace registry. |
 | `Vault_LinksPolicy` | Identity or auth configuration object | Policy | :white_check_mark: | Object directly receives or grants the policy. |
 
@@ -58,7 +58,7 @@ flowchart LR
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_ListObjects` | Policy | Policy Store | :x: | Lists policies through modern or legacy collection endpoints. |
 | `Vault_CreateObject` | Policy | Policy Store or synthetic policy | :x: | Creates a policy, preserving policy type and API surface in properties. |
 | `Vault_ReadObject` | Policy | Concrete policy | :x: | Reads policy rules. |

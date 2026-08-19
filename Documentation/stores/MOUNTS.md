@@ -48,7 +48,7 @@ The tables in each engine section list stable properties beyond the common contr
 ## Supported Engines
 
 | Technology | Supported | Tested | Mount Node |
-| --- | --- | --- | --- |
+| --- | :---: | :---: | --- |
 | AWS | :white_check_mark: | :x: | `Vault_SecretsEngineAws` |
 | Azure | :white_check_mark: | :x: | `Vault_SecretsEngineAzure` |
 | Database | :white_check_mark: | :x: | `Vault_SecretsEngineDatabase` |
@@ -89,7 +89,7 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or AWS mount | AWS mount, dynamic role, or static role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | AWS mount | :x: | Reads root, lease, or mount configuration. |
 | `Vault_ManageConfig` | Policy | AWS mount | :x: | Changes root credentials, lease settings, tuning, or performs root rotation. |
@@ -150,7 +150,7 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or Azure mount | Azure mount, dynamic role, or static role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Azure mount | :x: | Reads root, lease, or mount configuration. |
 | `Vault_ManageConfig` | Policy | Azure mount | :x: | Changes Azure backend configuration, tuning, or root credentials. |
@@ -206,7 +206,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or Database mount | Database mount, connection, dynamic role, or static role | :white_check_mark: | Places the mount and observed database resources in the namespace hierarchy. |
 | `Vault_References` | Database role or static role | Database connection | :x: | Records the assigned connection and allowed-role viability evidence. |
 | `Vault_ReadConfig` | Policy | Database mount | :x: | Reads mount or backend-wide configuration. |
@@ -275,7 +275,7 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or GCP mount | GCP mount, roleset, static account, or impersonated account | :white_check_mark: | Places the mount and observed account resources in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | GCP mount | :x: | Reads mount or GCP backend configuration. |
 | `Vault_ManageConfig` | Policy | GCP mount | :x: | Changes GCP backend configuration, tuning, or root credentials. |
@@ -326,7 +326,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or GCP KMS mount | GCP KMS mount or key | :white_check_mark: | Places the mount and observed key registrations in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | GCP KMS mount | :x: | Reads mount or backend configuration. |
 | `Vault_ManageConfig` | Policy | GCP KMS mount | :x: | Changes backend configuration or mount tuning. |
@@ -400,7 +400,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store, KV mount, directory, or file | KV mount, directory, file, or pair | :white_check_mark: | Builds the observed KV path and key-name hierarchy. |
 | `Vault_ReadConfig` | Policy | KV mount | :x: | Reads KV v2 engine configuration. |
 | `Vault_ManageConfig` | Policy | KV mount | :x: | Changes CAS, version retention, or delete-after configuration. |
@@ -476,7 +476,7 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or Kubernetes mount | Kubernetes mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Kubernetes mount | :x: | Reads cluster and backend configuration. |
 | `Vault_ManageConfig` | Policy | Kubernetes mount | :x: | Changes cluster credentials, backend configuration, or mount tuning. |
@@ -529,7 +529,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store, LDAP mount, or library | LDAP mount, role, library, or service account | :white_check_mark: | Places the mount and observed LDAP resources in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | LDAP mount | :x: | Reads LDAP connection, lease, password, or migration configuration. |
 | `Vault_ManageConfig` | Policy | LDAP mount | :x: | Changes backend configuration, rotates root credentials, or manages migration state. |
@@ -594,7 +594,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or PKI mount | PKI mount, role, issuer, or key | :white_check_mark: | Places the mount and observed PKI resources in the namespace hierarchy. |
 | `Vault_References` | PKI issuer or protocol configuration | PKI key or auth dependency | :x: | Records non-owning key and delegated-authentication references. |
 | `Vault_ReadConfig` | Policy | PKI mount | :x: | Reads PKI backend, issuance-protocol, or tidy-status configuration. |
@@ -687,7 +687,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or SSH mount | SSH mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | SSH mount | :x: | Reads authenticated CA, zero-address, or mount configuration. |
 | `Vault_ManageConfig` | Policy | SSH mount | :x: | Changes CA, zero-address, tidy, or mount configuration. |
@@ -744,7 +744,7 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or Terraform Cloud mount | Terraform Cloud mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Terraform Cloud mount | :x: | Reads backend address, token, or mount configuration. |
 | `Vault_ManageConfig` | Policy | Terraform Cloud mount | :x: | Changes backend configuration or mount tuning. |
@@ -791,7 +791,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or TOTP mount | TOTP mount or key | :white_check_mark: | Places the mount and observed key configurations in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | TOTP mount | :x: | Reads mount or backend configuration. |
 | `Vault_ManageConfig` | Policy | TOTP mount | :x: | Changes backend configuration or mount tuning. |
@@ -842,7 +842,7 @@ flowchart LR
 ### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store or Transit mount | Transit mount or key | :white_check_mark: | Places the mount and observed Transit keys in the namespace hierarchy. |
 | `Vault_ManagedBy` | Transit key | Managed key | :x: | Records an external managed key backing the Transit key. |
 | `Vault_ReadConfig` | Policy | Transit mount | :x: | Reads cache or mount configuration. |

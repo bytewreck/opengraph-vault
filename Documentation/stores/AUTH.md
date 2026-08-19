@@ -87,7 +87,7 @@ AppRole SecretID generation and privileged token issuance have their own travers
 ## Supported Auth Methods
 
 | Technology | Supported | Tested | Mount Node |
-| --- | --- | --- | --- |
+| --- | :---: | :---: | --- |
 | AliCloud | :white_check_mark: | :x: | `Vault_AuthMethodAliCloud` |
 | AppRole | :white_check_mark: | :x: | `Vault_AuthMethodApprole` |
 | AWS | :white_check_mark: | :x: | `Vault_AuthMethodAws` |
@@ -131,7 +131,7 @@ Configuration uses `Vault_ReadConfig` and `Vault_ManageConfig`; role CRUD uses g
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or AliCloud method | AliCloud method or role | :white_check_mark: | Places the mount and its observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | AliCloud method | :x: | Reads mount or AliCloud backend configuration. |
 | `Vault_ManageConfig` | Policy | AliCloud method | :x: | Changes mount tuning or AliCloud backend configuration. |
@@ -173,7 +173,7 @@ flowchart LR
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or AppRole method | AppRole method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | AppRole method | :x: | Reads mount or AppRole backend configuration. |
 | `Vault_ManageConfig` | Policy | AppRole method | :x: | Changes mount tuning or AppRole backend configuration. |
@@ -229,7 +229,7 @@ flowchart LR
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or AWS method | AWS method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | AWS method | :x: | Reads mount, client, identity, or endpoint configuration. |
 | `Vault_ManageConfig` | Policy | AWS method | :x: | Changes backend configuration, tuning, or root credentials. |
@@ -274,7 +274,7 @@ Mount-wide tenant, environment, resource, and identity credential settings use g
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or Azure method | Azure method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Azure method | :x: | Reads tenant, environment, resource, or identity configuration. |
 | `Vault_ManageConfig` | Policy | Azure method | :x: | Changes Azure auth configuration or mount tuning. |
@@ -318,7 +318,7 @@ Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObj
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or CF method | CF method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | CF method | :x: | Reads Cloud Foundry trust and API configuration. |
 | `Vault_ManageConfig` | Policy | CF method | :x: | Changes ordinary backend configuration or mount tuning. |
@@ -370,7 +370,7 @@ The collector models Vault's binding configuration but does not independently pr
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or GCP method | GCP method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | GCP method | :x: | Reads GCP auth configuration. |
 | `Vault_ManageConfig` | Policy | GCP method | :x: | Changes GCP auth configuration or mount tuning. |
@@ -416,7 +416,7 @@ User and team CRUD uses generic object edges. External organization membership i
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or GitHub method | GitHub method, user, or team | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | GitHub method | :x: | Reads GitHub organization and backend configuration. |
 | `Vault_ManageConfig` | Policy | GitHub method | :x: | Changes GitHub backend configuration or mount tuning. |
@@ -470,7 +470,7 @@ Mount properties include discovery, verification keys, bound issuer, algorithms,
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or JWT/OIDC method | JWT/OIDC method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | JWT/OIDC method | :x: | Reads discovery, verification-key, issuer, and provider configuration. |
 | `Vault_ManageConfig` | Policy | JWT/OIDC method | :x: | Changes ordinary trust configuration or mount tuning. |
@@ -522,7 +522,7 @@ SPN, keytab, LDAP, case behavior, and token configuration use method properties 
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or Kerberos method | Kerberos method or group | :white_check_mark: | Places the mount and observed group mappings in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Kerberos method | :x: | Reads Kerberos, keytab, and LDAP configuration. |
 | `Vault_ManageConfig` | Policy | Kerberos method | :x: | Changes Kerberos backend configuration or mount tuning. |
@@ -575,7 +575,7 @@ The mount records Kubernetes host, CA, token reviewer, issuer validation, and se
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or Kubernetes method | Kubernetes method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Kubernetes method | :x: | Reads cluster, CA, issuer, and token-reviewer configuration. |
 | `Vault_ManageConfig` | Policy | Kubernetes method | :x: | Changes ordinary backend configuration or mount tuning. |
@@ -630,7 +630,7 @@ Configuration includes URLs, bind DN behavior, user/group search, nested groups,
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or LDAP method | LDAP method, user, or group | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | LDAP method | :x: | Reads connection, bind, search, certificate, and token configuration. |
 | `Vault_ManageConfig` | Policy | LDAP method | :x: | Changes LDAP backend configuration, tuning, or root credentials. |
@@ -687,7 +687,7 @@ VaultHound preserves the configured OCI selectors but does not independently res
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or OCI method | OCI method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | OCI method | :x: | Reads OCI auth configuration. |
 | `Vault_ManageConfig` | Policy | OCI method | :x: | Changes OCI auth configuration or mount tuning. |
@@ -733,7 +733,7 @@ Okta's API token is a write-only configuration input and is not returned by the 
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or Okta method | Okta method, user, or group | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Okta method | :x: | Reads non-secret Okta organization and backend configuration. |
 | `Vault_ManageConfig` | Policy | Okta method | :x: | Changes Okta backend configuration or mount tuning. |
@@ -787,7 +787,7 @@ Server, port, shared-secret-related configuration, NAS settings, and token behav
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or RADIUS method | RADIUS method or user | :white_check_mark: | Places the mount and observed user mappings in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | RADIUS method | :x: | Reads non-secret RADIUS server and NAS configuration. |
 | `Vault_ManageConfig` | Policy | RADIUS method | :x: | Changes RADIUS backend configuration or mount tuning. |
@@ -841,7 +841,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or SAML method | SAML method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_AuthSamlDefaultRole` | SAML method | SAML role | :x: | Identifies the role selected when login omits an explicit role. |
 | `Vault_ReadConfig` | Policy | SAML method | :x: | Reads IdP trust and assertion-routing configuration. |
@@ -897,7 +897,7 @@ Challenge, validation, authentication type, role compatibility, and token policy
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or SCEP method | SCEP method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_References` | PKI mount | SCEP method or role | :x: | Records delegated SCEP authentication selected by PKI configuration. |
 | `Vault_ReadConfig` | Policy | SCEP method | :x: | Reads SCEP authentication configuration. |
@@ -943,7 +943,7 @@ flowchart LR
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or SPIFFE method | SPIFFE method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | SPIFFE method | :x: | Reads trust-domain and bundle configuration. |
 | `Vault_ManageConfig` | Policy | SPIFFE method | :x: | Changes SPIFFE backend configuration or mount tuning. |
@@ -990,7 +990,7 @@ Roles include trusted certificate material, names, DNS/email/URI constraints, or
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or TLS Certificate method | TLS Certificate method, role, or CRL | :white_check_mark: | Places the mount and observed trust objects in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | TLS Certificate method | :x: | Reads backend and mount configuration. |
 | `Vault_ManageConfig` | Policy | TLS Certificate method | :x: | Changes backend configuration or mount tuning. |
@@ -1041,7 +1041,7 @@ flowchart LR
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or Token method | Token method or role | :white_check_mark: | Places the built-in token method and observed token roles in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Token method | :x: | Reads token backend or mount configuration. |
 | `Vault_ManageConfig` | Policy | Token method | :x: | Changes token backend configuration, tuning, or maintenance state. |
@@ -1111,7 +1111,7 @@ Password, policy, and token-setting updates are generic object management. An un
 #### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Auth Store or UserPass method | UserPass method or user | :white_check_mark: | Places the mount and observed users in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | UserPass method | :x: | Reads UserPass backend or mount configuration. |
 | `Vault_ManageConfig` | Policy | UserPass method | :x: | Changes UserPass backend configuration or mount tuning. |

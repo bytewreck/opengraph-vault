@@ -32,7 +32,7 @@ Provider-specific configuration is retained in human-readable properties where p
 ## Containment And References
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Managed Keys Store | Managed key | :white_check_mark: | The observed registration belongs to this namespace. |
 | `Vault_ManagedBy` | Transit key, PKI key, or compatible Vault object | Managed key | :x: | The Vault resource delegates cryptographic operations to the external key. |
 | `Vault_References` | Other configured object | Managed key | :x: | A non-owning configuration reference where managed-key semantics are less specific. |
@@ -51,7 +51,7 @@ flowchart LR
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | :---: | --- |
 | `Vault_ListObjects` | Policy | Managed Keys Store | :x: | Lists registered managed keys. |
 | `Vault_CreateObject` | Policy | Store or synthetic exact key | :x: | Registers a new managed key. |
 | `Vault_ReadObject` | Policy | Concrete managed key | :x: | Reads registration and provider configuration. |
