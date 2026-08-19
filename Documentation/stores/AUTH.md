@@ -109,6 +109,19 @@ flowchart LR
 
 Configuration uses `Vault_ReadConfig` and `Vault_ManageConfig`; role CRUD uses generic object edges. No login edge is emitted because the login endpoint is the unauthenticated authentication surface.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or AliCloud method | AliCloud method or role | Yes | Places the mount and its observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | AliCloud method | No | Reads mount or AliCloud backend configuration. |
+| `Vault_ManageConfig` | Policy | AliCloud method | No | Changes mount tuning or AliCloud backend configuration. |
+| `Vault_ListObjects` | Policy | AliCloud method | No | Lists configured AliCloud roles. |
+| `Vault_CreateObject` | Policy | AliCloud method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | AliCloud role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | AliCloud role | No | Updates or deletes a concrete role. |
+| `Vault_LinksPolicy` | AliCloud role | Policy | Yes | Records policies granted after successful authentication through the role. |
+
 ### Attack Paths
 
 AliCloud roles link the policies granted after a successful external login, but VaultHound emits no policy-to-login attack edge. Role management and mount configuration are non-traversable unless a separate parameter-aware control derivation proves takeover.
@@ -123,12 +136,22 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthApproleRole]
 ```
 
-| Edge | Target | Meaning |
-| --- | --- | --- |
-| `Vault_AuthApproleReadSecretId` | Role | Read SecretID accessor metadata. |
-| `Vault_AuthApproleGenerateSecretId` | Role | Generate a SecretID; traversable only when a usable RoleID is known or independently readable. |
-| `Vault_AuthApproleManageSecretId` | Role | Destroy SecretIDs or accessors. |
-| `Vault_PotentialAccess` | Role | SecretID generation where RoleID availability or another prerequisite is unresolved. |
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or AppRole method | AppRole method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | AppRole method | No | Reads mount or AppRole backend configuration. |
+| `Vault_ManageConfig` | Policy | AppRole method | No | Changes mount tuning or AppRole backend configuration. |
+| `Vault_ListObjects` | Policy | AppRole method | No | Lists AppRole roles. |
+| `Vault_CreateObject` | Policy | AppRole method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | AppRole role | No | Reads role configuration, including RoleID state when available. |
+| `Vault_ManageObject` | Policy | AppRole role | No | Updates or deletes a concrete role. |
+| `Vault_AuthApproleReadSecretId` | Policy | AppRole role | No | Reads SecretID accessor metadata. |
+| `Vault_AuthApproleGenerateSecretId` | Policy | AppRole role | Yes | Generates a SecretID when a usable RoleID is known or independently readable. |
+| `Vault_AuthApproleManageSecretId` | Policy | AppRole role | No | Destroys SecretIDs or SecretID accessors. |
+| `Vault_PotentialAccess` | Policy | AppRole role | No | Records SecretID generation with unresolved RoleID or other prerequisites. |
+| `Vault_LinksPolicy` | AppRole role | Policy | Yes | Records policies granted after successful AppRole authentication. |
 
 RoleID is always required for login. SecretID generation alone is not treated as a complete credential path when RoleID is unavailable.
 
@@ -154,6 +177,20 @@ flowchart LR
 
 `Vault_AuthAwsCreateRoleTag` represents creation of a role tag that can satisfy a login prerequisite; it is not itself a complete AWS login credential. Method configuration records STS and IAM endpoints, client credentials where exposed, and root rotation behavior through generic config edges.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or AWS method | AWS method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | AWS method | No | Reads mount, client, identity, or endpoint configuration. |
+| `Vault_ManageConfig` | Policy | AWS method | No | Changes backend configuration, tuning, or root credentials. |
+| `Vault_ListObjects` | Policy | AWS method | No | Lists AWS auth roles. |
+| `Vault_CreateObject` | Policy | AWS method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | AWS role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | AWS role | No | Updates or deletes a concrete role. |
+| `Vault_AuthAwsCreateRoleTag` | Policy | AWS role | No | Creates a role tag that may satisfy one AWS login prerequisite. |
+| `Vault_LinksPolicy` | AWS role | Policy | Yes | Records policies granted after successful IAM or EC2 authentication. |
+
 ### Attack Paths
 
 AWS auth roles link policies that would be granted after successful IAM or EC2 authentication. `Vault_AuthAwsCreateRoleTag` is non-traversable because the tag is only one login prerequisite. No direct attack path is asserted without a valid AWS identity document or independently resolved identity correlation.
@@ -170,6 +207,19 @@ flowchart LR
 
 Mount-wide tenant, environment, resource, and identity credential settings use generic config edges. VaultHound does not validate Azure workload identity or live tenant state.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or Azure method | Azure method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | Azure method | No | Reads tenant, environment, resource, or identity configuration. |
+| `Vault_ManageConfig` | Policy | Azure method | No | Changes Azure auth configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | Azure method | No | Lists Azure auth roles. |
+| `Vault_CreateObject` | Policy | Azure method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | Azure role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | Azure role | No | Updates or deletes a concrete role. |
+| `Vault_LinksPolicy` | Azure role | Policy | Yes | Records policies granted after successful Azure authentication. |
+
 ### Attack Paths
 
 Azure roles describe login constraints and the policies granted after successful Azure authentication. They are not identity principals and do not map to entity aliases. Reading or managing the role does not prove possession of an Azure workload credential, so no policy-to-login edge is emitted.
@@ -185,6 +235,21 @@ flowchart LR
 ```
 
 Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObject` to each observed CF role. Value-constrained replacement emits `Vault_PotentialAccess`, while writes limited to routing, timeout, or CF API client settings remain ordinary non-traversable configuration management.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or CF method | CF method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | CF method | No | Reads Cloud Foundry trust and API configuration. |
+| `Vault_ManageConfig` | Policy | CF method | No | Changes ordinary backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | CF method | No | Lists Cloud Foundry roles. |
+| `Vault_CreateObject` | Policy | CF method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | CF role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | CF role | No | Updates or deletes a role without proving authentication takeover. |
+| `Vault_ControlObject` | Policy | CF role | Yes | Replaces instance-identity trust with attacker-controlled values compatible with the role. |
+| `Vault_PotentialAccess` | Policy | CF role | No | Records value-constrained trust replacement whose exploitability is unresolved. |
+| `Vault_LinksPolicy` | CF role | Policy | Yes | Records policies granted after successful Cloud Foundry authentication. |
 
 ### Attack Paths
 
@@ -208,6 +273,19 @@ flowchart LR
 
 The collector models Vault's binding configuration but does not independently prove Google Cloud IAM membership or possession of a valid signed identity document.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or GCP method | GCP method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | GCP method | No | Reads GCP auth configuration. |
+| `Vault_ManageConfig` | Policy | GCP method | No | Changes GCP auth configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | GCP method | No | Lists GCP auth roles. |
+| `Vault_CreateObject` | Policy | GCP method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | GCP role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | GCP role | No | Updates or deletes a concrete role. |
+| `Vault_LinksPolicy` | GCP role | Policy | Yes | Records policies granted after successful IAM or GCE authentication. |
+
 ### Attack Paths
 
 GCP roles describe IAM or GCE login constraints and link policies available after successful authentication. They are not identity principals and do not map to entity aliases. Role management alone is not an authentication path.
@@ -224,6 +302,20 @@ flowchart LR
 ```
 
 User and team CRUD uses generic object edges. External organization membership is not independently queried, so mappings describe what Vault grants if GitHub authentication succeeds.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or GitHub method | GitHub method, user, or team | Yes | Places the mount and observed mappings in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | GitHub method | No | Reads GitHub organization and backend configuration. |
+| `Vault_ManageConfig` | Policy | GitHub method | No | Changes GitHub backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | GitHub method | No | Lists GitHub user or team mappings. |
+| `Vault_CreateObject` | Policy | GitHub method or synthetic mapping | No | Creates a user or team mapping. |
+| `Vault_ReadObject` | Policy | GitHub user or team | No | Reads a concrete mapping. |
+| `Vault_ManageObject` | Policy | GitHub user or team | No | Updates or deletes a concrete mapping. |
+| `Vault_MapsTo` | GitHub user or team | Entity Alias or Group Alias | Yes | Correlates a Vault-local GitHub mapping with canonical Vault Identity. |
+| `Vault_LinksPolicy` | GitHub method, user, or team | Policy | Yes | Records method-default or mapping-specific policies granted after login. |
 
 ### Attack Paths
 
@@ -249,6 +341,21 @@ flowchart LR
 
 Mount properties include discovery, verification keys, bound issuer, algorithms, default role, and provider configuration. Roles include role type, audiences, subjects, bound claims, redirect URIs, scopes, claim mappings, groups, and token settings. Unrestricted trust replacement can derive `Vault_ControlObject`; parameter-constrained replacement remains ordinary or potential management.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or JWT/OIDC method | JWT/OIDC method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | JWT/OIDC method | No | Reads discovery, verification-key, issuer, and provider configuration. |
+| `Vault_ManageConfig` | Policy | JWT/OIDC method | No | Changes ordinary trust configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | JWT/OIDC method | No | Lists JWT/OIDC roles. |
+| `Vault_CreateObject` | Policy | JWT/OIDC method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | JWT/OIDC role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | JWT/OIDC role | No | Updates or deletes a role without proving authentication takeover. |
+| `Vault_ControlObject` | Policy | JWT/OIDC role | Yes | Replaces trust or claim-routing values so attacker-controlled assertions can satisfy the role. |
+| `Vault_PotentialAccess` | Policy | JWT/OIDC role | No | Records constrained trust replacement whose exploitability is unresolved. |
+| `Vault_LinksPolicy` | JWT/OIDC role | Policy | Yes | Records policies granted after successful JWT or OIDC authentication. |
+
 ### Attack Paths
 
 ```mermaid
@@ -270,6 +377,20 @@ flowchart LR
 ```
 
 SPN, keytab, LDAP, case behavior, and token configuration use method properties and generic config edges. Group aliases model canonical Vault group resolution after authentication.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or Kerberos method | Kerberos method or group | Yes | Places the mount and observed group mappings in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | Kerberos method | No | Reads Kerberos, keytab, and LDAP configuration. |
+| `Vault_ManageConfig` | Policy | Kerberos method | No | Changes Kerberos backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | Kerberos method | No | Lists Kerberos group mappings. |
+| `Vault_CreateObject` | Policy | Kerberos method or synthetic group | No | Creates a group mapping. |
+| `Vault_ReadObject` | Policy | Kerberos group | No | Reads a concrete group mapping. |
+| `Vault_ManageObject` | Policy | Kerberos group | No | Updates or deletes a concrete group mapping. |
+| `Vault_MapsTo` | Kerberos group | Group Alias | Yes | Correlates a Kerberos mapping with a canonical Vault group alias. |
+| `Vault_LinksPolicy` | Kerberos group | Policy | Yes | Records policies granted through the Kerberos group mapping. |
 
 ### Attack Paths
 
@@ -295,6 +416,21 @@ flowchart LR
 
 The mount records Kubernetes host, CA, token reviewer, issuer validation, and service-account behavior. Replacing unrestricted reviewer or cluster trust can derive control of compatible roles; ordinary role management remains non-traversable.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or Kubernetes method | Kubernetes method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | Kubernetes method | No | Reads cluster, CA, issuer, and token-reviewer configuration. |
+| `Vault_ManageConfig` | Policy | Kubernetes method | No | Changes ordinary backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | Kubernetes method | No | Lists Kubernetes auth roles. |
+| `Vault_CreateObject` | Policy | Kubernetes method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | Kubernetes role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | Kubernetes role | No | Updates or deletes a role without proving authentication takeover. |
+| `Vault_ControlObject` | Policy | Kubernetes role | Yes | Replaces cluster trust or reviewer credentials so an attacker-controlled token can satisfy the role. |
+| `Vault_PotentialAccess` | Policy | Kubernetes role | No | Records constrained trust replacement whose exploitability is unresolved. |
+| `Vault_LinksPolicy` | Kubernetes role | Policy | Yes | Records policies granted after successful Kubernetes authentication. |
+
 ### Attack Paths
 
 ```mermaid
@@ -318,6 +454,21 @@ flowchart LR
 ```
 
 Configuration includes URLs, bind DN behavior, user/group search, nested groups, case sensitivity, certificates, token settings, and root credential rotation. The user/group nodes are mappings known to Vault, not a complete LDAP inventory.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or LDAP method | LDAP method, user, or group | Yes | Places the mount and observed mappings in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | LDAP method | No | Reads connection, bind, search, certificate, and token configuration. |
+| `Vault_ManageConfig` | Policy | LDAP method | No | Changes LDAP backend configuration, tuning, or root credentials. |
+| `Vault_ListObjects` | Policy | LDAP method | No | Lists LDAP user or group mappings. |
+| `Vault_CreateObject` | Policy | LDAP method or synthetic mapping | No | Creates a user or group mapping. |
+| `Vault_ReadObject` | Policy | LDAP user or group | No | Reads a concrete mapping. |
+| `Vault_ManageObject` | Policy | LDAP user or group | No | Updates or deletes a concrete mapping. |
+| `Vault_MemberOf` | LDAP user | LDAP group | Yes | Records group-policy inheritance observed through Vault's LDAP mapping behavior. |
+| `Vault_MapsTo` | LDAP user | Entity Alias | Yes | Correlates a concrete LDAP user mapping with canonical Vault Identity. |
+| `Vault_LinksPolicy` | LDAP method, user, or group | Policy | Yes | Records method-default, user-specific, or group-specific policy grants. |
 
 ### Attack Paths
 
@@ -345,6 +496,19 @@ flowchart LR
 
 VaultHound preserves the configured OCI selectors but does not independently resolve dynamic-group membership or verify signed request credentials.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or OCI method | OCI method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | OCI method | No | Reads OCI auth configuration. |
+| `Vault_ManageConfig` | Policy | OCI method | No | Changes OCI auth configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | OCI method | No | Lists OCI auth roles. |
+| `Vault_CreateObject` | Policy | OCI method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | OCI role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | OCI role | No | Updates or deletes a concrete role. |
+| `Vault_LinksPolicy` | OCI role | Policy | Yes | Records policies granted after successful OCI authentication. |
+
 ### Attack Paths
 
 OCI roles participate in policy-grant and alias-resolution chains after external OCI authentication. No direct login edge is emitted because the collector cannot prove possession of a signed OCI request or group membership.
@@ -361,6 +525,20 @@ flowchart LR
 ```
 
 Okta's API token is a write-only configuration input and is not returned by the configuration read endpoint. Configuration and mapping reads therefore remain non-traversable and do not produce `Vault_ReadCredential`.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or Okta method | Okta method, user, or group | Yes | Places the mount and observed mappings in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | Okta method | No | Reads non-secret Okta organization and backend configuration. |
+| `Vault_ManageConfig` | Policy | Okta method | No | Changes Okta backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | Okta method | No | Lists Okta user or group mappings. |
+| `Vault_CreateObject` | Policy | Okta method or synthetic mapping | No | Creates a user or group mapping. |
+| `Vault_ReadObject` | Policy | Okta user or group | No | Reads a concrete mapping. |
+| `Vault_ManageObject` | Policy | Okta user or group | No | Updates or deletes a concrete mapping. |
+| `Vault_MapsTo` | Okta user or group | Entity Alias or Group Alias | Yes | Correlates a Vault-local Okta mapping with canonical Vault Identity. |
+| `Vault_LinksPolicy` | Okta method, user, or group | Policy | Yes | Records method-default or mapping-specific policies granted after login. |
 
 ### Attack Paths
 
@@ -385,6 +563,20 @@ flowchart LR
 ```
 
 Server, port, shared-secret-related configuration, NAS settings, and token behavior use generic config edges. Login ability is not represented as an ACL edge.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or RADIUS method | RADIUS method or user | Yes | Places the mount and observed user mappings in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | RADIUS method | No | Reads non-secret RADIUS server and NAS configuration. |
+| `Vault_ManageConfig` | Policy | RADIUS method | No | Changes RADIUS backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | RADIUS method | No | Lists RADIUS user mappings. |
+| `Vault_CreateObject` | Policy | RADIUS method or synthetic user | No | Creates a user mapping. |
+| `Vault_ReadObject` | Policy | RADIUS user | No | Reads a concrete user mapping. |
+| `Vault_ManageObject` | Policy | RADIUS user | No | Updates or deletes a concrete user mapping. |
+| `Vault_MapsTo` | RADIUS user | Entity Alias | Yes | Correlates a concrete RADIUS mapping with canonical Vault Identity. |
+| `Vault_LinksPolicy` | RADIUS method or user | Policy | Yes | Records default, unregistered-user-default, or user-specific policy grants. |
 
 ### Attack Paths
 
@@ -411,6 +603,22 @@ flowchart LR
 
 Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, default role, and assertion behavior. Roles capture bound subjects, attributes, group attributes, and policies. Unrestricted trust replacement may derive control of observed roles.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or SAML method | SAML method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_AuthSamlDefaultRole` | SAML method | SAML role | No | Identifies the role selected when login omits an explicit role. |
+| `Vault_ReadConfig` | Policy | SAML method | No | Reads IdP trust and assertion-routing configuration. |
+| `Vault_ManageConfig` | Policy | SAML method | No | Changes ordinary SAML configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | SAML method | No | Lists SAML roles. |
+| `Vault_CreateObject` | Policy | SAML method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | SAML role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | SAML role | No | Updates or deletes a role without proving authentication takeover. |
+| `Vault_ControlObject` | Policy | SAML role | Yes | Replaces IdP trust or routing so attacker-controlled assertions can satisfy the role. |
+| `Vault_PotentialAccess` | Policy | SAML role | No | Records constrained trust replacement whose exploitability is unresolved. |
+| `Vault_LinksPolicy` | SAML role | Policy | Yes | Records policies granted after successful SAML authentication. |
+
 ### Attack Paths
 
 ```mermaid
@@ -435,6 +643,20 @@ flowchart LR
 
 Challenge, validation, authentication type, role compatibility, and token policy properties are collected where Vault returns them. PKI-to-auth dependencies use `Vault_References` with evidence properties instead of separate near-duplicate edge kinds.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or SCEP method | SCEP method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_References` | PKI mount | SCEP method or role | No | Records delegated SCEP authentication selected by PKI configuration. |
+| `Vault_ReadConfig` | Policy | SCEP method | No | Reads SCEP authentication configuration. |
+| `Vault_ManageConfig` | Policy | SCEP method | No | Changes SCEP authentication configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | SCEP method | No | Lists SCEP auth roles. |
+| `Vault_CreateObject` | Policy | SCEP method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | SCEP role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | SCEP role | No | Updates or deletes a concrete role. |
+| `Vault_LinksPolicy` | SCEP role | Policy | Yes | Records policies granted after successful SCEP authentication. |
+
 ### Attack Paths
 
 SCEP configuration and PKI references are non-traversable evidence. VaultHound does not infer enrollment or Vault policy acquisition from the reference alone; a concrete PKI issuance edge must establish the certificate outcome.
@@ -452,6 +674,20 @@ flowchart LR
 
 `Vault_AuthSpiffeMayMatchRole` records observed alias compatibility; it is non-traversable because possession of a currently valid SPIFFE credential is not proven. Trust domain, bundle, workload ID templates, audiences, and token settings are retained.
 
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or SPIFFE method | SPIFFE method or role | Yes | Places the mount and observed roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | SPIFFE method | No | Reads trust-domain and bundle configuration. |
+| `Vault_ManageConfig` | Policy | SPIFFE method | No | Changes SPIFFE backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | SPIFFE method | No | Lists SPIFFE roles. |
+| `Vault_CreateObject` | Policy | SPIFFE method or synthetic role | No | Creates a role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | SPIFFE role | No | Reads a concrete role. |
+| `Vault_ManageObject` | Policy | SPIFFE role | No | Updates or deletes a concrete role. |
+| `Vault_AuthSpiffeMayMatchRole` | Entity Alias | SPIFFE role | No | Records selector compatibility without proving possession of a valid SPIFFE credential. |
+| `Vault_LinksPolicy` | SPIFFE role | Policy | Yes | Records policies granted after successful SPIFFE authentication. |
+
 ### Attack Paths
 
 SPIFFE aliases can resolve into canonical identity through `Vault_MapsTo`, but `Vault_AuthSpiffeMayMatchRole` is not an attack-path hop. It records compatibility only; a valid workload credential is an unresolved external prerequisite.
@@ -468,6 +704,21 @@ flowchart LR
 ```
 
 Roles include trusted certificate material, names, DNS/email/URI constraints, organizational units, extensions, token settings, and OCSP behavior. Unrestricted replacement of trusted material can derive `Vault_ControlObject`; constrained replacement remains management or potential access.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or TLS Certificate method | TLS Certificate method, role, or CRL | Yes | Places the mount and observed trust objects in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | TLS Certificate method | No | Reads backend and mount configuration. |
+| `Vault_ManageConfig` | Policy | TLS Certificate method | No | Changes backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | TLS Certificate method | No | Lists certificate roles or CRLs. |
+| `Vault_CreateObject` | Policy | TLS Certificate method or synthetic object | No | Creates a role or CRL record. |
+| `Vault_ReadObject` | Policy | TLS Certificate role or CRL | No | Reads a concrete trust object. |
+| `Vault_ManageObject` | Policy | TLS Certificate role or CRL | No | Updates or deletes a trust object without proving login takeover. |
+| `Vault_ControlObject` | Policy | TLS Certificate role | Yes | Replaces trusted material or constraints so attacker-controlled certificates can satisfy the role. |
+| `Vault_PotentialAccess` | Policy | TLS Certificate role | No | Records constrained trust replacement whose exploitability is unresolved. |
+| `Vault_LinksPolicy` | TLS Certificate role | Policy | Yes | Records policies granted after successful certificate authentication. |
 
 ### Attack Paths
 
@@ -489,13 +740,23 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthTokenRole]
 ```
 
-| Edge | Target | Meaning |
-| --- | --- | --- |
-| `Vault_AuthTokenReadToken` | Token method or role context | Lookup token or accessor state. |
-| `Vault_AuthTokenCreateRestrictedToken` | Method or role | Create a token constrained to the caller's policy subset; non-traversable. |
-| `Vault_AuthTokenCreatePrivilegedToken` | Concrete role, Policy Store, or entity alias | Create a token with proven policy expansion: delegated role policies, sudo-authorized bare issuance, or a privileged allowed entity alias; traversable. |
-| `Vault_AuthTokenManageToken` | Method or role context | Renew or revoke tokens. |
-| `Vault_AuthTokenListAccessors` | Token method | List token accessors on the sudo-gated endpoint. |
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or Token method | Token method or role | Yes | Places the built-in token method and observed token roles in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | Token method | No | Reads token backend or mount configuration. |
+| `Vault_ManageConfig` | Policy | Token method | No | Changes token backend configuration, tuning, or maintenance state. |
+| `Vault_ListObjects` | Policy | Token method | No | Lists token roles. |
+| `Vault_CreateObject` | Policy | Token method or synthetic role | No | Creates a token role or records authority to create an unobserved role. |
+| `Vault_ReadObject` | Policy | Token role | No | Reads a concrete token role. |
+| `Vault_ManageObject` | Policy | Token role | No | Updates or deletes a concrete token role. |
+| `Vault_AuthTokenReadToken` | Policy | Token method or role context | No | Looks up token or accessor state. |
+| `Vault_AuthTokenCreateRestrictedToken` | Policy | Token method or role | No | Creates a token constrained to the caller's policy subset. |
+| `Vault_AuthTokenCreatePrivilegedToken` | Policy | Token role, Policy Store, or Entity Alias | Yes | Creates a token with proven policy expansion through a role, sudo, or privileged alias. |
+| `Vault_AuthTokenManageToken` | Policy | Token method or role context | No | Renews or revokes tokens. |
+| `Vault_AuthTokenListAccessors` | Policy | Token method | No | Lists token accessors through the sudo-gated endpoint. |
+| `Vault_LinksPolicy` | Token role | Policy | Yes | Records policies delegated by the token role. |
 
 Token roles include allowed/disallowed policies, orphan behavior, renewable state, path suffix, CIDRs, TTLs, periods, explicit maximum TTL, and token type.
 
@@ -532,6 +793,21 @@ flowchart LR
 ```
 
 Password, policy, and token-setting updates are generic object management. An unrestricted password reset derives traversable `Vault_ControlObject` because it allows authentication as the concrete user.
+
+### Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_Contains` | Auth Store or UserPass method | UserPass method or user | Yes | Places the mount and observed users in the namespace hierarchy. |
+| `Vault_ReadConfig` | Policy | UserPass method | No | Reads UserPass backend or mount configuration. |
+| `Vault_ManageConfig` | Policy | UserPass method | No | Changes UserPass backend configuration or mount tuning. |
+| `Vault_ListObjects` | Policy | UserPass method | No | Lists UserPass users. |
+| `Vault_CreateObject` | Policy | UserPass method or synthetic user | No | Creates a user or records authority to create an unobserved user. |
+| `Vault_ReadObject` | Policy | UserPass user | No | Reads a concrete user's non-secret configuration. |
+| `Vault_ManageObject` | Policy | UserPass user | No | Updates policies or token settings without proving account takeover. |
+| `Vault_ControlObject` | Policy | UserPass user | Yes | Sets an attacker-controlled password for the concrete user. |
+| `Vault_MapsTo` | UserPass user | Entity Alias | Yes | Correlates the local user with canonical Vault Identity. |
+| `Vault_LinksPolicy` | UserPass user | Policy | Yes | Records policies configured directly on the user. |
 
 ### Attack Paths
 

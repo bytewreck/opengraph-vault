@@ -47,12 +47,12 @@ flowchart LR
     admin -->|Vault_ManageObject| target
 ```
 
-| Edge | Destination | Meaning |
-| --- | --- | --- |
-| `Vault_ListObjects` | Policy Store | List policies through modern or legacy collection endpoints. |
-| `Vault_CreateObject` | Policy Store or synthetic policy | Create a policy, preserving policy type and API surface in properties. |
-| `Vault_ReadObject` | Concrete policy | Read policy rules. |
-| `Vault_ManageObject` | Concrete policy | Update, patch, or delete policy rules. |
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_ListObjects` | Policy | Policy Store | No | Lists policies through modern or legacy collection endpoints. |
+| `Vault_CreateObject` | Policy | Policy Store or synthetic policy | No | Creates a policy, preserving policy type and API surface in properties. |
+| `Vault_ReadObject` | Policy | Concrete policy | No | Reads policy rules. |
+| `Vault_ManageObject` | Policy | Concrete policy | No | Updates, patches, or deletes policy rules. |
 
 Ordinary policy management is non-traversable. Merely being able to modify a policy does not prove that the caller or an attacker-controlled identity receives it.
 

@@ -41,13 +41,13 @@ flowchart LR
     policy -->|Vault_CanUseManagedKey| managed
 ```
 
-| Edge | Destination | Traversable | Meaning |
-| --- | --- | --- | --- |
-| `Vault_ListObjects` | Managed Keys Store | No | List registered managed keys. |
-| `Vault_CreateObject` | Store or synthetic exact key | No | Register a new managed key. |
-| `Vault_ReadObject` | Concrete managed key | No | Read registration and provider configuration. |
-| `Vault_ManageObject` | Concrete managed key | No | Update or delete the registration where supported. |
-| `Vault_CanUseManagedKey` | Concrete managed key | No | Invoke a managed-key operation through the system endpoint, with mechanisms and operations preserved as properties. |
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_ListObjects` | Policy | Managed Keys Store | No | Lists registered managed keys. |
+| `Vault_CreateObject` | Policy | Store or synthetic exact key | No | Registers a new managed key. |
+| `Vault_ReadObject` | Policy | Concrete managed key | No | Reads registration and provider configuration. |
+| `Vault_ManageObject` | Policy | Concrete managed key | No | Updates or deletes the registration where supported. |
+| `Vault_CanUseManagedKey` | Policy | Concrete managed key | No | Invokes a managed-key operation with mechanisms and operations preserved as properties. |
 
 Managed-key use remains non-traversable by itself because provider mechanisms differ and using a registration does not necessarily reveal or control the external key. Traversable outcomes are represented at the consuming object when the operation is concrete, such as signing or decryption through a compatible Transit key.
 

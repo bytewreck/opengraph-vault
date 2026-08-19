@@ -5,8 +5,8 @@ The Identity Store represents Vault's namespace-local identity subsystem under `
 ```mermaid
 flowchart LR
     namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: IDENTITY]
-    store -->|Vault_Contains| entity[Vault_Entity]
-    store -->|Vault_Contains| group[Vault_Group]
+    store -->|Vault_Contains| entity[Entities]
+    store -->|Vault_Contains| group[Groups]
     store -->|Vault_Contains| oidc[OIDC resources]
     store -->|Vault_Contains| mfa[MFA resources]
     store -->|Vault_Contains| scim[Vault_ScimClient]
@@ -67,19 +67,19 @@ flowchart LR
     controlled -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
-| Edge | Destination | Meaning |
-| --- | --- | --- |
-| `Vault_ListObjects` | Identity Store | List entity, alias, group, OIDC, MFA, or SCIM collections. |
-| `Vault_CreateObject` | Identity Store or synthetic exact target | Create an identity-subsystem object. |
-| `Vault_ReadIdentity` | Concrete object or Identity Store for store-native surfaces | Read non-secret identity data. |
-| `Vault_ReadCredential` | Secret-bearing OIDC or MFA object | Read a returned credential such as a confidential OIDC client secret. |
-| `Vault_ReadObject` | Concrete generic identity object | Read durable configuration through the generic family. |
-| `Vault_ManageObject` | Concrete object | Update or delete ordinary identity configuration. |
-| `Vault_ControlObject` | Concrete entity, alias, group, or trust object | Perform a parameter-aware mutation that proves identity takeover. |
-| `Vault_ReadConfig` | Identity Store | Read subsystem configuration such as OIDC configuration. |
-| `Vault_ManageConfig` | Identity Store | Change subsystem-wide configuration. |
-| `Vault_DenyAccess` | Matching target | Preserve an overriding deny rule. |
-| `Vault_PotentialAccess` | Unresolved target | Record an unproven identity-control or credential outcome. |
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_ListObjects` | Policy | Identity Store | No | Lists entity, alias, group, OIDC, MFA, or SCIM collections. |
+| `Vault_CreateObject` | Policy | Identity Store or synthetic exact target | No | Creates an identity-subsystem object. |
+| `Vault_ReadIdentity` | Policy | Concrete object or Identity Store | No | Reads non-secret identity data or a store-native identity surface. |
+| `Vault_ReadCredential` | Policy | Secret-bearing OIDC or MFA object | Yes | Reads returned credential material such as a confidential OIDC client secret. |
+| `Vault_ReadObject` | Policy | Concrete generic identity object | No | Reads durable configuration through the generic family. |
+| `Vault_ManageObject` | Policy | Concrete identity object | No | Updates or deletes ordinary identity configuration. |
+| `Vault_ControlObject` | Policy | Concrete entity, group, or trust target | Yes | Performs a parameter-aware mutation that proves identity takeover. |
+| `Vault_ReadConfig` | Policy | Identity Store | No | Reads subsystem configuration such as OIDC configuration. |
+| `Vault_ManageConfig` | Policy | Identity Store | No | Changes subsystem-wide configuration. |
+| `Vault_DenyAccess` | Policy | Matching target | No | Preserves an overriding deny rule. |
+| `Vault_PotentialAccess` | Policy or resolved principal | Unresolved target | No | Records an unproven identity-control or credential outcome. |
 
 Creating or managing an object is not automatically traversable. `Vault_ControlObject` is derived only when the controlled parameters establish a concrete takeover mechanism, such as changing canonical alias ownership, adding an attacker-controlled entity to a policy-bearing internal group, or replacing unrestricted trust configuration.
 
@@ -174,13 +174,13 @@ flowchart LR
     policy -->|Vault_PotentialAccess| entity[Vault_Entity]
 ```
 
-| Edge | Meaning |
-| --- | --- |
-| `Vault_MfaUsesMethod` | Login enforcement requires or references an MFA method. |
-| `Vault_MfaAppliesTo` | Enforcement applies to a collected identity or login surface. |
-| `Vault_MfaSelfEnroll` | Policy can perform MFA self-enrollment. |
-| `Vault_MfaGenerateSecret` | Policy can generate enrollment secret material where supported. |
-| `Vault_PotentialAccess` | Administrative TOTP generation can return enrollment material for a request-selected entity, but the enrollment alone does not prove possession of that entity's primary authentication credential. |
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | --- | --- |
+| `Vault_MfaUsesMethod` | MFA login enforcement | MFA method | No | Records the method required or referenced by the enforcement. |
+| `Vault_MfaAppliesTo` | MFA login enforcement | Entity, group, or auth method | No | Records the collected identity or login surface governed by the enforcement. |
+| `Vault_MfaSelfEnroll` | Policy | MFA method | No | Permits MFA self-enrollment. |
+| `Vault_MfaGenerateSecret` | Policy | MFA method | No | Generates enrollment secret material where supported. |
+| `Vault_PotentialAccess` | Policy | Entity or Identity Store | No | Records administrative TOTP enrollment material without proving the entity's primary credential. |
 
 MFA methods and enforcements describe login prerequisites. The collector does not perform enrollment or login challenges.
 
