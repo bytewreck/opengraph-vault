@@ -111,8 +111,12 @@ These links describe the policy outcome after successful external authentication
 
 ```mermaid
 flowchart LR
-    authority[Vault_Policy] -->|Vault_ControlObject| target["Concrete auth user, role, group, or trust target"]
-    target -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    authority[Vault_Policy] -->|Vault_ControlObject| AU[Vault_AuthUser]
+    authority -->|Vault_ControlObject| AG[Vault_AuthGroup]
+    authority -->|Vault_ControlObject| AR[Vault_AuthRole]
+    AU -->|Vault_LinksPolicy| granted[Vault_Policy]
+    AG -->|Vault_LinksPolicy| granted
+    AR -->|Vault_LinksPolicy| granted
 ```
 
 This chain is emitted only when parameter-aware mutation proves takeover of the concrete object and that object has an observed policy link. Ordinary `Vault_ManageObject` and `Vault_ManageConfig` remain non-traversable. Policy-assignment parameters remain evidence on the relevant management or control edge but do not synthesize a direct policy-to-policy relationship.
