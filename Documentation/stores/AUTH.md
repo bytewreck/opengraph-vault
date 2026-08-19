@@ -72,6 +72,7 @@ The tables in each method section list only stable properties beyond the common 
 | --- | --- | --- |
 | Auth method | `Auth Method Types`, backend-specific configuration fields | Identifies the method family and the durable login/trust configuration returned by its API. |
 | Auth role, user, or group | `Policies`, `Token Policies`, `Token Bound CIDRs`, `Token TTL`, `Token Max TTL`, `Token Explicit Max TTL`, `Token No Default Policy`, `Token Num Uses`, `Token Period`, `Token Type`, `Alias Metadata Keys` | Common policy, token, network, and alias behavior shared by auth children. |
+| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct assignments, authentication grants, auth-method defaults, and unregistered-user defaults. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
@@ -301,17 +302,10 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodCf` | `CF API Address`, `CF Username`, `Identity CA Certificates Set`, `Identity CA Certificate Count`, `CF API Trusted Certificates Set`, `CF API Trusted Certificate Count`, `Login Max Seconds Not Before`, `Login Max Seconds Not After`, `CF Timeout`, `Force New Client`, `CF API Mutual TLS Certificate Configured`, `CF API Mutual TLS Key Configured` | Cloud Foundry API and instance-identity trust configuration without exporting private credential material. |
 | `Vault_AuthCfRole` | `Role Name`, `Bound Application IDs`, `Bound Space IDs`, `Bound Organization IDs`, `Bound Instance IDs`, `Bound CIDRs`, `Disable IP Matching`, `Alias Metadata Keys` | Application, organization, space, instance, and network selectors. |
-| `Vault_ControlObject` and `Vault_PotentialAccess` | Common control properties plus role CIDR and identity-certificate requirements | Explains whether trust replacement proves takeover or remains value-constrained. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthCfRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-This path is derived only when configuration and parameter constraints prove that the caller can replace the instance-identity CA trust with attacker-controlled values. Role CIDRs, instance-IP matching, and token-bound CIDRs are retained as requirements on the edge. Ordinary CF configuration access remains non-traversable.
+Cloud Foundry uses the common object-takeover-to-policy path only when configuration and parameter constraints prove that the caller can replace the instance-identity CA trust with attacker-controlled values. Role CIDRs, instance-IP matching, and token-bound CIDRs are retained as requirements on the edge. Ordinary CF configuration access remains non-traversable.
 
 ## GCP
 
@@ -342,7 +336,6 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodGcp` | `Client Email`, `Client ID`, `Private Key ID`, `Project ID`, `IAM Alias`, `IAM Metadata`, `GCE Alias`, `GCE Metadata`, `Service Account Email`, `Identity Token Audience`, `Identity Token TTL`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Custom API Endpoint`, `Custom IAM Endpoint`, `Custom CRM Endpoint`, `Custom Compute Endpoint` | GCP credential identity, alias behavior, rotation, and custom service endpoints. |
 | `Vault_AuthGcpRole` | `Role Name`, `Role Type`, `Role ID`, `Project ID`, `GCE Alias`, `IAM Alias`, `Bound Projects`, `Bound Service Accounts`, `Bound Zones`, `Bound Regions`, `Bound Instance Groups`, `Bound Labels`, `Max JWT Exp`, `Allow GCE Inference`, `Add Group Aliases`, `Login Validation Surface`, `Login Required Fields`, `Alias Metadata Keys` | IAM/GCE selectors, inference behavior, and login validation contract. |
-| GCP edges | None beyond common ACL, object, configuration, and policy-link properties | GCP login prerequisites remain node configuration rather than specialized edge evidence. |
 
 ### Attack Paths
 
@@ -380,19 +373,10 @@ This authentication method does not define any specialized edges.
 | `Vault_AuthMethodGithub` | `Organization`, `Organization ID`, `Base URL`, `Authentication Type`, `Login Requires Scope`, `Login Metadata Fields`, `TTL`, `Max TTL`, `Alias Metadata Keys` | GitHub organization boundary, API location, login requirements, and method-default token behavior. |
 | `Vault_AuthGithubUser` | `Username`, `Policies` | Vault-local user-to-policy mapping. |
 | `Vault_AuthGithubTeam` | `Team Name`, `Policies` | Vault-local team-to-policy mapping. |
-| GitHub mapping edges | `Policy Link Types` and identity-correlation evidence | Distinguishes backend defaults and user/team grants while preserving canonical alias correlation. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    principal["Vault_AuthGithubUser or Vault_AuthGithubTeam"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
-    principal -->|Vault_LinksPolicy| direct[Backend-granted Vault_Policy]
-    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
-    identity -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
-```
-
-The branches expose both policies configured on the GitHub mapping and policies accumulated through canonical Vault Identity. They do not prove control of the GitHub account or membership in the external organization.
+GitHub users and teams follow the common auth-user and auth-group policy-link and identity-correlation paths. These paths expose both policies configured on the GitHub mapping and policies accumulated through canonical Vault Identity. They do not prove control of the GitHub account or membership in the external organization.
 
 ## JWT/OIDC
 
@@ -423,17 +407,10 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodJwtOidc` | `OIDC Discovery URL`, `OIDC Client ID`, `OIDC Response Mode`, `OIDC Response Types`, `Namespace In State`, `JWKS URL`, `JWKS Pair Count`, `JWKS Pair URLs`, `JWT Validation Pubkeys`, `JWT Supported Algs`, `Bound Issuer`, `Default Role`, `Provider Config Keys`, `Fetch Groups`, `OIDC Client Secret Set`, `JWKS CA PEM Set`, `OIDC Discovery CA PEM Set`, `Validation Method`, `Supports Browser Flow`, `Supports Direct JWT Login` | Inbound JWT/OIDC trust roots, browser-flow configuration, and validation mode. |
 | `Vault_AuthJwtOidcRole` | `Role Name`, `Role Type`, `User Claim`, `Groups Claim`, `Bound Subject`, `Bound Audiences`, `Bound Claims`, `Bound Claims Type`, `Claim Mappings`, `Allowed Redirect URIs`, `OIDC Scopes`, `User Claim JSON Pointer`, `Clock Skew Leeway`, `Expiration Leeway`, `Not Before Leeway`, `Verbose OIDC Logging`, `Max Age`, `Validation Method`, `Binding Configuration Valid`, `Login Required Fields`, `Login Optional Fields`, `Supports Browser Flow`, `Supports Direct JWT Login`, `Alias Metadata Keys` | Claim, audience, redirect, timing, and flow constraints used to decide whether a token can satisfy the role. |
-| `Vault_ControlObject` and `Vault_PotentialAccess` | Common control properties plus trust surfaces and role requirements | Records concrete or unresolved replacement of issuer, discovery, verification-key, or claim-routing trust. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthJwtOidcRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-The path requires proof that attacker-controlled issuer, discovery, verification-key, or claim values can satisfy the concrete role. Constrained trust changes produce `Vault_PotentialAccess` or ordinary management instead.
+JWT/OIDC uses the common object-takeover-to-policy path only when attacker-controlled issuer, discovery, verification-key, or claim values can satisfy the concrete role. Constrained trust changes produce `Vault_PotentialAccess` or ordinary management instead.
 
 ## Kerberos
 
@@ -464,19 +441,10 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodKerberos` | `Kerberos Configured`, `LDAP Configured`, `Service Account`, `Add Group Aliases`, `Remove Instance Name`, `LDAP URL`, `LDAP Bind DN`, `Bind Password Set`, `LDAP User DN`, `LDAP Group DN`, `LDAP User Attribute`, `LDAP Group Attribute`, `LDAP UPN Domain`, `Case Sensitive Names`, `Discover DN`, `Anonymous Group Search`, `Deny Null Bind`, `User Filter`, `Group Filter`, `Start TLS`, `TLS Min Version`, `TLS Max Version`, `Insecure TLS`, `Certificate Set`, `Alias Metadata Keys` | Kerberos service behavior and LDAP group-resolution configuration. |
 | `Vault_AuthKerberosGroup` | `Group Name`, `Policies` | Vault-local Kerberos group policy mapping. |
-| Kerberos mapping edges | `Policy Link Types` and identity-correlation evidence | Records direct group grants and optional group-alias correlation. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    principal[Vault_AuthKerberosGroup] -->|Vault_MapsTo| alias[Vault_GroupAlias]
-    principal -->|Vault_LinksPolicy| direct[Backend-granted Vault_Policy]
-    alias -->|Vault_MapsTo| group[Vault_Group]
-    group -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
-```
-
-This shows both the direct policy mapping and the canonical group policy consequence of a correlated Kerberos group. Group-alias correlation is emitted only when the method is configured to add group aliases. The paths do not prove Kerberos credential possession or external directory membership.
+Kerberos groups follow the common auth-group policy-link and identity-correlation paths. Group-alias correlation is emitted only when the method is configured to add group aliases. These paths expose direct group policies and canonical Vault group policies, but do not prove Kerberos credential possession or external directory membership.
 
 ## Kubernetes
 
@@ -511,13 +479,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthKubernetesRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-This requires an unrestricted trust or reviewer replacement that makes an attacker-controlled Kubernetes token satisfy the observed role. Merely editing the role or reading cluster configuration does not create the path.
+Kubernetes uses the common object-takeover-to-policy path only when unrestricted trust or reviewer replacement makes an attacker-controlled Kubernetes token satisfy the observed role. Merely editing the role or reading cluster configuration does not create that path.
 
 ## LDAP
 
@@ -552,21 +514,10 @@ This authentication method does not define any specialized edges.
 | `Vault_AuthMethodLdap` | `LDAP URL`, `LDAP Bind DN`, `Bind Password Set`, `LDAP User DN`, `LDAP Group DN`, `LDAP User Attribute`, `LDAP Group Attribute`, `LDAP UPN Domain`, `Case Sensitive Names`, `Connection Timeout`, `Request Timeout`, `Discover DN`, `Deny Null Bind`, `Anonymous Group Search`, `User Filter`, `Group Filter`, `Username As Alias`, `Dereference Aliases`, `Max Page Size`, `Use Token Groups`, `Enable SAM Account Name Login`, `Start TLS`, `TLS Min Version`, `TLS Max Version`, `Insecure TLS`, `Certificate Set`, `Client TLS Certificate Set`, `Client TLS Key Set`, `Schema`, `Rotation URL`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Alias Metadata Keys` | LDAP connection, search, TLS, alias, schema, and bind-credential rotation configuration. |
 | `Vault_AuthLdapUser` | `Username`, `Policies`, `Groups` | Vault-local LDAP user policy and collected group mapping. |
 | `Vault_AuthLdapGroup` | `Group Name`, `Policies` | Vault-local LDAP group policy mapping. |
-| LDAP mapping edges | `Policy Link Types` and identity-correlation evidence | Records user, group, method-default, membership, and canonical-identity consequences. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    user[Vault_AuthLdapUser] -->|Vault_LinksPolicy| userPolicy[User-granted Vault_Policy]
-    user -->|Vault_MemberOf| authGroup[Vault_AuthLdapGroup]
-    authGroup -->|Vault_LinksPolicy| groupPolicy[Group-granted Vault_Policy]
-    user -->|Vault_MapsTo| alias[Vault_EntityAlias]
-    alias -->|Vault_MapsTo| identity[Vault_Entity]
-    identity -->|Vault_LinksPolicy| identityPolicy[Identity Vault_Policy]
-```
-
-The graph exposes policies configured directly on an LDAP user, inherited from collected LDAP group mappings, and accumulated through the user's canonical Vault Entity. LDAP auth-group records are not correlated to Vault Group Aliases by the collector. The paths do not assert live LDAP credentials or complete directory membership.
+LDAP users and groups follow the common auth-user and auth-group policy-link and identity-correlation paths. `Vault_MemberOf` additionally exposes policies inherited from collected LDAP group mappings. LDAP auth-group records are not correlated to Vault Group Aliases by the collector, and these paths do not assert live LDAP credentials or complete directory membership.
 
 ## OCI
 
@@ -635,19 +586,10 @@ This authentication method does not define any specialized edges.
 | `Vault_AuthMethodOkta` | `Org Name`, `Base URL`, `API Token Status`, `Group Membership Source`, `Bypass Okta MFA`, `Authentication Type`, `Login Metadata Fields`, `Alias Metadata Keys` | Okta organization, API-token presence state, group source, MFA behavior, and login contract. |
 | `Vault_AuthOktaUser` | `Username`, `Policies`, `Groups`, `Membership Evaluation Time` | Vault-local user grant and token-time group evaluation. |
 | `Vault_AuthOktaGroup` | `Group Name`, `Policies` | Vault-local Okta group policy mapping. |
-| Okta mapping edges | `Policy Link Types` and identity-correlation evidence | Records backend defaults, user/group grants, and canonical alias correlation. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    principal["Vault_AuthOktaUser or Vault_AuthOktaGroup"] -->|Vault_MapsTo| alias["Vault_EntityAlias or Vault_GroupAlias"]
-    principal -->|Vault_LinksPolicy| direct[Backend-granted Vault_Policy]
-    alias -->|Vault_MapsTo| identity["Vault_Entity or Vault_Group"]
-    identity -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
-```
-
-The branches expose policies configured on the Okta mapping and policies accumulated through canonical Vault Identity. External Okta authentication and live group membership are not independently proven. Alias correlation records matching Vault Identity aliases without claiming that Vault returned the configured Okta API token.
+Okta users and groups follow the common auth-user and auth-group policy-link and identity-correlation paths. These paths expose policies configured on the Okta mapping and policies accumulated through canonical Vault Identity. External Okta authentication and live group membership are not independently proven. Alias correlation records matching Vault Identity aliases without claiming that Vault returned the configured Okta API token.
 
 ## RADIUS
 
@@ -678,19 +620,10 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodRadius` | `Host`, `Port`, `Secret Set`, `NAS Port`, `NAS Identifier`, `Dictionary Path`, `Dial Timeout`, `Read Timeout`, `Retries`, `Username Template`, `Alias Metadata Keys`, `Unregistered User Policies` | RADIUS server, shared-secret presence, NAS, retry, user-template, and fallback-policy configuration. |
 | `Vault_AuthRadiusUser` | `Username`, `Policies` | Vault-local RADIUS user policy mapping. |
-| RADIUS mapping edges | `Policy Link Types` and identity-correlation evidence | Distinguishes method-default, unregistered-user-default, user-specific, and canonical-identity grants. |
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    user[Vault_AuthRadiusUser] -->|Vault_LinksPolicy| direct[Backend-granted Vault_Policy]
-    user -->|Vault_MapsTo| alias[Vault_EntityAlias]
-    alias -->|Vault_MapsTo| entity[Vault_Entity]
-    entity -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
-```
-
-The branches expose policies configured on the RADIUS user and policies accumulated through canonical Vault Identity. No policy-to-login path is emitted because the RADIUS password exchange is external and unauthenticated from Vault's ACL perspective.
+RADIUS users follow the common auth-user policy-link and identity-correlation paths. These paths expose policies configured on the RADIUS user and policies accumulated through canonical Vault Identity. No policy-to-login path is emitted because the RADIUS password exchange is external and unauthenticated from Vault's ACL perspective.
 
 ## SAML
 
@@ -729,13 +662,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthSamlRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-The edge requires unrestricted attacker-controlled IdP metadata, certificate, or assertion-routing values compatible with the role. Routing-only writes or constrained trust replacement remain non-traversable or potential.
+SAML uses the common object-takeover-to-policy path only when unrestricted attacker-controlled IdP metadata, certificate, or assertion-routing values are compatible with the role. Routing-only writes or constrained trust replacement remain non-traversable or potential.
 
 ## SCEP
 
@@ -848,13 +775,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthTlsCertRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-This requires the ability to replace trusted certificate material or matching constraints with values controlled by the attacker. CRL maintenance and constrained role changes do not automatically confer login ability.
+TLS Certificate auth uses the common object-takeover-to-policy path only when the caller can replace trusted certificate material or matching constraints with attacker-controlled values. CRL maintenance and constrained role changes do not automatically confer login ability.
 
 ## Token
 
@@ -949,16 +870,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-```mermaid
-flowchart LR
-    policyA["Vault_Policy A"] -->|Vault_ControlObject| user[Vault_AuthUserpassUser]
-    user -->|Vault_LinksPolicy| direct[User-granted Vault_Policy]
-    user -->|Vault_MapsTo| alias[Vault_EntityAlias]
-    alias -->|Vault_MapsTo| entity[Vault_Entity]
-    entity -->|Vault_LinksPolicy| inherited[Identity Vault_Policy]
-```
-
-The control edge exists only when Policy A can set an attacker-controlled password for the concrete user. Traversal can reach policies already configured on the UserPass user directly and additional policies through the user's observed identity mapping. Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
+UserPass uses the common object-takeover-to-policy and auth-user identity-correlation paths when a policy can set an attacker-controlled password for the concrete user. Traversal can reach policies already configured on the UserPass user directly and additional policies through the user's observed identity mapping. Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
 
 ## Glob, Synthetic, And Control Behavior
 
