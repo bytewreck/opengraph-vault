@@ -89,18 +89,28 @@ The following nodes define the shared vocabulary used by the store-specific mode
 | `Vault_SecretsRole` | Base kind for role-like secrets-engine resources. |
 | `Vault_ManagedKey` | An Enterprise external KMS or HSM key registration. |
 
+### Base Node Properties
+
+| Applies to | Non-common properties | Meaning |
+| --- | --- | --- |
+| `Vault_Server` | `API Address`, `Instance Hash`, `Version`, `Cluster Name`, `Cluster ID`, `Seal Type`, `HA Enabled` | Identifies the collected Vault endpoint and the cluster and availability metadata returned by health and leader APIs. |
+| `Vault_Namespace` | `Namespace ID`, `Parent Namespace ID`, `Path` | Defines the namespace's stable identity, hierarchy, and request prefix. |
+| `Vault_Store` | `Store Type`, `Path` or `Paths`, `Built In`, `Enterprise` | Identifies which namespace-local registry the anchor represents and whether it is built in or Enterprise-only. Store-specific guides document the concrete paths. |
+
+The collector-generated node ID is graph identity rather than a displayed business property. Backend IDs are retained separately where they are useful for correlation, such as `Entity ID`, `Group ID`, or `Managed Key ID`.
+
 ## Base Structural Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | --- | --- |
-| `Vault_Contains` | Administrative parent | Immediate observed child | Yes | Hierarchy and implied control over immediate children. |
-| `Vault_ParentOf` | Parent namespace | Child namespace | Yes | Enterprise namespace administration. |
-| `Vault_References` | Configured object | Referenced object | No | Non-owning dependency, such as a PKI issuer referencing a key. |
-| `Vault_MemberOf` | Entity or group | Group | Yes | Permission-bearing membership. |
-| `Vault_MapsTo` | External/auth representation | Alias or canonical identity | Yes | Identity correlation and canonical resolution. |
-| `Vault_LinksPolicy` | Identity, auth object, or backend default | Policy | Yes | Direct assignment or configured policy grant. |
-| `Vault_OnAuthMethod` | Alias | Auth method | No | Mount placement for an alias. |
-| `Vault_ManagedBy` | Cryptographic object | Managed key | No | The object delegates cryptographic operations to an external managed key. |
+| `Vault_Contains` | Administrative parent | Immediate observed child | :white_check_mark: | Hierarchy and implied control over immediate children. |
+| `Vault_ParentOf` | Parent namespace | Child namespace | :white_check_mark: | Enterprise namespace administration. |
+| `Vault_References` | Configured object | Referenced object | :x: | Non-owning dependency, such as a PKI issuer referencing a key. |
+| `Vault_MemberOf` | Entity or group | Group | :white_check_mark: | Permission-bearing membership. |
+| `Vault_MapsTo` | External/auth representation | Alias or canonical identity | :white_check_mark: | Identity correlation and canonical resolution. |
+| `Vault_LinksPolicy` | Identity, auth object, or backend default | Policy | :white_check_mark: | Direct assignment or configured policy grant. |
+| `Vault_OnAuthMethod` | Alias | Auth method | :x: | Mount placement for an alias. |
+| `Vault_ManagedBy` | Cryptographic object | Managed key | :x: | The object delegates cryptographic operations to an external managed key. |
 
 `Vault_References` is used where containment would imply ownership. A PKI issuer references its key, and a database role references a connection; neither object contains the other.
 
@@ -110,18 +120,18 @@ Generic edge families reduce visual clutter while preserving subsystem context i
 
 | Edge | Typical target | Traversable | Meaning |
 | --- | --- | --- | --- |
-| `Vault_ListObjects` | Store, mount, or collection anchor | No | Enumerate child objects. |
-| `Vault_CreateObject` | Collection anchor or exact synthetic target | No | Create an object without proving control of a concrete observed object. |
-| `Vault_ReadObject` | Concrete object | No | Read durable object configuration. |
-| `Vault_ManageObject` | Concrete object | No | Update, patch, delete, rotate, or otherwise administer an object. |
-| `Vault_ControlObject` | Concrete identity/auth object | Yes | Perform a proven takeover-capable mutation. |
-| `Vault_ReadConfig` | Store, auth method, or secrets-engine mount | No | Read registry, mount, tuning, or backend configuration. |
-| `Vault_ManageConfig` | Store, auth method, or secrets-engine mount | No | Change configuration, tuning, root credentials, or maintenance state. |
-| `Vault_GenerateCredentials` | Concrete secrets-engine role | Yes | Invoke a viable endpoint that returns usable external credentials. |
-| `Vault_ReadStaticCredentials` | Concrete static role/account | Yes | Read a managed static credential. |
-| `Vault_ReadCredential` | Secret-bearing identity object | Yes | Read returned credential material, such as an OIDC client secret. |
-| `Vault_DenyAccess` | Concrete or anchored target | No | Record an overriding Vault `deny` capability. |
-| `Vault_PotentialAccess` | Unobserved or unresolved target | No | Record a possible outcome whose prerequisites cannot be proven. |
+| `Vault_ListObjects` | Store, mount, or collection anchor | :x: | Enumerate child objects. |
+| `Vault_CreateObject` | Collection anchor or exact synthetic target | :x: | Create an object without proving control of a concrete observed object. |
+| `Vault_ReadObject` | Concrete object | :x: | Read durable object configuration. |
+| `Vault_ManageObject` | Concrete object | :x: | Update, patch, delete, rotate, or otherwise administer an object. |
+| `Vault_ControlObject` | Concrete identity/auth object | :white_check_mark: | Perform a proven takeover-capable mutation. |
+| `Vault_ReadConfig` | Store, auth method, or secrets-engine mount | :x: | Read registry, mount, tuning, or backend configuration. |
+| `Vault_ManageConfig` | Store, auth method, or secrets-engine mount | :x: | Change configuration, tuning, root credentials, or maintenance state. |
+| `Vault_GenerateCredentials` | Concrete secrets-engine role | :white_check_mark: | Invoke a viable endpoint that returns usable external credentials. |
+| `Vault_ReadStaticCredentials` | Concrete static role/account | :white_check_mark: | Read a managed static credential. |
+| `Vault_ReadCredential` | Secret-bearing identity object | :white_check_mark: | Read returned credential material, such as an OIDC client secret. |
+| `Vault_DenyAccess` | Concrete or anchored target | :x: | Record an overriding Vault `deny` capability. |
+| `Vault_PotentialAccess` | Unobserved or unresolved target | :x: | Record a possible outcome whose prerequisites cannot be proven. |
 
 Properties such as `Object Types`, `Auth Method Types`, `Engine Types`, `Role Types`, `Operations`, `Read Targets`, and `Config Targets` retain the meaning removed from generic edge names.
 
@@ -216,22 +226,98 @@ Attack-path examples are therefore located in:
 
 Properties are strings, numbers, booleans, or scalar arrays accepted by BloodHound OpenGraph. Nested Vault objects are serialized as deterministic JSON strings. Null values and null array members are removed; a missing property means unknown, unavailable, or inapplicable rather than false.
 
-Shared relationship properties include:
+Collector keys are normalized for human-readable BloodHound display. Acronyms are preserved deliberately, for example `Entity ID`, `Direct Group IDs`, `Use CSR Subject Alternative Names`, and `Allow IP Subject Alternative Names`. Properties that accumulate evidence from multiple policy paths are arrays. Singular and plural aliases are normalized before output so merged edges do not show duplicate labels.
 
-| Property | Meaning |
-| --- | --- |
-| `Capabilities` | Capabilities relevant to this edge operation. |
-| `Matched Paths` | Concrete or rendered request paths that matched. |
-| `Matched Policy Paths` | Original HCL paths before template rendering. |
-| `Scopes` | Exact, collection, pattern, subtree, mount, or similar scope. |
-| `Surfaces` | Backend API surfaces represented by the edge. |
-| `Operations` | Human-readable actions represented by the edge. |
-| `Requirements` | Preconditions required for success. |
-| `Object Types` | Canonical child families represented by a generic edge. |
-| `Read Targets` | Information returned by a read. |
-| `Config Targets` | Configuration surfaces read or changed. |
+Subsystem guides list every stable non-common property beside the node or edge that emits it. Some Vault APIs are extensible and return plugin- or version-specific fields; those additional fields are exported with humanized labels and are identified as pass-through fields in the relevant subsystem table.
 
-Properties that accumulate evidence from multiple policy paths are arrays. Singular and plural aliases are normalized before output so merged edges do not show duplicate labels.
+### Common Node Properties
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `name` | string | BloodHound primary display and lookup name. |
+| `Path` | string | Vault API or logical resource path. |
+| `Namespace ID` | string | Namespace in which the object was collected. |
+| `Accessor` | string | Stable mount accessor where Vault returns one. |
+| `Auth Accessor` | string | Parent authentication-method accessor for an auth child. |
+| `Engine Accessor` | string | Parent secrets-engine accessor for a mount child. |
+| `Type` | string | Backend or resource type when a more specific label is not available. |
+| `Description` | string | Vault-provided description. |
+| `Synthetic` | boolean | The object was inferred from an exact policy path rather than observed through collection. |
+| `Local` | boolean | The mount or object is local to the current cluster. |
+| `Seal Wrap` | boolean | Seal wrapping is enabled for the mount. |
+| `Default Lease TTL` | integer or string | Default lease TTL returned by Vault. |
+| `Max Lease TTL` | integer or string | Maximum lease TTL returned by Vault. |
+| `Creation Time` | string | Creation timestamp where returned. |
+| `Last Update Time` | string | Last-modification timestamp where returned. |
+
+### ACL Evidence
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Capabilities` | string[] | Only capabilities relevant to the exported edge operation. |
+| `Matched Paths` | string[] | Concrete or template-rendered request paths matched by the rule. |
+| `Matched Policy Paths` | string[] | Original HCL paths before template rendering. |
+| `Scopes` | string[] | Exact, collection, pattern, subtree, mount, or similar target scope. |
+| `Surfaces` | string[] | Backend API surfaces represented by the edge. |
+| `Operations` | string[] | Human-readable actions represented by the edge. |
+| `Requirements` | string[] | Preconditions required for the operation to succeed. |
+
+Capabilities are endpoint-specific. A policy block containing `create`, `read`, `update`, `delete`, `list`, and `sudo` does not cause every emitted edge to carry all six values.
+
+### Generic Object Context
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Object Types` | string[] | Canonical target families such as Role, Key, Connection, or KV Secret. |
+| `Auth Method Types` | string[] | Authentication backend families represented by a generic edge. |
+| `Engine Types` | string[] | Secrets-engine families represented by a generic edge. |
+| `Role Types` | string[] | Dynamic, static, OTP, CA, token, or other role distinctions. |
+| `Read Targets` | string[] | Information returned by a read operation. |
+| `Config Targets` | string[] | Configuration surfaces affected by a read or manage edge. |
+| `Policy Link Types` | string[] | Direct, inherited, role, user, group, or backend-default policy assignment semantics. |
+
+### Derivation And Uncertainty
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Potential Only` | boolean | The outcome remains intentionally non-traversable because a prerequisite or target is unresolved. |
+| `Target Observed` | boolean | The destination was returned by Vault rather than inferred. |
+| `Potential Outcomes` | string[] | Security outcomes that could become available after uncertainty is resolved. |
+| `Resolution Status` | string[] | Reasons the collector cannot assert the full outcome. |
+| `Viable Operations` | string[] | Operations proven compatible with the observed target. |
+| `Operation Requirements` | string[] | Operation-qualified requirements such as CAS or target-state conditions. |
+
+### Identity Templates And Provenance
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Templated` | boolean | The policy path contains a Vault identity template. |
+| `Template Entity Fields` | string[] | Entity attributes referenced by the template. |
+| `Template Alias Fields` | string[] | Alias attributes referenced by the template. |
+| `Template Group IDs` | string[] | Identity groups referenced by ID. |
+| `Resolved Source Types` | string[] | Identity representations used to render the path. |
+| `Resolved For Entity IDs` | string[] | Canonical entities for which the policy was resolved. |
+| `Via Policies` | string[] | Policies contributing to the effective relationship. |
+| `Policy Origins` | string[] | Direct, group-inherited, auth-role, or other policy provenance. |
+| `Policy Bases` | string[] | Vault policy families participating in resolution. |
+| `Inherited From Group IDs` | string[] | Groups through which policy authority was inherited. |
+| `Inherited From Group Names` | string[] | Human-readable names for the inherited group IDs. |
+
+Template-effective edges originate from the identity representation referenced by the template. Group inheritance remains provenance and does not automatically make the group the relationship source.
+
+### Control Context
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Control Methods` | string[] | Proven takeover mechanism, such as password reset or trust replacement. |
+| `Control Parameters` | string[] | Request parameters whose control makes takeover possible. |
+| `Impacts` | string[] | Resulting offensive capability. |
+| `Assignable Policies` | string[] | Concrete policies assignable through the operation. |
+| `Policy Assignment Parameters` | string[] | Request parameters that carry policy names. |
+| `Via Object IDs` | string[] | Intermediate controlled objects providing indirect-control evidence. |
+| `Via Object Names` | string[] | Human-readable names for intermediate controlled objects. |
+
+Policy-assignment properties remain evidence on management, control, and potential-access edges; they do not create a direct policy-to-policy relationship.
 
 ## Sensitive Data Boundary
 

@@ -19,6 +19,16 @@ flowchart LR
 
 ACL policy collection and endpoint-aware ACL resolution are the first-class behavior. Registry paths retained on the store do not imply that every Enterprise policy type is parsed with ACL semantics.
 
+### Properties
+
+| Applies to | Non-common properties | Meaning |
+| --- | --- | --- |
+| Policy `Vault_Store` | `Store Type`, `Paths`, `Built In` | Identifies the policy registry and its modern ACL, legacy ACL, RGP, and EGP API surfaces. |
+| `Vault_Policy` | `Policy Type`, `Is Wildcard`, `Uses Templates`, `Can Manage Audit`, `High Value`, `Paths Summary` | Classifies the policy and summarizes every parsed ACL path and capability set without truncation. |
+| RGP or EGP `Vault_Policy` | `Policy Language`, `Enforcement Level`, `Governed Paths` | Sentinel-specific policy metadata returned by Enterprise endpoints. `Governed Paths` is present for EGP when supplied. |
+
+The collector stores parsed ACL rules internally for edge resolution. Raw secret-bearing request data is not added as a graph property; `Paths Summary` is the human-readable, multi-valued policy view exported to BloodHound.
+
 ## Containment And Assignment
 
 ```mermaid
@@ -32,8 +42,8 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | --- | --- |
-| `Vault_Contains` | Policy Store | Policy | Yes | Observed policy belongs to this namespace registry. |
-| `Vault_LinksPolicy` | Identity or auth configuration object | Policy | Yes | Object directly receives or grants the policy. |
+| `Vault_Contains` | Policy Store | Policy | :white_check_mark: | Observed policy belongs to this namespace registry. |
+| `Vault_LinksPolicy` | Identity or auth configuration object | Policy | :white_check_mark: | Object directly receives or grants the policy. |
 
 `Policy Link Types` distinguishes direct entity assignment, group inheritance, auth-role grant, auth-user grant, auth-group grant, and backend defaults. The edge describes configured policy acquisition; it is not merely a textual reference.
 
@@ -49,12 +59,20 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | --- | --- |
-| `Vault_ListObjects` | Policy | Policy Store | No | Lists policies through modern or legacy collection endpoints. |
-| `Vault_CreateObject` | Policy | Policy Store or synthetic policy | No | Creates a policy, preserving policy type and API surface in properties. |
-| `Vault_ReadObject` | Policy | Concrete policy | No | Reads policy rules. |
-| `Vault_ManageObject` | Policy | Concrete policy | No | Updates, patches, or deletes policy rules. |
+| `Vault_ListObjects` | Policy | Policy Store | :x: | Lists policies through modern or legacy collection endpoints. |
+| `Vault_CreateObject` | Policy | Policy Store or synthetic policy | :x: | Creates a policy, preserving policy type and API surface in properties. |
+| `Vault_ReadObject` | Policy | Concrete policy | :x: | Reads policy rules. |
+| `Vault_ManageObject` | Policy | Concrete policy | :x: | Updates, patches, or deletes policy rules. |
 
 Ordinary policy management is non-traversable. Merely being able to modify a policy does not prove that the caller or an attacker-controlled identity receives it.
+
+### Properties
+
+| Applies to | Non-common properties | Meaning |
+| --- | --- | --- |
+| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct identity assignment, group assignment or inheritance, auth role/user/group grants, and backend defaults. |
+| `Vault_ListObjects`, `Vault_CreateObject`, `Vault_ReadObject`, `Vault_ManageObject` | `Object Types`, `Policy Types`, `Operations`, `Surfaces` | Identifies the policy kind, registry endpoint, and concrete administrative action represented by the generic edge. |
+| `Vault_DenyAccess` | `Capabilities`, `Matched Paths`, `Matched Policy Paths`, `Scopes`, `Surfaces` | Preserves the path and endpoint context of an overriding `deny` rule. |
 
 ### Attack Paths
 

@@ -392,14 +392,14 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Display name (cluster_name if available, otherwise API address) |
-| `api_address` | string | Yes | Vault API address (e.g., `https://vault.example.com:8200`) |
-| `cluster_name` | string | No | Vault cluster name from health endpoint |
-| `cluster_id` | string | No | Vault cluster UUID |
-| `version` | string | No | Vault server version |
-| `seal_type` | string | No | Seal type (e.g., `shamir`, `awskms`, `transit`) |
-| `ha_enabled` | boolean | No | Whether HA mode is enabled |
-| `instance_hash` | string | No | The `{hash}` value (first 8 chars of SHA256 of VAULT_ADDR) |
+| `name` | string | :white_check_mark: | Display name (cluster_name if available, otherwise API address) |
+| `api_address` | string | :white_check_mark: | Vault API address (e.g., `https://vault.example.com:8200`) |
+| `cluster_name` | string | :x: | Vault cluster name from health endpoint |
+| `cluster_id` | string | :x: | Vault cluster UUID |
+| `version` | string | :x: | Vault server version |
+| `seal_type` | string | :x: | Seal type (e.g., `shamir`, `awskms`, `transit`) |
+| `ha_enabled` | boolean | :x: | Whether HA mode is enabled |
+| `instance_hash` | string | :x: | The `{hash}` value (first 8 chars of SHA256 of VAULT_ADDR) |
 
 **API Endpoints**:
 - `GET /v1/sys/health` (unauthenticated) -- provides version, cluster_name, cluster_id, seal status
@@ -439,11 +439,11 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Display name (updatable) |
-| `disabled` | boolean | No | Whether entity is disabled (tokens blocked but not revoked) |
-| `namespace_id` | string | No | Owning namespace ID |
-| `policies` | array[string] | No | Directly assigned policy names |
-| `merged_entity_ids` | array[string] | No | IDs of entities merged into this one |
+| `name` | string | :white_check_mark: | Display name (updatable) |
+| `disabled` | boolean | :x: | Whether entity is disabled (tokens blocked but not revoked) |
+| `namespace_id` | string | :x: | Owning namespace ID |
+| `policies` | array[string] | :x: | Directly assigned policy names |
+| `merged_entity_ids` | array[string] | :x: | IDs of entities merged into this one |
 
 **Relationships**:
 - Outgoing: `Vault_MemberOf` to `Vault_Group`, `Vault_HasPolicy` to `Vault_Policy`, `Vault_HasAlias` to `Vault_EntityAlias`
@@ -475,10 +475,10 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Identity within the auth method (e.g., username, SA email) |
-| `mount_accessor` | string | No | Auth method mount accessor UUID |
-| `mount_type` | string | No | Auth method type (ldap, kubernetes, approle, etc.) |
-| `canonical_id` | string | No | Parent entity UUID |
+| `name` | string | :white_check_mark: | Identity within the auth method (e.g., username, SA email) |
+| `mount_accessor` | string | :x: | Auth method mount accessor UUID |
+| `mount_type` | string | :x: | Auth method type (ldap, kubernetes, approle, etc.) |
+| `canonical_id` | string | :x: | Parent entity UUID |
 
 **Relationships**:
 - Outgoing: `Vault_AuthenticatesAs` to `Vault_Entity`, `Vault_OnAuthMethod` to `Vault_AuthMethod`
@@ -496,10 +496,10 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Group display name |
-| `type` | string | No | "internal" or "external" |
-| `namespace_id` | string | No | Owning namespace ID |
-| `policies` | array[string] | No | Policies granted to all members |
+| `name` | string | :white_check_mark: | Group display name |
+| `type` | string | :x: | "internal" or "external" |
+| `namespace_id` | string | :x: | Owning namespace ID |
+| `policies` | array[string] | :x: | Policies granted to all members |
 
 **Relationships**:
 - Outgoing: `Vault_HasPolicy` to `Vault_Policy`, `Vault_MemberOf` to `Vault_Group` (parent), `Vault_HasAlias` to `Vault_GroupAlias`
@@ -517,10 +517,10 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | External group name (e.g., LDAP group CN) |
-| `mount_accessor` | string | No | Auth method mount accessor UUID |
-| `mount_type` | string | No | Auth method type |
-| `canonical_id` | string | No | Parent group UUID |
+| `name` | string | :white_check_mark: | External group name (e.g., LDAP group CN) |
+| `mount_accessor` | string | :x: | Auth method mount accessor UUID |
+| `mount_type` | string | :x: | Auth method type |
+| `canonical_id` | string | :x: | Parent group UUID |
 
 **Relationships**:
 - Outgoing: `Vault_MapsToGroup` to `Vault_Group`, `Vault_OnAuthMethod` to `Vault_AuthMethod`
@@ -538,13 +538,13 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Policy name |
-| `type` | string | No | "acl", "rgp", or "egp" |
-| `namespace_id` | string | No | Owning namespace ID |
-| `is_wildcard` | boolean | No | True if policy contains path "*" rule |
-| `uses_templates` | boolean | No | True if policy uses identity template syntax |
-| `can_manage_audit` | boolean | No | True if policy grants delete on sys/audit/* |
-| `paths_summary` | string | No | Serialized summary of path rules |
+| `name` | string | :white_check_mark: | Policy name |
+| `type` | string | :x: | "acl", "rgp", or "egp" |
+| `namespace_id` | string | :x: | Owning namespace ID |
+| `is_wildcard` | boolean | :x: | True if policy contains path "*" rule |
+| `uses_templates` | boolean | :x: | True if policy uses identity template syntax |
+| `can_manage_audit` | boolean | :x: | True if policy grants delete on sys/audit/* |
+| `paths_summary` | string | :x: | Serialized summary of path rules |
 
 **Relationships**:
 - Outgoing: `Vault_CanManage` to `Vault_AuthMethod`/`Vault_SecretsEngine`, `Vault_CanReadSecrets` to `Vault_SecretsEngine`, `Vault_CanManagePolicies` to `Vault_Policy`, `Vault_CanManageIdentity` to `Vault_Entity`/`Vault_Group`
@@ -562,19 +562,19 @@ flowchart LR
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Auth method mount path |
-| `accessor` | string | No | Mount accessor UUID |
-| `path` | string | No | Full mount path (e.g., "auth/ldap/") |
-| `type` | string | No | Auth method type |
-| `description` | string | No | Mount description |
-| `namespace_id` | string | No | Owning namespace ID |
-| `ldap_url` | string | No | LDAP server URL(s) — identifies AD domain controller(s) (only when type=ldap) |
-| `ldap_binddn` | string | No | Service account DN for LDAP queries (only when type=ldap) |
-| `ldap_userdn` | string | No | User search base DN — maps to AD OU (only when type=ldap) |
-| `ldap_groupdn` | string | No | Group search base DN — maps to AD OU (only when type=ldap) |
-| `ldap_userattr` | string | No | User matching attribute, e.g., sAMAccountName, cn, uid (only when type=ldap) |
-| `ldap_groupattr` | string | No | Group name attribute, e.g., cn, memberOf (only when type=ldap) |
-| `ldap_upndomain` | string | No | UPN domain — AD domain identifier (only when type=ldap) |
+| `name` | string | :white_check_mark: | Auth method mount path |
+| `accessor` | string | :x: | Mount accessor UUID |
+| `path` | string | :x: | Full mount path (e.g., "auth/ldap/") |
+| `type` | string | :x: | Auth method type |
+| `description` | string | :x: | Mount description |
+| `namespace_id` | string | :x: | Owning namespace ID |
+| `ldap_url` | string | :x: | LDAP server URL(s) — identifies AD domain controller(s) (only when type=ldap) |
+| `ldap_binddn` | string | :x: | Service account DN for LDAP queries (only when type=ldap) |
+| `ldap_userdn` | string | :x: | User search base DN — maps to AD OU (only when type=ldap) |
+| `ldap_groupdn` | string | :x: | Group search base DN — maps to AD OU (only when type=ldap) |
+| `ldap_userattr` | string | :x: | User matching attribute, e.g., sAMAccountName, cn, uid (only when type=ldap) |
+| `ldap_groupattr` | string | :x: | Group name attribute, e.g., cn, memberOf (only when type=ldap) |
+| `ldap_upndomain` | string | :x: | UPN domain — AD domain identifier (only when type=ldap) |
 
 **Cross-Environment Correlation (LDAP)**:
 
@@ -601,10 +601,10 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Role name |
-| `auth_accessor` | string | No | Parent auth method accessor |
-| `auth_type` | string | No | Auth method type |
-| `token_policies` | array[string] | No | Policies attached to tokens |
+| `name` | string | :white_check_mark: | Role name |
+| `auth_accessor` | string | :x: | Parent auth method accessor |
+| `auth_type` | string | :x: | Auth method type |
+| `token_policies` | array[string] | :x: | Policies attached to tokens |
 
 **Relationships**:
 - Outgoing: `Vault_AuthRoleGrantsPolicy` to `Vault_Policy`
@@ -622,12 +622,12 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Secrets engine mount path |
-| `accessor` | string | No | Mount accessor UUID |
-| `path` | string | No | Full mount path |
-| `type` | string | No | Secrets engine type |
-| `description` | string | No | Mount description |
-| `namespace_id` | string | No | Owning namespace ID |
+| `name` | string | :white_check_mark: | Secrets engine mount path |
+| `accessor` | string | :x: | Mount accessor UUID |
+| `path` | string | :x: | Full mount path |
+| `type` | string | :x: | Secrets engine type |
+| `description` | string | :x: | Mount description |
+| `namespace_id` | string | :x: | Owning namespace ID |
 
 **Relationships**:
 - Outgoing: `Vault_HasSecretsRole` to `Vault_SecretsRole`
@@ -645,10 +645,10 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Role name |
-| `engine_accessor` | string | No | Parent engine accessor |
-| `engine_type` | string | No | Secrets engine type |
-| `credential_type` | string | No | Type of credential generated |
+| `name` | string | :white_check_mark: | Role name |
+| `engine_accessor` | string | :x: | Parent engine accessor |
+| `engine_type` | string | :x: | Secrets engine type |
+| `credential_type` | string | :x: | Type of credential generated |
 
 **Relationships**:
 - Incoming: `Vault_HasSecretsRole` from `Vault_SecretsEngine`, `Vault_Contains` from `Vault_Namespace`
@@ -665,10 +665,10 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Namespace path |
-| `namespace_id` | string | No | Namespace ID |
-| `path` | string | No | Full namespace path |
-| `parent_namespace_id` | string | No | Parent namespace ID |
+| `name` | string | :white_check_mark: | Namespace path |
+| `namespace_id` | string | :x: | Namespace ID |
+| `path` | string | :x: | Full namespace path |
+| `parent_namespace_id` | string | :x: | Parent namespace ID |
 
 **Relationships**:
 - Outgoing: `Vault_ParentOf` to `Vault_Namespace`, `Vault_Contains` to all non-Server/Namespace node types (Entity, Group, EntityAlias, GroupAlias, AuthMethod, AuthRole, SecretsEngine, SecretsRole, Policy, OIDCProvider, OIDCClient, OIDCAssignment)
@@ -686,11 +686,11 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Provider name |
-| `issuer` | string | No | OIDC issuer URL |
-| `allowed_client_ids` | array[string] | No | Client IDs permitted to use this provider |
-| `scopes_supported` | array[string] | No | Supported OIDC scopes |
-| `namespace_id` | string | No | Owning namespace ID |
+| `name` | string | :white_check_mark: | Provider name |
+| `issuer` | string | :x: | OIDC issuer URL |
+| `allowed_client_ids` | array[string] | :x: | Client IDs permitted to use this provider |
+| `scopes_supported` | array[string] | :x: | Supported OIDC scopes |
+| `namespace_id` | string | :x: | Owning namespace ID |
 
 **Relationships**:
 - Outgoing: `Vault_HasOIDCClient` to `Vault_OIDCClient`
@@ -723,13 +723,13 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Client name |
-| `client_id` | string | No | OIDC client ID (UUID) |
-| `redirect_uris` | array[string] | No | Allowed callback URLs |
-| `assignments` | array[string] | No | Assignment names controlling token issuance |
-| `key` | string | No | Named key used for signing |
-| `client_type` | string | No | "confidential" or "public" |
-| `namespace_id` | string | No | Owning namespace ID |
+| `name` | string | :white_check_mark: | Client name |
+| `client_id` | string | :x: | OIDC client ID (UUID) |
+| `redirect_uris` | array[string] | :x: | Allowed callback URLs |
+| `assignments` | array[string] | :x: | Assignment names controlling token issuance |
+| `key` | string | :x: | Named key used for signing |
+| `client_type` | string | :x: | "confidential" or "public" |
+| `namespace_id` | string | :x: | Owning namespace ID |
 
 **Relationships**:
 - Incoming: `Vault_HasOIDCClient` from `Vault_OIDCProvider`, `Vault_GrantsOIDCAccess` from `Vault_OIDCAssignment`, `Vault_Contains` from `Vault_Namespace`, `Vault_CanManageIdentity` from `Vault_Policy`
@@ -763,10 +763,10 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Property | Type | Required | Description |
 |----------|------|----------|-------------|
-| `name` | string | Yes | Assignment name |
-| `entity_ids` | array[string] | No | Entity UUIDs authorized for token issuance |
-| `group_ids` | array[string] | No | Group UUIDs authorized for token issuance |
-| `namespace_id` | string | No | Owning namespace ID |
+| `name` | string | :white_check_mark: | Assignment name |
+| `entity_ids` | array[string] | :x: | Entity UUIDs authorized for token issuance |
+| `group_ids` | array[string] | :x: | Group UUIDs authorized for token issuance |
+| `namespace_id` | string | :x: | Owning namespace ID |
 
 **Relationships**:
 - Outgoing: `Vault_GrantsOIDCAccess` to `Vault_OIDCClient`
@@ -982,24 +982,24 @@ When both AD and Vault data are ingested into BloodHound, the LDAP properties on
 
 | Edge Kind | Source | Target | Traversable | Description |
 |-----------|--------|--------|-------------|-------------|
-| `Vault_MemberOf` | Entity/Group | Group | Yes | Direct or nested group membership |
-| `Vault_HasAlias` | Entity/Group | EntityAlias/GroupAlias | No | Identity owns alias |
-| `Vault_AuthenticatesAs` | EntityAlias | Entity | Yes | Alias resolves to entity |
-| `Vault_OnAuthMethod` | EntityAlias/GroupAlias | AuthMethod | No | Alias bound to mount |
-| `Vault_MapsToGroup` | GroupAlias | Group | Yes | External sync to group |
-| `Vault_HasPolicy` | Entity/Group | Policy | Yes | Direct policy assignment |
-| `Vault_AuthRoleGrantsPolicy` | AuthRole | Policy | Yes | Auth role grants policy |
-| `Vault_HasRole` | AuthMethod | AuthRole | No | Mount contains role |
-| `Vault_HasSecretsRole` | SecretsEngine | SecretsRole | No | Engine contains role |
-| `Vault_ParentOf` | Namespace | Namespace | Yes | Parent namespace authority |
-| `Vault_Contains` | Server/Namespace | Namespace/Entity/Group/EntityAlias/GroupAlias/AuthMethod/AuthRole/SecretsEngine/SecretsRole/Policy/OIDCProvider/OIDCClient/OIDCAssignment | No | Server-to-namespace and namespace containment |
-| `Vault_CanManage` | Policy | AuthMethod/SE | Yes | Management access |
-| `Vault_CanReadSecrets` | Policy | SecretsEngine | Yes | Secret read access |
-| `Vault_CanManagePolicies` | Policy | Policy | Yes | Policy write escalation |
-| `Vault_CanManageIdentity` | Policy | Entity/Group/OIDC | Yes | Identity manipulation |
-| `Vault_AssignedTo` | Entity/Group | OIDCAssignment | Yes | OIDC assignment membership |
-| `Vault_GrantsOIDCAccess` | OIDCAssignment | OIDCClient | Yes | OIDC token issuance authorization |
-| `Vault_HasOIDCClient` | OIDCProvider | OIDCClient | No | Provider-client registration |
+| `Vault_MemberOf` | Entity/Group | Group | :white_check_mark: | Direct or nested group membership |
+| `Vault_HasAlias` | Entity/Group | EntityAlias/GroupAlias | :x: | Identity owns alias |
+| `Vault_AuthenticatesAs` | EntityAlias | Entity | :white_check_mark: | Alias resolves to entity |
+| `Vault_OnAuthMethod` | EntityAlias/GroupAlias | AuthMethod | :x: | Alias bound to mount |
+| `Vault_MapsToGroup` | GroupAlias | Group | :white_check_mark: | External sync to group |
+| `Vault_HasPolicy` | Entity/Group | Policy | :white_check_mark: | Direct policy assignment |
+| `Vault_AuthRoleGrantsPolicy` | AuthRole | Policy | :white_check_mark: | Auth role grants policy |
+| `Vault_HasRole` | AuthMethod | AuthRole | :x: | Mount contains role |
+| `Vault_HasSecretsRole` | SecretsEngine | SecretsRole | :x: | Engine contains role |
+| `Vault_ParentOf` | Namespace | Namespace | :white_check_mark: | Parent namespace authority |
+| `Vault_Contains` | Server/Namespace | Namespace/Entity/Group/EntityAlias/GroupAlias/AuthMethod/AuthRole/SecretsEngine/SecretsRole/Policy/OIDCProvider/OIDCClient/OIDCAssignment | :x: | Server-to-namespace and namespace containment |
+| `Vault_CanManage` | Policy | AuthMethod/SE | :white_check_mark: | Management access |
+| `Vault_CanReadSecrets` | Policy | SecretsEngine | :white_check_mark: | Secret read access |
+| `Vault_CanManagePolicies` | Policy | Policy | :white_check_mark: | Policy write escalation |
+| `Vault_CanManageIdentity` | Policy | Entity/Group/OIDC | :white_check_mark: | Identity manipulation |
+| `Vault_AssignedTo` | Entity/Group | OIDCAssignment | :white_check_mark: | OIDC assignment membership |
+| `Vault_GrantsOIDCAccess` | OIDCAssignment | OIDCClient | :white_check_mark: | OIDC token issuance authorization |
+| `Vault_HasOIDCClient` | OIDCProvider | OIDCClient | :x: | Provider-client registration |
 
 ---
 

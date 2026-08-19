@@ -18,28 +18,28 @@ This document describes first-class collector coverage. It is not a claim that e
 
 | Auth Method | Mount config | Child objects | Policy grants | Specialized operations |
 | --- | --- | --- | --- | --- |
-| AliCloud | Yes | Roles | Yes | Login constraints and role management. |
-| AppRole | Yes | Roles | Yes | RoleID visibility, SecretID generation and destruction. |
-| AWS | Yes | Roles | Yes | Role tags and AWS-specific login constraints. |
-| Azure | Yes | Roles | Yes | Azure identity-bound role configuration. |
-| Cloud Foundry | Yes | Roles | Yes | CF certificate and organization/space constraints. |
-| GitHub | Yes | Users, teams | Yes | User/team mappings and organization configuration. |
-| GCP | Yes | Roles | Yes | IAM/GCE role types and bound service identities. |
-| JWT/OIDC | Yes | Roles | Yes | JWT/OIDC trust, claims, audiences, redirect URIs, role modes. |
-| Kerberos | Yes | Groups | Yes | LDAP/Kerberos config and generated group aliases. |
-| Kubernetes | Yes | Roles | Yes | Service account, namespace, audience, and token-review trust. |
-| LDAP | Yes | Users, groups | Yes | User/group mappings, LDAP config, root rotation. |
-| OCI | Yes | Roles | Yes | OCI group and dynamic-group constraints. |
-| Okta | Yes | Users, groups | Yes | User/group mappings and Okta API configuration. |
-| RADIUS | Yes | Users | Yes | User policy mappings and RADIUS configuration. |
-| SAML | Yes | Roles | Yes | Assertion trust, subjects, attributes, and default role. |
-| SCEP | Yes | Roles | Yes | Static-challenge and Intune enrollment authentication. |
-| SPIFFE | Yes | Roles | Yes | JWT/X.509 SVID trust, workload patterns, alias matching. |
-| TLS Certificate | Yes | Certificate roles, CRLs | Yes | Trusted certificates, constraints, and CRL management. |
-| Token | Yes | Token roles | Yes | Lookup, accessor listing, restricted/privileged creation, renewal/revocation. |
-| UserPass | Yes | Users | Yes | User creation, password/policy management, alias correlation. |
+| AliCloud | :white_check_mark: | Roles | :white_check_mark: | Login constraints and role management. |
+| AppRole | :white_check_mark: | Roles | :white_check_mark: | RoleID visibility, SecretID generation and destruction. |
+| AWS | :white_check_mark: | Roles | :white_check_mark: | Role tags and AWS-specific login constraints. |
+| Azure | :white_check_mark: | Roles | :white_check_mark: | Azure identity-bound role configuration. |
+| Cloud Foundry | :white_check_mark: | Roles | :white_check_mark: | CF certificate and organization/space constraints. |
+| GitHub | :white_check_mark: | Users, teams | :white_check_mark: | User/team mappings and organization configuration. |
+| GCP | :white_check_mark: | Roles | :white_check_mark: | IAM/GCE role types and bound service identities. |
+| JWT/OIDC | :white_check_mark: | Roles | :white_check_mark: | JWT/OIDC trust, claims, audiences, redirect URIs, role modes. |
+| Kerberos | :white_check_mark: | Groups | :white_check_mark: | LDAP/Kerberos config and generated group aliases. |
+| Kubernetes | :white_check_mark: | Roles | :white_check_mark: | Service account, namespace, audience, and token-review trust. |
+| LDAP | :white_check_mark: | Users, groups | :white_check_mark: | User/group mappings, LDAP config, root rotation. |
+| OCI | :white_check_mark: | Roles | :white_check_mark: | OCI group and dynamic-group constraints. |
+| Okta | :white_check_mark: | Users, groups | :white_check_mark: | User/group mappings and Okta API configuration. |
+| RADIUS | :white_check_mark: | Users | :white_check_mark: | User policy mappings and RADIUS configuration. |
+| SAML | :white_check_mark: | Roles | :white_check_mark: | Assertion trust, subjects, attributes, and default role. |
+| SCEP | :white_check_mark: | Roles | :white_check_mark: | Static-challenge and Intune enrollment authentication. |
+| SPIFFE | :white_check_mark: | Roles | :white_check_mark: | JWT/X.509 SVID trust, workload patterns, alias matching. |
+| TLS Certificate | :white_check_mark: | Certificate roles, CRLs | :white_check_mark: | Trusted certificates, constraints, and CRL management. |
+| Token | :white_check_mark: | Token roles | :white_check_mark: | Lookup, accessor listing, restricted/privileged creation, renewal/revocation. |
+| UserPass | :white_check_mark: | Users | :white_check_mark: | User creation, password/policy management, alias correlation. |
 
-See [auth-methods/README.md](auth-methods/README.md) for endpoint and edge behavior.
+See the [Auth Store guide](stores/AUTH.md) for endpoint, property, and edge behavior.
 
 ## Supported Secrets Engines
 
@@ -59,7 +59,7 @@ See [auth-methods/README.md](auth-methods/README.md) for endpoint and edge behav
 | TOTP | Engine configuration | TOTP keys | Generate and validate TOTP codes. |
 | Transit | Engine configuration | Transit keys | Encrypt/decrypt, datakey, rewrap, sign, MAC, verify, export. |
 
-See [secrets-engines/README.md](secrets-engines/README.md) for resource and policy mappings.
+See the [Mount Store guide](stores/MOUNTS.md) for resource, property, and policy mappings.
 
 ## Unsupported Secrets Engines
 

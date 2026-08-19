@@ -19,7 +19,6 @@ VaultHound translates HashiCorp Vault configuration and ACL policy into a BloodH
 | --- | --- |
 | [Collection and Output](COLLECTION.md) | Collector phases, API behavior, output format, and validation workflow. |
 | [Generated Schema Reference](SCHEMA.md) | Complete node and relationship registry generated from `schema.json` and collector endpoint mappings. |
-| [Cypher Queries](examples/cypher-queries.md) | Queries for exploring VaultHound data in BloodHound. |
 
 `SCHEMA.md` is generated and should not be edited by hand:
 
