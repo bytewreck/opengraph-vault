@@ -36,9 +36,9 @@ Auth configuration participates in attack paths in four ways:
 flowchart LR
     AU[Vault_AuthUser] -->|Vault_MapsTo| EA[Vault_EntityAlias]
     EA -->|Vault_MapsTo| VE[Vault_Entity]
+    AU -->|Vault_LinksPolicy| P1[Vault_Policy]
     AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
     GA -->|Vault_MapsTo| VG[Vault_Group]
-    AU -->|Vault_LinksPolicy| P1[Vault_Policy]
     AG -->|Vault_LinksPolicy| P1
     VE -->|Vault_LinksPolicy| P2[Vault_Policy]
     VG -->|Vault_LinksPolicy| P2
