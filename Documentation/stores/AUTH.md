@@ -475,7 +475,6 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodKubernetes` | `Kubernetes Host`, `Kubernetes CA Cert Set`, `PEM Keys Set`, `Token Reviewer JWT Set`, `Disable Local CA JWT`, `Disable ISS Validation`, `Use Annotations As Alias Metadata`, `Issuer`, `Kubernetes CA Source`, `Token Reviewer Source` | Cluster trust, issuer validation, reviewer credentials, and fallback sources. |
 | `Vault_AuthKubernetesRole` | `Role Name`, `Bound Service Account Names`, `Bound Service Account Namespaces`, `Bound Service Account Namespace Selector`, `Audience`, `Alias Name Source`, `Namespace Binding Mode`, `TTL`, `Max TTL`, `Period`, `Binding Configuration Valid`, `Login Required Fields`, `Kubernetes Identity Surface`, `Alias Metadata Keys` | Service-account, namespace, audience, alias, and token constraints. |
-| `Vault_ControlObject` and `Vault_PotentialAccess` | Common control properties plus reviewer, CA, issuer, and role-compatibility requirements | Explains whether cluster-trust replacement proves role takeover. |
 
 ### Attack Paths
 
@@ -489,8 +488,8 @@ LDAP auth models Vault-local LDAP user and group mappings plus mount connection 
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodLdap]
     method -->|Vault_Contains| user[Vault_AuthLdapUser]
-    method -->|Vault_Contains| group[Vault_AuthLdapGroup]
-    user -->|Vault_MemberOf| group
+    user -->|Vault_MemberOf| group[Vault_AuthLdapGroup]
+    method -->|Vault_Contains| group
 ```
 
 Configuration includes URLs, bind DN behavior, user/group search, nested groups, case sensitivity, certificates, token settings, and root credential rotation. The user/group nodes are mappings known to Vault, not a complete LDAP inventory.
