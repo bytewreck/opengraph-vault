@@ -55,6 +55,16 @@ flowchart LR
     method -->|Vault_Contains| C[Vault_AuthGroup]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH root = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthRole)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthUser)
+OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthGroup)
+RETURN root, roles, users, groups
+```
+
 Specific mounts carry their specific kind first and `Vault_AuthMethod` second. Child records use `Vault_AuthRole`, `Vault_AuthUser`, or `Vault_AuthGroup` as a base kind where applicable. Per-method layout diagrams are structural: policy grants, identity correlation, administrative access, and security outcomes appear in the relevant tables, prose, and attack-path sections instead. Only concrete auth users and groups supported by the collector's alias-correlation logic use `Vault_MapsTo`; auth roles are login selectors rather than identity representations.
 
 ### Common Nodes
@@ -112,6 +122,13 @@ flowchart LR
     method -->|Vault_LinksPolicy| policy[Vault_Policy]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(:Vault_AuthMethod)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+```
+
 | Auth Methods | Policy Link Type | Meaning |
 | --- | --- | --- |
 | GitHub, LDAP, Okta, RADIUS, and Kerberos | `Auth Method Default` | Policy configured as a method-wide login default. For Kerberos, this comes from the LDAP authorization configuration. |
@@ -135,6 +152,40 @@ flowchart LR
     AU -->|Vault_MemberOf| AG
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_AuthUser)-[:Vault_MapsTo]->(:Vault_EntityAlias)
+RETURN p
+UNION
+MATCH p = (:Vault_EntityAlias)-[:Vault_MapsTo]->(:Vault_Entity)
+RETURN p
+UNION
+MATCH p = (:Vault_AuthUser)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_AuthRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_AuthGroup)-[:Vault_MapsTo]->(:Vault_GroupAlias)
+RETURN p
+UNION
+MATCH p = (:Vault_GroupAlias)-[:Vault_MapsTo]->(:Vault_Group)
+RETURN p
+UNION
+MATCH p = (:Vault_AuthGroup)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_Entity)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_Group)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_AuthUser)-[:Vault_MemberOf]->(:Vault_AuthGroup)
+RETURN p
+```
+
 The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
 
 ```mermaid
@@ -143,6 +194,16 @@ flowchart LR
     authority -->|Vault_ControlObject| AR[Vault_AuthRole]
     AU -->|Vault_LinksPolicy| granted[Vault_Policy]
     AR -->|Vault_LinksPolicy| granted
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(:Vault_AuthUser)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+UNION
+MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(:Vault_AuthRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
 ```
 
 This chain is emitted only when parameter-aware mutation proves takeover of the concrete object and that object has an observed policy link. Ordinary `Vault_ManageObject` and `Vault_ManageConfig` remain non-traversable. Policy-assignment parameters remain evidence on the relevant management or control edge but do not synthesize a direct policy-to-policy relationship.
@@ -157,6 +218,14 @@ AliCloud roles capture RAM role and principal constraints, token policy behavior
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodAliCloud]
     method -->|Vault_Contains| role[Vault_AuthAliCloudRole]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodAliCloud)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthAliCloudRole)
+RETURN mount, roles
 ```
 
 Configuration uses `Vault_ReadConfig` and `Vault_ManageConfig`; role CRUD uses generic object edges. No login edge is emitted because the login endpoint is the unauthenticated authentication surface.
@@ -192,6 +261,14 @@ AppRole roles include RoleID state, SecretID binding, CIDR restrictions, SecretI
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodApprole]
     method -->|Vault_Contains| role[Vault_AuthApproleRole]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodApprole)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthApproleRole)
+RETURN mount, roles
 ```
 
 ### Nodes
@@ -243,6 +320,13 @@ flowchart LR
     role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_AuthApproleGenerateSecretId]->(:Vault_AuthApproleRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+```
+
 The chain is traversable only when RoleID is known or independently readable. Without RoleID, SecretID generation becomes `Vault_PotentialAccess`. SecretID accessor reads and SecretID destruction remain non-traversable.
 
 ## AWS
@@ -253,6 +337,14 @@ AWS roles cover IAM and EC2 authentication modes, principal ARNs, account/region
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodAws]
     method -->|Vault_Contains| role[Vault_AuthAwsRole]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodAws)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthAwsRole)
+RETURN mount, roles
 ```
 
 `Vault_AuthAwsCreateRoleTag` represents creation of a role tag that can satisfy a login prerequisite; it is not itself a complete AWS login credential. Method configuration records STS and IAM endpoints, client credentials where exposed, and root rotation behavior through generic config edges.
@@ -327,6 +419,14 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthAzureRole]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodAzure)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthAzureRole)
+RETURN mount, roles
+```
+
 Mount-wide tenant, environment, resource, and identity credential settings use generic config edges. VaultHound does not validate Azure workload identity or live tenant state.
 
 ### Nodes
@@ -391,6 +491,14 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthCfRole]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodCf)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthCfRole)
+RETURN mount, roles
+```
+
 Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObject` to each observed CF role. Value-constrained replacement emits `Vault_PotentialAccess`, while writes limited to routing, timeout, or CF API client settings remain ordinary non-traversable configuration management.
 
 ### Nodes
@@ -441,6 +549,14 @@ GCP roles distinguish IAM and GCE login modes and include projects, service acco
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodGcp]
     method -->|Vault_Contains| role[Vault_AuthGcpRole]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodGcp)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthGcpRole)
+RETURN mount, roles
 ```
 
 The collector models Vault's binding configuration but does not independently prove Google Cloud IAM membership or possession of a valid signed identity document.
@@ -513,6 +629,15 @@ flowchart LR
     method -->|Vault_Contains| team[Vault_AuthGithubTeam]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodGithub)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthGithubUser)
+OPTIONAL MATCH teams = (method)-[:Vault_Contains]->(:Vault_AuthGithubTeam)
+RETURN mount, users, teams
+```
+
 User and team CRUD uses generic object edges. External organization membership is not independently queried, so mappings describe what Vault grants if GitHub authentication succeeds.
 
 ### Nodes
@@ -557,6 +682,14 @@ The JWT/OIDC auth method validates inbound JWTs or performs inbound OIDC login. 
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodJwtOidc]
     method -->|Vault_Contains| role[Vault_AuthJwtOidcRole]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodJwtOidc)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthJwtOidcRole)
+RETURN mount, roles
 ```
 
 Mount properties include discovery, verification keys, bound issuer, algorithms, default role, and provider configuration. Roles include role type, audiences, subjects, bound claims, redirect URIs, scopes, claim mappings, groups, and token settings. Unrestricted trust replacement can derive `Vault_ControlObject`; parameter-constrained replacement remains ordinary or potential management.
@@ -635,6 +768,14 @@ flowchart LR
     method -->|Vault_Contains| group[Vault_AuthKerberosGroup]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodKerberos)
+OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthKerberosGroup)
+RETURN mount, groups
+```
+
 SPN, keytab, LDAP, case behavior, and token configuration use method properties and generic config edges. Group aliases model canonical Vault group resolution after authentication.
 
 ### Nodes
@@ -694,6 +835,14 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthKubernetesRole]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodKubernetes)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthKubernetesRole)
+RETURN mount, roles
+```
+
 The mount records Kubernetes host, CA, token reviewer, issuer validation, and service-account behavior. Replacing unrestricted reviewer or cluster trust can derive control of compatible roles; ordinary role management remains non-traversable.
 
 ### Nodes
@@ -750,6 +899,16 @@ flowchart LR
     method -->|Vault_Contains| user[Vault_AuthLdapUser]
     user -->|Vault_MemberOf| group[Vault_AuthLdapGroup]
     method -->|Vault_Contains| group
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodLdap)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(user:Vault_AuthLdapUser)
+OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(group:Vault_AuthLdapGroup)
+OPTIONAL MATCH memberships = (user)-[:Vault_MemberOf]->(group)
+RETURN mount, users, groups, memberships
 ```
 
 Configuration includes URLs, bind DN behavior, user/group search, nested groups, case sensitivity, certificates, token settings, and root credential rotation. The user/group nodes are mappings known to Vault, not a complete LDAP inventory.
@@ -825,6 +984,14 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthOciRole]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodOci)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthOciRole)
+RETURN mount, roles
+```
+
 VaultHound preserves the configured OCI selectors but does not independently resolve dynamic-group membership or verify signed request credentials.
 
 ### Nodes
@@ -866,6 +1033,15 @@ flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodOkta]
     method -->|Vault_Contains| user[Vault_AuthOktaUser]
     method -->|Vault_Contains| group[Vault_AuthOktaGroup]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodOkta)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthOktaUser)
+OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthOktaGroup)
+RETURN mount, users, groups
 ```
 
 Okta's API token is a write-only configuration input and is not returned by the configuration read endpoint. Configuration and mapping reads therefore remain non-traversable and do not produce `Vault_ReadCredential`.
@@ -915,6 +1091,14 @@ flowchart LR
     method -->|Vault_Contains| user[Vault_AuthRadiusUser]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodRadius)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthRadiusUser)
+RETURN mount, users
+```
+
 Server, port, shared-secret-related configuration, NAS settings, and token behavior use generic config edges. Login ability is not represented as an ACL edge.
 
 ### Nodes
@@ -960,6 +1144,15 @@ flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodSaml]
     method -->|Vault_Contains| role[Vault_AuthSamlRole]
     method -.->|Vault_AuthSamlDefaultRole| role
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodSaml)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(role:Vault_AuthSamlRole)
+OPTIONAL MATCH defaults = (method)-[:Vault_AuthSamlDefaultRole]->(role)
+RETURN mount, roles, defaults
 ```
 
 Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, default role, and assertion behavior. Roles capture bound subjects, attributes, group attributes, and policies. Unrestricted trust replacement may derive control of observed roles.
@@ -1022,6 +1215,16 @@ flowchart LR
     pki -.->|Vault_References| role
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodScep)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(role:Vault_AuthScepRole)
+OPTIONAL MATCH methodReferences = (:Vault_SecretsEnginePki)-[:Vault_References]->(method)
+OPTIONAL MATCH roleReferences = (:Vault_SecretsEnginePki)-[:Vault_References]->(role)
+RETURN mount, roles, methodReferences, roleReferences
+```
+
 Challenge, validation, authentication type, role compatibility, and token policy properties are collected where Vault returns them. PKI-to-auth dependencies use `Vault_References` with evidence properties instead of separate near-duplicate edge kinds.
 
 ### Nodes
@@ -1071,6 +1274,15 @@ flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodSpiffe]
     method -->|Vault_Contains| role[Vault_AuthSpiffeRole]
     alias[Vault_EntityAlias] -.->|Vault_AuthSpiffeMayMatchRole| role
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodSpiffe)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(role:Vault_AuthSpiffeRole)
+OPTIONAL MATCH matches = (:Vault_EntityAlias)-[:Vault_AuthSpiffeMayMatchRole]->(role)
+RETURN mount, roles, matches
 ```
 
 `Vault_AuthSpiffeMayMatchRole` records observed alias compatibility; it is non-traversable because possession of a currently valid SPIFFE credential is not proven. Trust domain, bundle, workload ID templates, audiences, and token settings are retained.
@@ -1151,6 +1363,15 @@ flowchart LR
     method -->|Vault_Contains| crl[Vault_AuthTlsCertCrl]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodTlsCert)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthTlsCertRole)
+OPTIONAL MATCH crls = (method)-[:Vault_Contains]->(:Vault_AuthTlsCertCrl)
+RETURN mount, roles, crls
+```
+
 Roles include trusted certificate material, names, DNS/email/URI constraints, organizational units, extensions, token settings, and OCSP behavior. Unrestricted replacement of trusted material can derive `Vault_ControlObject`; constrained replacement remains management or potential access.
 
 ### Nodes
@@ -1219,6 +1440,14 @@ flowchart LR
     method -->|Vault_Contains| role[Vault_AuthTokenRole]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodToken)
+OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthTokenRole)
+RETURN mount, roles
+```
+
 ### Nodes
 
 | Node | Description |
@@ -1278,10 +1507,24 @@ flowchart LR
     PS -->|Vault_Contains| P2[Vault_Policy]
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_Store)-[:Vault_Contains]->(:Vault_Policy)
+RETURN p
+```
+
 ```mermaid
 flowchart LR
     P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| AR[Vault_AuthTokenRole]
     AR -->|Vault_LinksPolicy| P2[Vault_Policy]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_AuthTokenRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
 ```
 
 ```mermaid
@@ -1289,6 +1532,13 @@ flowchart LR
     P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
     EA -->|Vault_MapsTo| VE[Vault_Entity]
     VE -->|Vault_LinksPolicy| P2[Vault_Policy]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_EntityAlias)-[:Vault_MapsTo]->(:Vault_Entity)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
 ```
 
 The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
@@ -1301,6 +1551,14 @@ UserPass stores local username records with password state, token policies, TTLs
 flowchart LR
     store[Auth Store] -->|Vault_Contains| method[Vault_AuthMethodUserpass]
     method -->|Vault_Contains| user[Vault_AuthUserpassUser]
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethodUserpass)
+OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthUserpassUser)
+RETURN mount, users
 ```
 
 Password, policy, and token-setting updates are generic object management. An unrestricted password reset derives traversable `Vault_ControlObject` because it allows authentication as the concrete user.
