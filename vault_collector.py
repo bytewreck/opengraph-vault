@@ -6333,7 +6333,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthKubernetesRole"],
+                kinds=["Vault_AuthKubernetesRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -6407,7 +6407,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthTlsCertRole"],
+                kinds=["Vault_AuthTlsCertRole", "Vault_AuthRole"],
                 properties={
                     "name": normalized_name,
                     "Role Name": normalized_name,
@@ -6555,7 +6555,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthJwtOidcRole"],
+                kinds=["Vault_AuthJwtOidcRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -6669,7 +6669,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthAzureRole"],
+                kinds=["Vault_AuthAzureRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -6733,7 +6733,7 @@ class VaultCollector:
 
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthAwsRole"],
+                kinds=["Vault_AuthAwsRole", "Vault_AuthRole"],
                 properties={
                     "name": normalized_name,
                     "Role Name": normalized_name,
@@ -6801,7 +6801,7 @@ class VaultCollector:
 
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthAliCloudRole"],
+                kinds=["Vault_AuthAliCloudRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -6851,7 +6851,7 @@ class VaultCollector:
 
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthCfRole"],
+                kinds=["Vault_AuthCfRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -6931,7 +6931,7 @@ class VaultCollector:
 
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthGcpRole"],
+                kinds=["Vault_AuthGcpRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7016,7 +7016,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthOciRole"],
+                kinds=["Vault_AuthOciRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7104,7 +7104,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthSamlRole"],
+                kinds=["Vault_AuthSamlRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7170,7 +7170,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthScepRole"],
+                kinds=["Vault_AuthScepRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7228,7 +7228,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthSpiffeRole"],
+                kinds=["Vault_AuthSpiffeRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7283,7 +7283,7 @@ class VaultCollector:
 
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthApproleRole"],
+                kinds=["Vault_AuthApproleRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7362,7 +7362,7 @@ class VaultCollector:
             }
             self.nodes.append(GraphNode(
                 id=node_id,
-                kinds=["Vault_AuthTokenRole"],
+                kinds=["Vault_AuthTokenRole", "Vault_AuthRole"],
                 properties={
                     "name": name,
                     "Role Name": name,
@@ -7388,66 +7388,6 @@ class VaultCollector:
 
         if role_nodes:
             self._auth_token_roles[accessor] = role_nodes
-
-    def _collect_userpass_roles(self, accessor: str, raw_path: str):
-        users = self.client.list(f"auth/{raw_path}users")
-        for name in users:
-            data = self.client.read(f"auth/{raw_path}users/{name}")
-            if not data:
-                continue
-            node_id = self._id("auth_role", accessor, name)
-            token_policies = data.get("token_policies") or []
-
-            self._auth_roles.append({
-                "node_id": node_id,
-                "name": name,
-                "accessor": accessor,
-                "auth_type": "userpass",
-                "token_policies": token_policies,
-            })
-
-            self.nodes.append(GraphNode(
-                id=node_id,
-                kinds=["Vault_AuthRole"],
-                properties={
-                    "name": name,
-                    "auth_accessor": accessor,
-                    "auth_type": "userpass",
-                    "token_policies": token_policies,
-                },
-            ))
-
-    def _collect_ldap_group_roles(self, accessor: str, raw_path: str):
-        """LDAP 'groups' function as auth roles â€” they map LDAP group names to policies."""
-        groups = self.client.list(f"auth/{raw_path}groups")
-        for name in groups:
-            data = self.client.read(f"auth/{raw_path}groups/{name}")
-            if not data:
-                continue
-            node_id = self._id("auth_role", accessor, name)
-            # LDAP groups use 'policies' not 'token_policies'
-            policies = data.get("policies") or []
-            if isinstance(policies, str):
-                policies = [p.strip() for p in policies.split(",") if p.strip()]
-
-            self._auth_roles.append({
-                "node_id": node_id,
-                "name": name,
-                "accessor": accessor,
-                "auth_type": "ldap",
-                "token_policies": policies,
-            })
-
-            self.nodes.append(GraphNode(
-                id=node_id,
-                kinds=["Vault_AuthRole"],
-                properties={
-                    "name": name,
-                    "auth_accessor": accessor,
-                    "auth_type": "ldap",
-                    "token_policies": policies,
-                },
-            ))
 
     # -- Secrets Roles ------------------------------------------------------
 
@@ -22866,7 +22806,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthTokenRole"],
+            kinds=["Vault_AuthTokenRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -22932,7 +22872,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthApproleRole"],
+            kinds=["Vault_AuthApproleRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -22989,7 +22929,7 @@ class VaultCollector:
         roles[normalized_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthAwsRole"],
+            kinds=["Vault_AuthAwsRole", "Vault_AuthRole"],
             properties={
                 "name": normalized_name,
                 "Role Name": normalized_name,
@@ -23058,7 +22998,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthAzureRole"],
+            kinds=["Vault_AuthAzureRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23122,7 +23062,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthGcpRole"],
+            kinds=["Vault_AuthGcpRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23188,7 +23128,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthOciRole"],
+            kinds=["Vault_AuthOciRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23243,7 +23183,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthSamlRole"],
+            kinds=["Vault_AuthSamlRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23307,7 +23247,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthScepRole"],
+            kinds=["Vault_AuthScepRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23362,7 +23302,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthSpiffeRole"],
+            kinds=["Vault_AuthSpiffeRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23415,7 +23355,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthJwtOidcRole"],
+            kinds=["Vault_AuthJwtOidcRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23487,7 +23427,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthKubernetesRole"],
+            kinds=["Vault_AuthKubernetesRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23549,7 +23489,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthCfRole"],
+            kinds=["Vault_AuthCfRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23605,7 +23545,7 @@ class VaultCollector:
         roles[role_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthAliCloudRole"],
+            kinds=["Vault_AuthAliCloudRole", "Vault_AuthRole"],
             properties={
                 "name": role_name,
                 "Role Name": role_name,
@@ -23658,7 +23598,7 @@ class VaultCollector:
         roles[normalized_name] = role_info
         self.nodes.append(GraphNode(
             id=node_id,
-            kinds=["Vault_AuthTlsCertRole"],
+            kinds=["Vault_AuthTlsCertRole", "Vault_AuthRole"],
             properties={
                 "name": normalized_name,
                 "Role Name": normalized_name,

@@ -55,7 +55,6 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or auth method | Auth method or immediate observed child | :white_check_mark: | Places the mount and its durable role, user, group, CRL, or other child objects in the namespace hierarchy. |
 | `Vault_ReadConfig` | Policy | Auth method | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
 | `Vault_ManageConfig` | Policy | Auth method | :x: | Changes mount tuning, backend configuration, root credentials, or maintenance state. |
 | `Vault_ListObjects` | Policy | Auth method | :x: | Lists roles, users, groups, CRLs, or another method-specific child collection. |
@@ -64,9 +63,6 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 | `Vault_ManageObject` | Policy | Concrete auth child | :x: | Updates, patches, deletes, or otherwise administers a child without proving takeover. |
 | `Vault_ControlObject` | Policy | Concrete auth child or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves takeover of the target authentication outcome. |
 | `Vault_PotentialAccess` | Policy | Unobserved or unresolved auth target | :x: | Preserves a possible authentication or takeover outcome whose prerequisites are not proven. |
-| `Vault_LinksPolicy` | Auth method, role, user, or group | Policy | :white_check_mark: | Records a method default or object-specific policy granted after successful authentication. |
-| `Vault_MapsTo` | Correlatable auth user or group | Entity Alias or Group Alias | :white_check_mark: | Correlates a concrete external identity mapping with canonical Vault Identity. |
-| `Vault_MemberOf` | Auth user or child group where supported | Auth group or parent group | :white_check_mark: | Records policy-bearing membership returned or derived from the authentication backend's mappings. |
 
 ### Common Properties
 
@@ -76,9 +72,6 @@ The tables in each method section list only stable properties beyond the common 
 | --- | --- | --- |
 | Auth method | `Auth Method Types`, backend-specific configuration fields | Identifies the method family and the durable login/trust configuration returned by its API. |
 | Auth role, user, or group | `Policies`, `Token Policies`, `Token Bound CIDRs`, `Token TTL`, `Token Max TTL`, `Token Explicit Max TTL`, `Token No Default Policy`, `Token Num Uses`, `Token Period`, `Token Type`, `Alias Metadata Keys` | Common policy, token, network, and alias behavior shared by auth children. |
-| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes role, user, group, method-default, and unregistered-user-default grants. |
-| `Vault_MapsTo` | Correlation evidence returned by the collector | Identifies the concrete alias and mount-based identity correlation. |
-| Generic auth CRUD/config edges | `Auth Method Types`, `Role Types`, plus common ACL evidence | Preserves the backend and child family after specialized CRUD edges are folded into generic relationships. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
@@ -111,10 +104,10 @@ flowchart LR
 
 | Auth Methods | Policy Link Type | Meaning |
 | --- | --- | --- |
-| GitHub, LDAP, Okta, and RADIUS | `Auth Method Default` | Policy configured as a method-wide login default. |
+| GitHub, LDAP, Okta, RADIUS, and Kerberos | `Auth Method Default` | Policy configured as a method-wide login default. For Kerberos, this comes from the LDAP authorization configuration. |
 | RADIUS | `Unregistered User Default` | Policy granted after successful RADIUS authentication when no configured user record matches. |
 
-These links describe the policy outcome after successful external authentication. They do not prove possession of GitHub, LDAP, Okta, or RADIUS credentials.
+These links describe the policy outcome after successful external authentication. They do not prove possession of GitHub, LDAP, Okta, RADIUS, or Kerberos credentials.
 
 ```mermaid
 flowchart LR
