@@ -83,7 +83,7 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 The tables in each method section list only stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Vault-version-specific `alias_metadata_<key>` values are exported dynamically with humanized labels.
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethod` | `Auth Method Types` | Lists the concrete authentication backend types represented by the mount. |
 | `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Policies` | Lists policies assigned directly to the auth child by its backend configuration. |
@@ -97,11 +97,6 @@ The tables in each method section list only stable properties beyond the common 
 | `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Period` | Records the renewal period for periodic tokens. |
 | `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Type` | Identifies the type of token issued by the authentication object. |
 | `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Alias Metadata Keys` | Lists backend fields copied into Identity alias metadata during login. |
-
-Common edge evidence is documented separately so it is not confused with node state.
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct assignments, authentication grants, auth-method defaults, and unregistered-user defaults. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
@@ -179,7 +174,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthAliCloudRole` | `Role Name` | Names the Vault role used for AliCloud login. |
 | `Vault_AuthAliCloudRole` | `ARN` | Identifies the RAM role or principal ARN accepted by the role. |
@@ -216,7 +211,7 @@ flowchart LR
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthApproleRole` | `Role Name` | Names the AppRole login role. |
 | `Vault_AuthApproleRole` | `Role ID` | Records the non-secret RoleID required to identify the role during login. |
@@ -226,9 +221,6 @@ flowchart LR
 | `Vault_AuthApproleRole` | `Secret ID Num Uses` | Records the maximum uses permitted for each generated SecretID. |
 | `Vault_AuthApproleRole` | `Secret ID TTL` | Records how long generated SecretIDs remain valid. |
 | `Vault_AuthApproleRole` | `Alias Metadata Keys` | Lists AppRole fields copied into Identity alias metadata. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | AppRole SecretID edges | `Authorization Modes` | Lists the AppRole login-material modes authorized by the matched policy paths. |
 | AppRole SecretID edges | `Role ID Required` | Indicates whether a RoleID is required to use generated authentication material. |
 | AppRole SecretID edges | `Role ID Observed` | Indicates whether collection retrieved the role's current RoleID. |
@@ -280,7 +272,7 @@ flowchart LR
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodAws` | `Endpoint` | Records the general AWS API endpoint override used by the auth backend. |
 | `Vault_AuthMethodAws` | `EC2 Endpoint` | Records the EC2 API endpoint used for instance validation. |
@@ -316,9 +308,6 @@ flowchart LR
 | `Vault_AuthAwsRole` | `Allow Instance Migration` | Indicates whether a previously authenticated EC2 instance may migrate and authenticate again. |
 | `Vault_AuthAwsRole` | `Resolve AWS Unique IDs` | Indicates whether Vault resolves configured IAM ARNs to immutable AWS unique IDs. |
 | `Vault_AuthAwsRole` | `Alias Metadata Keys` | Lists AWS fields copied into Identity alias metadata. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Config Surfaces` | Lists AWS auth configuration collections covered by the merged edge. |
 | `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Surface Entry Type` | Identifies the access-list, deny-list, certificate, or role-tag entry family affected. |
 | `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Tidy Scope` | Identifies the AWS auth data scope cleaned by a tidy operation. |
@@ -353,7 +342,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodAzure` | `Tenant ID` | Identifies the Microsoft Entra tenant trusted by the auth mount. |
 | `Vault_AuthMethodAzure` | `Resource` | Identifies the Azure resource audience expected in login tokens. |
@@ -417,7 +406,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodCf` | `CF API Address` | Records the Cloud Foundry API endpoint trusted by the auth mount. |
 | `Vault_AuthMethodCf` | `CF Username` | Identifies the Cloud Foundry account used for API validation. |
@@ -469,7 +458,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodGcp` | `Client Email` | Identifies the GCP client credential account configured for validation. |
 | `Vault_AuthMethodGcp` | `Client ID` | Records the configured Google client identifier. |
@@ -540,7 +529,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodGithub` | `Organization` | Names the GitHub organization whose members may authenticate. |
 | `Vault_AuthMethodGithub` | `Organization ID` | Records the immutable GitHub organization identifier when available. |
@@ -585,7 +574,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodJwtOidc` | `OIDC Discovery URL` | Records the OpenID Provider discovery endpoint trusted by the mount. |
 | `Vault_AuthMethodJwtOidc` | `OIDC Client ID` | Identifies Vault's registered OIDC client at the provider. |
@@ -661,7 +650,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodKerberos` | `Kerberos Configured` | Indicates whether the Kerberos service configuration was readable. |
 | `Vault_AuthMethodKerberos` | `LDAP Configured` | Indicates whether LDAP authorization and group lookup are configured. |
@@ -720,7 +709,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodKubernetes` | `Kubernetes Host` | Records the Kubernetes API server used for token validation. |
 | `Vault_AuthMethodKubernetes` | `Kubernetes CA Cert Set` | Indicates whether custom Kubernetes API CA trust is configured. |
@@ -779,7 +768,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodLdap` | `LDAP URL` | Records the LDAP server URLs used for authentication and searches. |
 | `Vault_AuthMethodLdap` | `LDAP Bind DN` | Records the distinguished name used for authenticated directory searches. |
@@ -851,7 +840,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodOci` | `Home Tenancy ID` | Identifies the OCI tenancy trusted by the auth mount. |
 | `Vault_AuthMethodOci` | `Supported Login Types` | Lists OCI signed-request login modes supported by the mount. |
@@ -895,7 +884,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodOkta` | `Org Name` | Names the Okta organization used for authentication. |
 | `Vault_AuthMethodOkta` | `Base URL` | Records the Okta domain or API base URL. |
@@ -941,7 +930,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodRadius` | `Host` | Records the RADIUS server hostname or address. |
 | `Vault_AuthMethodRadius` | `Port` | Records the UDP port used for RADIUS authentication. |
@@ -990,7 +979,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodSaml` | `IDP Metadata URL` | Records the remote identity-provider metadata endpoint. |
 | `Vault_AuthMethodSaml` | `IDP SSO URL` | Records the identity provider's single sign-on endpoint. |
@@ -1048,7 +1037,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodScep` | `Delegated Authentication Only` | Indicates whether SCEP enrollment must delegate authentication to another backend. |
 | `Vault_AuthMethodScep` | `Supported Authentication Types` | Lists SCEP challenge-authentication modes supported by the mount. |
@@ -1060,9 +1049,6 @@ This authentication method does not define any specialized edges.
 | `Vault_AuthScepRole` | `Challenge Authentication Required` | Indicates whether enrollment must present a valid SCEP challenge. |
 | `Vault_AuthScepRole` | `Delegated Authentication Only` | Indicates whether the role accepts only delegated authentication. |
 | `Vault_AuthScepRole` | `Alias Metadata Keys` | Lists SCEP values copied into Identity alias metadata. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | `Vault_References` | `Reference Types` | Lists the PKI-to-SCEP dependency types represented by the edge. |
 | `Vault_References` | `Reference Evidence` | Records the configuration values that establish the dependency. |
 | `Vault_References` | `Authenticator Type` | Identifies the delegated authentication backend family. |
@@ -1104,7 +1090,7 @@ flowchart LR
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodSpiffe` | `Trust Domain` | Records the SPIFFE trust domain accepted by the mount. |
 | `Vault_AuthMethodSpiffe` | `Trust Domain Configured` | Indicates whether an explicit trust domain is configured. |
@@ -1146,9 +1132,6 @@ flowchart LR
 | `Vault_AuthSpiffeRole` | `Subject Scope` | Describes the workload-ID scope selected by the subject template. |
 | `Vault_AuthSpiffeRole` | `Subject Is Templated` | Indicates whether role matching depends on template expansion. |
 | `Vault_AuthSpiffeRole` | `Identity Template References` | Lists Vault Identity values referenced by the template. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | `Vault_AuthSpiffeMayMatchRole` | `Workload ID` | Records the observed SPIFFE workload ID evaluated against the role. |
 | `Vault_AuthSpiffeMayMatchRole` | `Matched Patterns` | Lists role selectors matched by the workload ID. |
 | `Vault_AuthSpiffeMayMatchRole` | `Match Types` | Identifies whether compatibility came from exact, wildcard, or template matching. |
@@ -1184,7 +1167,7 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethodTlsCert` | `Disable Binding` | Indicates whether renewed tokens may be used without presenting the original client certificate. |
 | `Vault_AuthMethodTlsCert` | `Enable Identity Alias Metadata` | Indicates whether certificate metadata is written to Identity aliases. |
@@ -1255,7 +1238,7 @@ flowchart LR
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthTokenRole` | `Role Name` | Names the token creation role. |
 | `Vault_AuthTokenRole` | `Allowed Policies` | Lists policies the role may explicitly add to created tokens. |
@@ -1266,9 +1249,6 @@ flowchart LR
 | `Vault_AuthTokenRole` | `Orphan` | Indicates whether created tokens omit a parent-token relationship. |
 | `Vault_AuthTokenRole` | `Renewable` | Indicates whether tokens created through the role may be renewed. |
 | `Vault_AuthTokenRole` | `Path Suffix` | Records the suffix appended to generated token paths. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | Token creation edges | `Authorization Modes` | Lists the token creation modes authorized by the matched endpoints. |
 | Token creation edges | `Token Lineages` | Identifies whether created tokens are service, batch, orphan, or parented tokens. |
 | Token creation edges | `Role Names` | Lists token roles through which issuance is authorized. |
@@ -1338,13 +1318,10 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Node Type | Property | Description |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthUserpassUser` | `Username` | Names the local UserPass account. |
 | `Vault_AuthUserpassUser` | `Alias Metadata Keys` | Lists UserPass fields copied into Identity alias metadata; password material is never collected. |
-
-| Edge Type | Property | Description |
-| --- | --- | --- |
 | `Vault_ControlObject` | `Control Methods` | Identifies password replacement as the takeover mechanism. |
 | `Vault_ControlObject` | `Control Parameters` | Lists writable request parameters that permit the takeover. |
 | `Vault_ControlObject` | `Impacts` | Lists the authentication or policy outcomes produced by controlling the user. |
