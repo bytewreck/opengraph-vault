@@ -828,10 +828,18 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 
 ```mermaid
 flowchart LR
+    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]
+```
+
+```mermaid
+flowchart LR
     P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| AR[Vault_AuthTokenRole]
     AR -->|Vault_LinksPolicy| P2[Vault_Policy]
-    P1 -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]
-    P1 -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
+```
+
+```mermaid
+flowchart LR
+    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
     EA -->|Vault_MapsTo| VE[Vault_Entity]
     VE -->|Vault_LinksPolicy| P2
 ```
