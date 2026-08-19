@@ -29,6 +29,21 @@ The following matrix summarizes implemented auth methods and their current test 
 | Token | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodToken` |
 | UserPass | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodUserpass` |
 
+## Glob, Synthetic, And Control Behavior
+
+- `auth/<mount>/role/*`-style paths expand read/manage rights to compatible observed roles.
+- Exact missing role, user, or group names can create detached synthetic targets.
+- Collection creation is anchored to the method with `can_create_unobserved_objects` evidence.
+- SecretID, privileged token, and takeover edges require their method-specific prerequisites even under a broad glob.
+- Broad `auth/*` and method-specific globs use the same endpoint-routing logic, so equivalent rights normalize to equivalent edges.
+
+## Limitations
+
+- VaultHound does not attempt logins or validate external credentials.
+- External user/group membership is limited to Vault mappings and aliases returned by the API.
+- MFA, control groups, quotas, token wrapping, and runtime token state can impose additional conditions.
+- A role describes who may authenticate and which policies would be granted; it does not prove credential possession.
+
 ## Common Topology
 
 ```mermaid
@@ -547,7 +562,6 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodOci` | `Home Tenancy ID`, `Supported Login Types`, `Login Request Fields` | Tenancy context and signed-request login contract. |
 | `Vault_AuthOciRole` | `Role Name`, `OCID List`, `OCI Group OCIDs`, `OCI Dynamic Group OCIDs`, `Login Validation Surface`, `Login Request Fields`, `Alias Metadata Keys` | OCI identity, group, and dynamic-group selectors. |
-| OCI edges | None beyond common ACL, object, configuration, and policy-link properties | Live OCI signature and group resolution remain external prerequisites. |
 
 ### Attack Paths
 
@@ -656,8 +670,6 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 | --- | --- | --- |
 | `Vault_AuthMethodSaml` | `IDP Metadata URL`, `IDP SSO URL`, `IDP Entity ID`, `IDP Certificate Set`, `IDP Configuration Mode`, `Entity ID`, `ACS URLs`, `Default Role Name`, `Role Parameter Required`, `Verbose Logging`, `Validate Response Signature`, `Validate Assertion Signature`, `Signature Validation Mode`, `Supported Login Types`, `Login Flow Request Fields` | SAML IdP trust, service-provider identity, callback, default-role, and signature-validation behavior. |
 | `Vault_AuthSamlRole` | `Role Name`, `Bound Subjects`, `Bound Subjects Type`, `Bound Attributes`, `Bound Attributes Type`, `Groups Attribute`, `Creates Group Aliases`, `Is Default Role`, `Alias Metadata Keys` | Subject, attribute, and group constraints used for role selection. |
-| `Vault_AuthSamlDefaultRole` | No non-common properties | The source and destination identify the configured default. |
-| `Vault_ControlObject` and `Vault_PotentialAccess` | Common control properties plus IdP trust and role requirements | Explains whether metadata/certificate replacement proves role takeover. |
 
 ### Attack Paths
 
@@ -694,7 +706,7 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthMethodScep` | `Delegated Authentication Only`, `Supported Authentication Types`, `Login Invocation`, `Role Selection Behavior` | SCEP challenge mode and delegated-authentication behavior. |
 | `Vault_AuthScepRole` | `Role Name`, `Display Name`, `Authentication Type`, `Challenge Authentication Required`, `Delegated Authentication Only`, `Alias Metadata Keys` | Static-challenge or delegated authentication requirements. |
-| PKI `Vault_References` edges | `Reference Types`, `Reference Evidence`, `Authenticator Type`, `Delegated Auth Accessor`, `Delegation Allowed`, `SCEP Enabled`, `Expected Authentication Type`, `Role Selections` | Identifies the PKI protocol configuration that selects this method or role and whether the selection is compatible. |
+| `Vault_References` | `Reference Types`, `Reference Evidence`, `Authenticator Type`, `Delegated Auth Accessor`, `Delegation Allowed`, `SCEP Enabled`, `Expected Authentication Type`, `Role Selections` | Identifies the PKI protocol configuration that selects this method or role and whether the selection is compatible. |
 
 ### Attack Paths
 
@@ -770,7 +782,6 @@ This authentication method does not define any specialized edges.
 | `Vault_AuthMethodTlsCert` | `Disable Binding`, `Enable Identity Alias Metadata`, `Enable Metadata On Failures`, `OCSP Cache Size`, `Role Cache Size` | Certificate-binding, metadata, OCSP cache, and role-cache behavior. |
 | `Vault_AuthTlsCertRole` | `Role Name`, `Display Name`, `Certificate Set`, `OCSP Enabled`, `OCSP CA Certificates Set`, `OCSP Servers Override`, `OCSP Fail Open`, `OCSP Query All Servers`, `OCSP This Update Max Age`, `OCSP Max Retries`, `Allowed Names`, `Required Extensions`, `Allowed Common Names`, `Allowed DNS SANs`, `Allowed Email SANs`, `Allowed URI SANs`, `Allowed Organizational Units`, `Allowed Organizations`, `Allowed Metadata Extensions`, `TTL`, `Max TTL`, `Period`, `Alias Metadata Keys` | Trusted material, certificate-name/extension matching, OCSP, and token lifetime constraints. |
 | `Vault_AuthTlsCertCrl` | `CRL Name`, `Configured`, `Source Type`, `Revoked Serial Count`, `Revoked Serials`, `CRL Distribution Point URL`, `CRL Valid Until` | Collected revocation-list source and status. |
-| `Vault_ControlObject` and `Vault_PotentialAccess` | Common control properties plus certificate, name, extension, OCSP, and CIDR requirements | Explains whether trust replacement proves role takeover. |
 
 ### Attack Paths
 
@@ -807,7 +818,6 @@ flowchart LR
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
-| `Vault_AuthMethodToken` | None beyond common auth-method and mount properties | Ordinary live tokens are not enumerated as nodes. |
 | `Vault_AuthTokenRole` | `Role Name`, `Allowed Policies`, `Disallowed Policies`, `Allowed Policies Glob`, `Disallowed Policies Glob`, `Allowed Entity Aliases`, `Orphan`, `Renewable`, `Path Suffix` | Policy delegation, entity-alias selection, lineage, renewal, and path behavior. |
 | Token creation edges | `Authorization Modes`, `Token Lineages`, `Role Names`, `Allowed Policies`, `Allowed Policy Globs`, `Allowed Entity Aliases`, `Policy Selection Scopes`, `Restriction Bases`, `Can Expand Privileges`, plus token constraints | Explains why issuance is restricted or proves policy expansion through sudo, a role, or an entity alias. |
 | Token lookup/manage edges | `Operation Requirements` and `Requirements` | Records per-operation capability and sudo requirements for lookup, renewal, revocation, and accessor operations. |
@@ -818,20 +828,12 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| role[Vault_AuthTokenRole]
-    role -->|Vault_LinksPolicy| granted[Vault_Policy]
-```
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| store["Policy Store"]
-```
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| alias[Vault_EntityAlias]
-    alias -->|Vault_MapsTo| entity[Vault_Entity]
-    entity -->|Vault_LinksPolicy| granted[Vault_Policy]
+    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| AR[Vault_AuthTokenRole]
+    AR -->|Vault_LinksPolicy| P2[Vault_Policy]
+    P1 -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]
+    P1 -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
+    EA -->|Vault_MapsTo| VE[Vault_Entity]
+    VE -->|Vault_LinksPolicy| P2
 ```
 
 The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
@@ -863,7 +865,6 @@ This authentication method does not define any specialized edges.
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
-| `Vault_AuthMethodUserpass` | None beyond common auth-method and mount properties | UserPass configuration is primarily stored on users. |
 | `Vault_AuthUserpassUser` | `Username`, `Alias Metadata Keys` plus common token and policy fields | Local username and token behavior; password material is never collected. |
 | `Vault_ControlObject` | `Control Methods`, `Control Parameters`, `Impacts`, and policy-assignment context | Identifies an unrestricted attacker-controlled password reset and the policies reachable through the user. |
 
@@ -871,17 +872,3 @@ This authentication method does not define any specialized edges.
 
 UserPass uses the common object-takeover-to-policy and auth-user identity-correlation paths when a policy can set an attacker-controlled password for the concrete user. Traversal can reach policies already configured on the UserPass user directly and additional policies through the user's observed identity mapping. Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
 
-## Glob, Synthetic, And Control Behavior
-
-- `auth/<mount>/role/*`-style paths expand read/manage rights to compatible observed roles.
-- Exact missing role, user, or group names can create detached synthetic targets.
-- Collection creation is anchored to the method with `can_create_unobserved_objects` evidence.
-- SecretID, privileged token, and takeover edges require their method-specific prerequisites even under a broad glob.
-- Broad `auth/*` and method-specific globs use the same endpoint-routing logic, so equivalent rights normalize to equivalent edges.
-
-## Limitations
-
-- VaultHound does not attempt logins or validate external credentials.
-- External user/group membership is limited to Vault mappings and aliases returned by the API.
-- MFA, control groups, quotas, token wrapping, and runtime token state can impose additional conditions.
-- A role describes who may authenticate and which policies would be granted; it does not prove credential possession.
