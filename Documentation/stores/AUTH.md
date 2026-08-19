@@ -84,6 +84,7 @@ flowchart LR
     AU[Vault_AuthUser] -->|Vault_MapsTo| EA[Vault_EntityAlias]
     EA -->|Vault_MapsTo| VE[Vault_Entity]
     AU -->|Vault_LinksPolicy| P1[Vault_Policy]
+    AR[Vault_AuthRole] -->|Vault_LinksPolicy| P1
     AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
     GA -->|Vault_MapsTo| VG[Vault_Group]
     AG -->|Vault_LinksPolicy| P1
