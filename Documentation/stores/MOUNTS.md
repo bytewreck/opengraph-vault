@@ -2,50 +2,7 @@
 
 The Mount Store represents the namespace-local secrets-engine registry at `sys/mounts`. It contains every observed secrets-engine mount. Supported engines receive a specific node kind, child-resource collection, and endpoint-aware access edges; unsupported engines remain generic `Vault_SecretsEngine` nodes with existence, path, type, and mount properties only.
 
-## Common Mount Topology
-
-```mermaid
-flowchart LR
-    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MOUNTS]
-    store -->|Vault_Contains| mount[Vault_SecretsEngine]
-    mount -->|Vault_Contains| object[Observed child resource]
-    object -.->|Vault_References| dependency[Referenced resource]
-```
-
-Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
-
-### Common Mount Nodes And Edges
-
-| Type | Meaning |
-| --- | --- |
-| `Vault_SecretsEngine` | Base node for a mounted secrets backend. |
-| `Vault_SecretsRole` | Base node for role-like secrets-engine resources. |
-| `Vault_Contains` | Mount Store to engine, and engine/resource to immediate observed children. |
-| `Vault_References` | Non-owning dependency such as issuer-to-key or role-to-connection. |
-| `Vault_ListObjects` | List roles, keys, accounts, connections, KV children, or similar collections. |
-| `Vault_CreateObject` | Create an object at a collection or exact synthetic target. |
-| `Vault_ReadObject` | Read durable configuration on a concrete child. |
-| `Vault_ManageObject` | Update, delete, rotate, import, or otherwise administer a concrete child. |
-| `Vault_ReadConfig` | Read mount, tuning, or backend-wide configuration. |
-| `Vault_ManageConfig` | Change configuration, tuning, root credentials, or maintenance state. |
-| `Vault_GenerateCredentials` | Obtain dynamic credentials from a concrete viable role. |
-| `Vault_ReadStaticCredentials` | Read a managed static credential from a concrete role or account. |
-
-Generic edges retain `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Credential Types`, `Read Targets`, `Config Targets`, request surfaces, and prerequisites.
-
-### Common Mount Properties
-
-The tables in each engine section list stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Supported plugin APIs may return additional version- or plugin-specific fields; VaultHound exports those fields with humanized labels while suppressing or reducing secret values to presence indicators.
-
-| Applies to | Non-common properties | Meaning |
-| --- | --- | --- |
-| Secrets-engine mount | `KV Version`, `Delegated Auth Accessors`, `Allowed Managed Keys` | Optional engine version and mount-level delegation/managed-key constraints. |
-| Secrets-engine child | `Engine Path`, `Logical Path`, backend-specific identifiers | Connects a durable child to its API and logical request surfaces. |
-| `Vault_References` and `Vault_ManagedBy` | `Reference Types`, `Reference Evidence` | Explains the non-owning dependency represented by the edge. |
-| Credential-generation/read edges | `Credential Types`, `Credential Material`, `Generation Effects`, `Request Surfaces`, `Request Methods`, `Modes`, `Lease Backed`, `Renewable`, `Revocable` | Describes what Vault can return and its lifecycle without invoking the endpoint. |
-| Generic object/config edges | `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Read Targets`, `Config Targets` | Retains engine-specific meaning after CRUD and maintenance edges are folded into generic families. |
-
-## Supported Engines
+The following matrix summarizes secrets-engine implementation and test status:
 
 | Technology | Supported | Tested | Mount Node |
 | --- | :---: | :---: | --- |
@@ -78,7 +35,55 @@ The tables in each engine section list stable properties beyond the common contr
 
 `Identity` is modeled as the separate namespace-local [Identity Store](IDENTITY.md), not as a mount-specific secrets-engine implementation. Other unsupported engines are still emitted when observed as generic `Vault_SecretsEngine` nodes with their existence, type, path, and common mount properties.
 
-### AWS
+## Common Topology
+
+```mermaid
+flowchart LR
+    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MOUNTS]
+    store -->|Vault_Contains| mount[Vault_SecretsEngine]
+    mount -->|Vault_Contains| object[Observed child resource]
+    object -.->|Vault_References| dependency[Referenced resource]
+```
+
+Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
+
+### Common Nodes
+
+| Type | Meaning |
+| --- | --- |
+| `Vault_SecretsEngine` | Base node for a mounted secrets backend. |
+| `Vault_SecretsRole` | Base node for role-like secrets-engine resources. |
+
+### Common Edges
+
+| Edge | Source | Destination | Traversable | Meaning |
+| --- | --- | --- | :---: | --- |
+| `Vault_Contains` | Mount Store, secrets engine, or hierarchical resource | Secrets engine or immediate observed child | :white_check_mark: | Places mounts and their observed resources in the namespace hierarchy. |
+| `Vault_References` | Configured secrets-engine resource | Referenced dependency | :x: | Records a non-owning dependency such as issuer-to-key or role-to-connection. |
+| `Vault_ListObjects` | Policy | Secrets engine or collection anchor | :x: | Lists roles, keys, accounts, connections, KV children, or another engine-specific collection. |
+| `Vault_CreateObject` | Policy | Secrets engine, collection anchor, or exact synthetic target | :x: | Creates an object or records authority to create an unobserved exact target. |
+| `Vault_ReadObject` | Policy | Concrete secrets-engine child | :x: | Reads durable configuration on a concrete child. |
+| `Vault_ManageObject` | Policy | Concrete secrets-engine child | :x: | Updates, deletes, rotates, imports, or otherwise administers a concrete child. |
+| `Vault_ReadConfig` | Policy | Secrets-engine mount | :x: | Reads mount, tuning, or backend-wide configuration. |
+| `Vault_ManageConfig` | Policy | Secrets-engine mount | :x: | Changes configuration, tuning, root credentials, or maintenance state. |
+| `Vault_GenerateCredentials` | Policy | Concrete viable secrets role | :white_check_mark: | Obtains dynamic credentials through an endpoint with proven prerequisites. |
+| `Vault_ReadStaticCredentials` | Policy | Concrete static role or account | :white_check_mark: | Reads a managed static credential. |
+
+Generic edges retain `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Credential Types`, `Read Targets`, `Config Targets`, request surfaces, and prerequisites.
+
+### Common Properties
+
+The tables in each engine section list stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Supported plugin APIs may return additional version- or plugin-specific fields; VaultHound exports those fields with humanized labels while suppressing or reducing secret values to presence indicators.
+
+| Applies to | Non-common properties | Meaning |
+| --- | --- | --- |
+| Secrets-engine mount | `KV Version`, `Delegated Auth Accessors`, `Allowed Managed Keys` | Optional engine version and mount-level delegation/managed-key constraints. |
+| Secrets-engine child | `Engine Path`, `Logical Path`, backend-specific identifiers | Connects a durable child to its API and logical request surfaces. |
+| `Vault_References` and `Vault_ManagedBy` | `Reference Types`, `Reference Evidence` | Explains the non-owning dependency represented by the edge. |
+| Credential-generation/read edges | `Credential Types`, `Credential Material`, `Generation Effects`, `Request Surfaces`, `Request Methods`, `Modes`, `Lease Backed`, `Renewable`, `Revocable` | Describes what Vault can return and its lifecycle without invoking the endpoint. |
+| Generic object/config edges | `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Read Targets`, `Config Targets` | Retains engine-specific meaning after CRUD and maintenance edges are folded into generic families. |
+
+## AWS
 
 AWS dynamic roles describe IAM user, assumed role, federation token, or session token modes. Static roles map existing IAM users managed by Vault.
 
@@ -93,7 +98,7 @@ Dynamic-role properties include policy documents and ARNs, role ARNs, IAM groups
 
 Root credentials, lease settings, root rotation, and mount tuning use generic config edges. Role CRUD and collection operations use generic object edges.
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -101,7 +106,7 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 | `Vault_AwsRole` | Dynamic IAM or STS credential-generation role. |
 | `Vault_AwsStaticRole` | Existing IAM user whose credential rotation is managed by Vault. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -116,7 +121,7 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 | `Vault_ReadStaticCredentials` | Policy | AWS static role | :white_check_mark: | Returns the IAM user's credential managed by Vault. |
 | `Vault_PotentialAccess` | Policy | AWS role | :x: | Records generation with unresolved MFA or another external prerequisite. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -125,7 +130,7 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 | `Vault_AwsStaticRole` | `Role Name`, `Username`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Last Vault Rotation` | Managed IAM user and rotation state. |
 | AWS credential edges | `Request Surface`, `Request Method`, `Lease Bound`, `Supports Custom TTL`, `Generation Effects`, `Requirements`, `Potential Outcomes`, `Resolution Status` | Identifies `creds` versus `sts`, custom-TTL support, MFA requirements, and why generation is viable or only potential. |
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -141,7 +146,7 @@ flowchart LR
 
 This yields the managed IAM user's current credential through Vault. Neither path proves the generated principal's downstream AWS permissions; those require correlation with AWS graph data.
 
-### Azure
+## Azure
 
 Azure dynamic roles generate service principals; static roles map existing applications or service principals and credential rotation state.
 
@@ -154,7 +159,7 @@ flowchart LR
 
 Roles retain Azure role assignments, groups, application settings, TTL behavior, and generated credential effects. `Vault_AzureImportStaticRole` is a specialized non-traversable administrative operation; ordinary role CRUD uses generic object edges.
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -162,7 +167,7 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 | `Vault_AzureRole` | Dynamic Azure service-principal credential-generation role. |
 | `Vault_AzureStaticRole` | Existing Azure application whose credential is managed by Vault. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -177,7 +182,7 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 | `Vault_GenerateCredentials` | Policy | Azure role | :white_check_mark: | Generates a service-principal credential through a dynamic role. |
 | `Vault_ReadStaticCredentials` | Policy | Azure static role | :white_check_mark: | Returns the credential managed through a concrete static role. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -186,7 +191,7 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 | `Vault_AzureStaticRole` | `Role Name`, `Azure Roles`, `Azure Groups`, `Application Object ID`, `Permanently Delete`, `Service Principal Name`, `Rotation Period`, `Rotation Schedule`; dynamic `metadata_<key>` fields preserve returned metadata | Managed application/service-principal and credential rotation state. |
 | Azure credential/import edges | Common credential properties plus `Operations` for import and rotation | Distinguishes generated credentials, static reads, metadata-only/full import, and rotation workflows. |
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -196,7 +201,7 @@ flowchart LR
 
 The first path obtains a generated Azure service-principal credential constrained by the dynamic role. The second reads the current credential managed through the concrete static role. Importing or managing a static role is not itself traversable because it does not prove that usable credential material is returned.
 
-### Database
+## Database
 
 Database mounts contain plugin connections, dynamic roles, and static roles. Roles reference rather than contain their connection.
 
@@ -209,7 +214,7 @@ flowchart LR
     role -.->|Vault_References: Database Connection| connection
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -218,7 +223,7 @@ flowchart LR
 | `Vault_DatabaseRole` | Dynamic database credential-generation role and creation/revocation statements. |
 | `Vault_DatabaseStaticRole` | Existing database account managed and rotated by Vault. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -234,7 +239,7 @@ flowchart LR
 | `Vault_ReadStaticCredentials` | Policy | Database static role | :white_check_mark: | Returns the current managed static credential. |
 | `Vault_PotentialAccess` | Policy | Database role | :x: | Records credential generation when connection compatibility or permission is unresolved. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -247,7 +252,7 @@ flowchart LR
 
 Dynamic credential generation requires an observed compatible connection and an `allowed_roles` match. Missing or incompatible connection evidence downgrades the result to potential access.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -264,7 +269,7 @@ flowchart LR
 
 Static credential reads target the exact managed account and do not depend on dynamic-role connection viability in the same way.
 
-### GCP
+## GCP
 
 The GCP engine models rolesets, static service accounts, and impersonated accounts.
 
@@ -278,7 +283,7 @@ flowchart LR
 
 Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and credential effects. Static and impersonated accounts retain OAuth token or service-account-key surfaces supported by their endpoint. The collector does not independently verify Google Cloud IAM.
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -287,7 +292,7 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 | `Vault_GcpStaticAccount` | Existing GCP service account managed through static-account endpoints. |
 | `Vault_GcpImpersonatedAccount` | Account configuration that produces credentials through service-account impersonation. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -300,7 +305,7 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 | `Vault_ManageObject` | Policy | GCP roleset or account | :x: | Updates, deletes, or rotates a concrete GCP resource. |
 | `Vault_GenerateCredentials` | Policy | GCP roleset, static account, or impersonated account | :white_check_mark: | Requests an OAuth token or service-account key supported by the concrete object. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -310,7 +315,7 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 | `Vault_GcpImpersonatedAccount` | `Impersonated Account Name`, `Account Ownership`, `Service Account Email`, `Token Scopes`, `Secret Type`, `Generation Effects`, `Revocation Effects` | Existing service account impersonated for OAuth tokens. |
 | GCP credential edges | `Request Surface`, `Request Methods`, `Resource Types`, `Credential Types`, `Generation Effects`, `Revocation Effects`, `Lease Bound`, `Renewable`, `Revocable`, `Endpoint Variants` | Distinguishes roleset, static-account, and impersonated-account token/key outcomes. |
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -321,7 +326,7 @@ flowchart LR
 
 The edge represents the ability to request a credential from the concrete GCP object. Rolesets support OAuth access tokens or service-account keys according to their configured secret type; static accounts expose OAuth access-token or service-account-key endpoints; impersonated accounts expose OAuth access tokens. The paths prove Vault-side credential acquisition, not the resulting Google Cloud IAM permissions.
 
-### GCP KMS
+## GCP KMS
 
 GCP KMS nodes represent Vault registrations of external Google Cloud KMS keys.
 
@@ -331,14 +336,14 @@ flowchart LR
     mount -->|Vault_Contains| key[Vault_GcpKmsKey]
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineGcpKms` | GCP KMS secrets-engine mount and provider configuration. |
 | `Vault_GcpKmsKey` | Registered Cloud KMS key and its cryptographic purpose and compatibility. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -356,7 +361,7 @@ flowchart LR
 | `Vault_GcpKmsVerify` | Policy | GCP KMS key | :x: | Verifies a signature or MAC. |
 | `Vault_PotentialAccess` | Policy | GCP KMS key | :x: | Records decrypt or sign authority when key-purpose compatibility is unknown. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -366,7 +371,7 @@ flowchart LR
 
 Unknown key purpose produces `Vault_PotentialAccess` rather than a traversable decrypt or sign edge.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -376,7 +381,7 @@ flowchart LR
 
 Decrypt represents a plaintext oracle; sign represents use of signing authority. Both require a compatible observed key purpose. Encrypt, re-encrypt, and verify remain non-traversable because they do not reveal plaintext or confer signing authority.
 
-### KV
+## KV
 
 KV models path hierarchy without collecting plaintext values. Directories and files are intentionally separate node kinds and do not share a KV object base type.
 
@@ -403,7 +408,7 @@ flowchart LR
 | `subkeys/:path` | Subkey structure plus selected-version metadata | `Vault_KvReadMetadata` with read-target properties |
 | `config` | CAS, version retention, delete-after | Generic config edges to the mount |
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -412,7 +417,7 @@ flowchart LR
 | `Vault_KvFile` | Observed or exact synthetic secret object without plaintext values. |
 | `Vault_KvPair` | Top-level key name contained by a collected KV file; the value is not collected. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -427,7 +432,7 @@ flowchart LR
 | `Vault_KvManageMetadata` | Policy or template-resolved principal | KV file | :x: | Creates, updates, patches, or deletes KV v2 metadata. |
 | `Vault_PotentialAccess` | Policy or template-resolved principal | Synthetic or unresolved KV target | :x: | Records a matching path whose concrete target or prerequisite is not proven. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -441,7 +446,7 @@ Only `Vault_KvReadSecret` is traversable. Lifecycle and metadata operations do n
 
 Exact paths target the compatible file or directory. Globs expand to observed compatible descendants. Template-effective edges originate from the entity, alias, or group representation referenced by the template expression.
 
-#### Attack Paths
+### Attack Paths
 
 A policy-backed identity path can reach a concrete secret file:
 
@@ -469,7 +474,7 @@ an entity with `department=engineering` receives effective `Vault_KvReadSecret` 
 
 `Vault_ListObjects`, `Vault_KvReadMetadata`, and KV management edges are non-traversable. They expose names or metadata, or alter lifecycle state, but do not return secret plaintext.
 
-### Kubernetes
+## Kubernetes
 
 Kubernetes secrets roles describe the service account and optional RBAC objects Vault creates or uses when generating credentials.
 
@@ -481,14 +486,14 @@ flowchart LR
 
 Roles retain service-account name, allowed namespaces, namespace selectors, token TTL, generated role or cluster-role bindings, and request parameters. Generation effects identify namespaced versus cluster-scoped outcomes. Live Kubernetes RBAC is not independently verified.
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineKubernetes` | Kubernetes secrets-engine mount and cluster/service-account configuration. |
 | `Vault_KubernetesRole` | Service-account credential-generation and generated RBAC binding constraints. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -501,7 +506,7 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 | `Vault_ManageObject` | Policy | Kubernetes role | :x: | Updates or deletes a concrete role. |
 | `Vault_GenerateCredentials` | Policy | Kubernetes role | :white_check_mark: | Generates a service-account token through the concrete role. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -509,7 +514,7 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 | `Vault_KubernetesRole` | `Role Name`, `Generation Mode`, `Namespace Scope Type`, `Namespace Scope`, `Namespace Scope Combination`, `Generation Effects`, `Request Parameters`, `Binding Types`, `Role Types`, `Cluster Scope Possible`, `Allowed Kubernetes Namespaces`, `Allowed Kubernetes Namespace Selector`, `Service Account Name`, `Kubernetes Role Name`, `Kubernetes Role Type`, `Kubernetes Role Ref Type`, `Generated Role Rules` | Whether Vault uses an existing service account or creates service-account/RBAC objects and where those objects may exist. Additional returned role fields are passed through. |
 | `Vault_GenerateCredentials` | `Generation Effects`, `Modes`, `Request Parameters`, `Binding Types`, `Role Types`, `Cluster Scope Possible`, `Namespace Scope Type`, `Namespace Scope`, `Namespace Scope Combination` | Captures the token and Kubernetes objects generated by the request. |
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -518,7 +523,7 @@ flowchart LR
 
 The edge represents generation of a Kubernetes service-account token through the concrete role. Role properties describe namespace selectors and generated namespaced or cluster-scoped bindings. The path does not independently prove the live Kubernetes RBAC attached to the resulting token.
 
-### LDAP
+## LDAP
 
 The LDAP secrets engine manages dynamic credentials, static accounts, and service-account libraries.
 
@@ -531,7 +536,7 @@ flowchart LR
     library -->|Vault_Contains| account[Vault_LdapServiceAccount]
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -541,7 +546,7 @@ flowchart LR
 | `Vault_LdapLibrarySet` | Checkout pool containing managed LDAP service accounts. |
 | `Vault_LdapServiceAccount` | Concrete service account observed in a library set. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -560,7 +565,7 @@ flowchart LR
 | `Vault_LdapForceCheckinServiceAccount` | Policy | LDAP service account | :x: | Administratively forces an account check-in. |
 | `Vault_PotentialAccess` | Policy | LDAP library or service account | :x: | Records checkout when account availability is unknown. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -573,7 +578,7 @@ flowchart LR
 
 Unknown account availability becomes potential access. Checkout is not routed through a traversable library container because Vault returns one available account rather than every member.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -584,7 +589,7 @@ flowchart LR
 
 Dynamic and static role paths yield LDAP credentials according to their role mode. Checkout targets only an observed account currently marked available. Unknown availability emits `Vault_PotentialAccess`; it does not create a traversable edge to the library set and fan out through containment.
 
-### PKI
+## PKI
 
 PKI mounts contain roles, issuers, and keys. An issuer references its key; it does not contain it.
 
@@ -597,7 +602,7 @@ flowchart LR
     issuer -.->|Vault_References| key
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
@@ -606,7 +611,7 @@ flowchart LR
 | `Vault_PkiIssuer` | Root, intermediate, or other issuer registered in the mount. |
 | `Vault_PkiKey` | Software, hardware-backed, or managed-key-backed PKI key. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -634,7 +639,7 @@ flowchart LR
 | `Vault_PkiAcmeManageAccounts` | Policy | PKI mount | :x: | Manages ACME account records. |
 | `Vault_PotentialAccess` | Policy | PKI mount or unresolved resource | :x: | Records issuance or signing whose concrete compatible target cannot be proven. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -652,7 +657,7 @@ Traversable issuance and signing edges do not terminate at the mount when doing 
 
 Authenticated ACME, CMP, EST, and SCEP policy surfaces fold into existing issue, sign, and config families. `Issuance Protocols`, `Protocol Paths`, directory scope, role, issuer, format, and target properties retain the protocol context. Public CA, chain, CRL, OCSP, and similar unauthenticated authority-information endpoints are not modeled as policy authority.
 
-#### Attack Paths
+### Attack Paths
 
 Certificate issuance and signing target the concrete resource that constrains the operation:
 
@@ -682,7 +687,7 @@ Role-less, issuer-selected, and protocol issuance paths remain traversable only 
 
 Revocation, issuer provisioning, root/intermediate lifecycle, and ordinary issuer management can be operationally severe but remain non-traversable. Destroying an issuer does not grant its signing authority.
 
-### SSH
+## SSH
 
 SSH uses one role node kind for OTP and CA role modes. The role properties identify which operations are valid.
 
@@ -692,14 +697,14 @@ flowchart LR
     mount -->|Vault_Contains| role[Vault_SshRole]
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineSsh` | SSH secrets-engine mount and CA/zero-address configuration. |
 | `Vault_SshRole` | OTP or CA role for credential generation, signing, or key-pair issuance. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -715,7 +720,7 @@ flowchart LR
 | `Vault_SshIssueKeyPair` | Policy | CA-compatible SSH role | :white_check_mark: | Issues a new SSH key pair and certificate. |
 | `Vault_SshLookupRoles` | Policy | SSH mount | :x: | Discovers roles matching supplied connection attributes. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -726,7 +731,7 @@ flowchart LR
 
 CA and zero-address configuration uses generic config edges. CA public keys are mount properties; unauthenticated public-key retrieval is not modeled as ACL authority. Role globs expand security outcomes to compatible observed roles.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -737,7 +742,7 @@ flowchart LR
 
 OTP generation returns a usable one-time password. Signing turns an attacker-supplied public key into an SSH certificate. Key-pair issuance returns new private-key material and its certificate. Role-mode compatibility is checked before any of these traversable edges are emitted.
 
-### Terraform Cloud
+## Terraform Cloud
 
 Terraform Cloud roles generate organization, team, or user API tokens.
 
@@ -749,14 +754,14 @@ flowchart LR
 
 The mount stores Terraform Cloud address and token configuration. Role and generation properties identify token mode, organization, team or user target, TTL, and generated credential material.
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineTerraform` | Terraform Cloud secrets-engine mount and API configuration. |
 | `Vault_TerraformRole` | Organization, team, or user token-generation and lifecycle configuration. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -769,7 +774,7 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 | `Vault_ManageObject` | Policy | Terraform Cloud role | :x: | Updates or deletes a concrete role. |
 | `Vault_GenerateCredentials` | Policy | Terraform Cloud role | :white_check_mark: | Generates an organization, team, or user API token. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -777,7 +782,7 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 | `Vault_TerraformRole` | `Role Name`, `Organization`, `Team ID`, `User ID`, `Credential Type`, `Target Type`, `Target Identifier`, `Token Lifecycle Mode`, `Single Active Token`, `Dynamic Per Request`, `Rotatable`, `TTL Applies`, `Max TTL Applies`, `Lease Backed`, `Renewable`, `Returns Same Token Until Rotation`, `May Revoke Existing Token On Generation`, `Generation Effects` | Token ownership, target, rotation, lease, and replacement behavior. |
 | Terraform credential edges | `Scope Type`, `Credential Type`, `Target Type`, `Token Lifecycle Mode`, `Single Active Token`, `Dynamic Per Request`, `Rotatable`, `TTL Applies`, `Max TTL Applies`, `Lease Backed`, `Renewable`, `Returns Same Token Until Rotation`, `May Revoke Existing Token On Generation`, `Request Surface`, `Request Method` | Preserves organization/team/user token semantics after generic generation and configuration folding. |
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -786,7 +791,7 @@ flowchart LR
 
 The path yields a Terraform Cloud organization, team, or user API token according to the role. It proves token generation through Vault, while the resulting Terraform Cloud authorization remains an external-system concern.
 
-### TOTP
+## TOTP
 
 TOTP mounts contain named key configurations.
 
@@ -796,14 +801,14 @@ flowchart LR
     mount -->|Vault_Contains| key[Vault_TotpKey]
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineTotp` | TOTP secrets-engine mount and backend configuration. |
 | `Vault_TotpKey` | Named TOTP key configuration without collected secret seed material. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -817,7 +822,7 @@ flowchart LR
 | `Vault_TotpGenerateCode` | Policy | TOTP key | :white_check_mark: | Returns a current usable TOTP code. |
 | `Vault_TotpValidateCode` | Policy | TOTP key | :x: | Validates a submitted code without yielding credential material. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -827,7 +832,7 @@ flowchart LR
 
 Keys include issuer, account name, period, algorithm, digits, skew, key size, and export state where Vault returns them.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
@@ -836,7 +841,7 @@ flowchart LR
 
 The edge is traversable because the endpoint returns a currently usable code. `Vault_TotpValidateCode` remains non-traversable because validation accepts a candidate code but does not reveal one.
 
-### Transit
+## Transit
 
 Transit mounts contain cryptographic keys and expose operations without returning raw key material unless export is explicitly enabled.
 
@@ -847,14 +852,14 @@ flowchart LR
     key -.->|Vault_ManagedBy| managed[Vault_ManagedKey]
 ```
 
-#### Nodes
+### Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_SecretsEngineTransit` | Transit secrets-engine mount and key-configuration defaults. |
 | `Vault_TransitKey` | Named cryptographic key with type, version, export, derivation, and operation support. |
 
-#### Edges
+### Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -878,7 +883,7 @@ flowchart LR
 | `Vault_TransitExportByokKey` | Policy | Transit key | :x: | Returns BYOK-wrapped material rather than raw secret key material. |
 | `Vault_PotentialAccess` | Policy | Synthetic or unresolved Transit key | :x: | Records an operation whose concrete key or compatibility is unproven. |
 
-#### Properties
+### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
@@ -890,7 +895,7 @@ flowchart LR
 
 Key properties include type, versions, derivation, convergent encryption, exportability, plaintext backup, rotation, operation support, and managed-key references. Key-type compatibility and exportability are enforced before traversable edges are emitted. Public key/certificate-chain reads use `Vault_ReadObject`, not secret export.
 
-#### Attack Paths
+### Attack Paths
 
 ```mermaid
 flowchart LR
