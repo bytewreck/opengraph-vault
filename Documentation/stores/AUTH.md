@@ -83,10 +83,25 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 The tables in each method section list only stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Vault-version-specific `alias_metadata_<key>` values are exported dynamically with humanized labels.
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| Auth method | `Auth Method Types`, backend-specific configuration fields | Identifies the method family and the durable login/trust configuration returned by its API. |
-| Auth role, user, or group | `Policies`, `Token Policies`, `Token Bound CIDRs`, `Token TTL`, `Token Max TTL`, `Token Explicit Max TTL`, `Token No Default Policy`, `Token Num Uses`, `Token Period`, `Token Type`, `Alias Metadata Keys` | Common policy, token, network, and alias behavior shared by auth children. |
+| `Vault_AuthMethod` | `Auth Method Types` | Lists the concrete authentication backend types represented by the mount. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Policies` | Lists policies assigned directly to the auth child by its backend configuration. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Policies` | Lists policies encoded into tokens issued after successful authentication through the object. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Bound CIDRs` | Limits use of issued tokens to the listed client network ranges. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token TTL` | Records the initial lifetime requested for issued tokens. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Max TTL` | Records the maximum lifetime permitted for issued tokens. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Explicit Max TTL` | Records the explicit hard lifetime cap applied to issued tokens. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token No Default Policy` | Indicates whether Vault omits the built-in `default` policy from issued tokens. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Num Uses` | Records the maximum number of uses allowed for an issued token. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Period` | Records the renewal period for periodic tokens. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Token Type` | Identifies the type of token issued by the authentication object. |
+| `Vault_AuthRole`, `Vault_AuthUser`, `Vault_AuthGroup` | `Alias Metadata Keys` | Lists backend fields copied into Identity alias metadata during login. |
+
+Common edge evidence is documented separately so it is not confused with node state.
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
 | `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct assignments, authentication grants, auth-method defaults, and unregistered-user defaults. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
@@ -164,9 +179,11 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthAliCloudRole` | `Role Name`, `ARN`, `Alias Metadata Keys` | RAM role selector and alias behavior; common token and policy fields are defined above. |
+| `Vault_AuthAliCloudRole` | `Role Name` | Names the Vault role used for AliCloud login. |
+| `Vault_AuthAliCloudRole` | `ARN` | Identifies the RAM role or principal ARN accepted by the role. |
+| `Vault_AuthAliCloudRole` | `Alias Metadata Keys` | Lists AliCloud values copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -199,10 +216,30 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthApproleRole` | `Role Name`, `Role ID`, `Bind Secret ID`, `Local Secret IDs`, `Secret ID Bound CIDRs`, `Secret ID Num Uses`, `Secret ID TTL`, `Alias Metadata Keys` | RoleID and SecretID requirements that govern whether generated material can authenticate. |
-| AppRole SecretID edges | `Authorization Modes`, `Role ID Required`, `Role ID Observed`, `Role ID Obtainable`, `Role ID Access Capabilities`, `Role ID Sources`, `Secret ID Required`, `Local Secret IDs`, `Secret ID Bound CIDRs`, `Secret ID Num Uses`, `Secret ID TTL` | Records the complete login-material prerequisite state used to choose traversable generation versus potential access. |
+| `Vault_AuthApproleRole` | `Role Name` | Names the AppRole login role. |
+| `Vault_AuthApproleRole` | `Role ID` | Records the non-secret RoleID required to identify the role during login. |
+| `Vault_AuthApproleRole` | `Bind Secret ID` | Indicates whether login also requires a valid SecretID. |
+| `Vault_AuthApproleRole` | `Local Secret IDs` | Indicates whether generated SecretIDs are local to the performance replication cluster. |
+| `Vault_AuthApproleRole` | `Secret ID Bound CIDRs` | Lists network ranges from which generated SecretIDs may be used. |
+| `Vault_AuthApproleRole` | `Secret ID Num Uses` | Records the maximum uses permitted for each generated SecretID. |
+| `Vault_AuthApproleRole` | `Secret ID TTL` | Records how long generated SecretIDs remain valid. |
+| `Vault_AuthApproleRole` | `Alias Metadata Keys` | Lists AppRole fields copied into Identity alias metadata. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| AppRole SecretID edges | `Authorization Modes` | Lists the AppRole login-material modes authorized by the matched policy paths. |
+| AppRole SecretID edges | `Role ID Required` | Indicates whether a RoleID is required to use generated authentication material. |
+| AppRole SecretID edges | `Role ID Observed` | Indicates whether collection retrieved the role's current RoleID. |
+| AppRole SecretID edges | `Role ID Obtainable` | Indicates whether the source can independently read the RoleID. |
+| AppRole SecretID edges | `Role ID Access Capabilities` | Lists the capabilities proving access to the RoleID endpoint. |
+| AppRole SecretID edges | `Role ID Sources` | Identifies the observed or policy-derived sources of RoleID availability. |
+| AppRole SecretID edges | `Secret ID Required` | Indicates whether a generated SecretID is required for login. |
+| AppRole SecretID edges | `Local Secret IDs` | Records whether the affected role issues replication-local SecretIDs. |
+| AppRole SecretID edges | `Secret ID Bound CIDRs` | Carries the network restrictions applied to generated SecretIDs. |
+| AppRole SecretID edges | `Secret ID Num Uses` | Carries the use limit applied to generated SecretIDs. |
+| AppRole SecretID edges | `Secret ID TTL` | Carries the validity period applied to generated SecretIDs. |
 
 RoleID is always required for login. SecretID generation alone is not treated as a complete credential path when RoleID is unavailable.
 
@@ -243,11 +280,49 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodAws` | `Endpoint`, `EC2 Endpoint`, `IAM Endpoint`, `STS Endpoint`, `STS Region`, `Use STS Region From Client`, `IAM Server ID Header Value`, `Max Retries`, `IAM Alias`, `IAM Metadata`, `EC2 Alias`, `EC2 Metadata`, `Certificate Configured` | AWS validation endpoints, alias construction, metadata projection, and certificate state. |
-| `Vault_AuthAwsRole` | `Role Name`, `Role ID`, `Auth Type`, `Inferred AWS Region`, `Inferred Entity Type`, `IAM Alias`, `EC2 Alias`, `Bound Account IDs`, `Bound AMI IDs`, `Bound EC2 Instance IDs`, `Bound IAM Principal ARNs`, `Bound IAM Role ARNs`, `Bound IAM Instance Profile ARNs`, `Bound Regions`, `Bound Subnet IDs`, `Bound VPC IDs`, `Bound Role Tag`, `Disallow Reauthentication`, `Allow Instance Migration`, `Resolve AWS Unique IDs`, `Alias Metadata Keys` | IAM/EC2 login mode, principal and infrastructure constraints, and alias behavior. |
-| `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Config Surfaces`, `Surface Entry Type`, `Tidy Scope`, `Tidy Surfaces` | Identifies the AWS configuration collection, access-list/deny-list entry family, and tidy surface represented by a merged generic edge. |
+| `Vault_AuthMethodAws` | `Endpoint` | Records the general AWS API endpoint override used by the auth backend. |
+| `Vault_AuthMethodAws` | `EC2 Endpoint` | Records the EC2 API endpoint used for instance validation. |
+| `Vault_AuthMethodAws` | `IAM Endpoint` | Records the IAM API endpoint used for principal validation. |
+| `Vault_AuthMethodAws` | `STS Endpoint` | Records the STS API endpoint used for signed-request validation. |
+| `Vault_AuthMethodAws` | `STS Region` | Identifies the region used for STS requests. |
+| `Vault_AuthMethodAws` | `Use STS Region From Client` | Indicates whether Vault accepts the STS region supplied by the login client. |
+| `Vault_AuthMethodAws` | `IAM Server ID Header Value` | Records the required value of the IAM server-ID protection header. |
+| `Vault_AuthMethodAws` | `Max Retries` | Records the maximum number of retries for AWS API operations. |
+| `Vault_AuthMethodAws` | `IAM Alias` | Identifies the IAM value used to construct Identity aliases. |
+| `Vault_AuthMethodAws` | `IAM Metadata` | Lists IAM fields projected into alias metadata. |
+| `Vault_AuthMethodAws` | `EC2 Alias` | Identifies the EC2 value used to construct Identity aliases. |
+| `Vault_AuthMethodAws` | `EC2 Metadata` | Lists EC2 fields projected into alias metadata. |
+| `Vault_AuthMethodAws` | `Certificate Configured` | Indicates whether a certificate is configured for EC2 identity-document validation. |
+| `Vault_AuthAwsRole` | `Role Name` | Names the AWS authentication role. |
+| `Vault_AuthAwsRole` | `Role ID` | Records Vault's stable identifier for the AWS role. |
+| `Vault_AuthAwsRole` | `Auth Type` | Identifies whether the role accepts IAM, EC2, or both login modes. |
+| `Vault_AuthAwsRole` | `Inferred AWS Region` | Records the AWS region inferred for identity alias construction. |
+| `Vault_AuthAwsRole` | `Inferred Entity Type` | Identifies the AWS resource type from which an entity alias is inferred. |
+| `Vault_AuthAwsRole` | `IAM Alias` | Identifies the IAM attribute used as the alias name for this role. |
+| `Vault_AuthAwsRole` | `EC2 Alias` | Identifies the EC2 attribute used as the alias name for this role. |
+| `Vault_AuthAwsRole` | `Bound Account IDs` | Lists AWS accounts permitted to authenticate through the role. |
+| `Vault_AuthAwsRole` | `Bound AMI IDs` | Lists AMI IDs permitted for EC2 authentication. |
+| `Vault_AuthAwsRole` | `Bound EC2 Instance IDs` | Lists EC2 instance IDs permitted for authentication. |
+| `Vault_AuthAwsRole` | `Bound IAM Principal ARNs` | Lists IAM principal ARNs permitted for authentication. |
+| `Vault_AuthAwsRole` | `Bound IAM Role ARNs` | Lists IAM role ARNs permitted for authentication. |
+| `Vault_AuthAwsRole` | `Bound IAM Instance Profile ARNs` | Lists instance-profile ARNs permitted for EC2 authentication. |
+| `Vault_AuthAwsRole` | `Bound Regions` | Lists AWS regions permitted for authentication. |
+| `Vault_AuthAwsRole` | `Bound Subnet IDs` | Lists subnets permitted for EC2 authentication. |
+| `Vault_AuthAwsRole` | `Bound VPC IDs` | Lists VPCs permitted for EC2 authentication. |
+| `Vault_AuthAwsRole` | `Bound Role Tag` | Records the role tag value required for EC2 authentication. |
+| `Vault_AuthAwsRole` | `Disallow Reauthentication` | Indicates whether an EC2 instance may authenticate more than once. |
+| `Vault_AuthAwsRole` | `Allow Instance Migration` | Indicates whether a previously authenticated EC2 instance may migrate and authenticate again. |
+| `Vault_AuthAwsRole` | `Resolve AWS Unique IDs` | Indicates whether Vault resolves configured IAM ARNs to immutable AWS unique IDs. |
+| `Vault_AuthAwsRole` | `Alias Metadata Keys` | Lists AWS fields copied into Identity alias metadata. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Config Surfaces` | Lists AWS auth configuration collections covered by the merged edge. |
+| `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Surface Entry Type` | Identifies the access-list, deny-list, certificate, or role-tag entry family affected. |
+| `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Tidy Scope` | Identifies the AWS auth data scope cleaned by a tidy operation. |
+| `Vault_AuthAwsCreateRoleTag` and AWS maintenance/config edges | `Tidy Surfaces` | Lists the tidy endpoints represented by the merged edge. |
 
 ### Attack Paths
 
@@ -278,10 +353,40 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodAzure` | `Tenant ID`, `Resource`, `Client ID`, `Environment`, `Identity Token Audience`, `Identity Token TTL`, `Max Retries`, `Retry Delay`, `Max Retry Delay`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Authentication Type`, `Login Required Fields`, `Login Optional Fields` | Azure trust context, client credential mode, retry/rotation behavior, and login request contract. |
-| `Vault_AuthAzureRole` | `Role Name`, `Bound Service Principal IDs`, `Bound Group IDs`, `Bound Locations`, `Bound Subscription IDs`, `Bound Resource Groups`, `Bound Scale Sets`, `Bound Resource IDs`, `Max TTL`, `Max JWT Exp`, `Primary Binding Type`, `Binding Configuration Valid`, `Login Validation Surface`, `Login Required Fields`, `Login Required Instance Fields`, `Alias Metadata Keys` | Azure workload selectors and validation status. |
+| `Vault_AuthMethodAzure` | `Tenant ID` | Identifies the Microsoft Entra tenant trusted by the auth mount. |
+| `Vault_AuthMethodAzure` | `Resource` | Identifies the Azure resource audience expected in login tokens. |
+| `Vault_AuthMethodAzure` | `Client ID` | Identifies the Azure application used by Vault for API access. |
+| `Vault_AuthMethodAzure` | `Environment` | Records the Azure cloud environment used by the backend. |
+| `Vault_AuthMethodAzure` | `Identity Token Audience` | Records the audience requested for Vault workload identity tokens. |
+| `Vault_AuthMethodAzure` | `Identity Token TTL` | Records the lifetime requested for Vault workload identity tokens. |
+| `Vault_AuthMethodAzure` | `Max Retries` | Records the maximum number of Azure API retries. |
+| `Vault_AuthMethodAzure` | `Retry Delay` | Records the initial delay between Azure API retries. |
+| `Vault_AuthMethodAzure` | `Max Retry Delay` | Records the maximum delay permitted between Azure API retries. |
+| `Vault_AuthMethodAzure` | `Rotation Period` | Records the interval for automatic client-credential rotation. |
+| `Vault_AuthMethodAzure` | `Rotation Schedule` | Records the schedule used for client-credential rotation. |
+| `Vault_AuthMethodAzure` | `Rotation Window` | Records the permitted window for scheduled rotation. |
+| `Vault_AuthMethodAzure` | `Disable Automated Rotation` | Indicates whether automatic client-credential rotation is disabled. |
+| `Vault_AuthMethodAzure` | `Authentication Type` | Identifies the credential mechanism Vault uses to call Azure. |
+| `Vault_AuthMethodAzure` | `Login Required Fields` | Lists fields required in an Azure login request. |
+| `Vault_AuthMethodAzure` | `Login Optional Fields` | Lists fields accepted but not required in an Azure login request. |
+| `Vault_AuthAzureRole` | `Role Name` | Names the Azure authentication role. |
+| `Vault_AuthAzureRole` | `Bound Service Principal IDs` | Lists service-principal object IDs permitted to authenticate. |
+| `Vault_AuthAzureRole` | `Bound Group IDs` | Lists Microsoft Entra group IDs permitted to authenticate. |
+| `Vault_AuthAzureRole` | `Bound Locations` | Lists Azure locations permitted for workload authentication. |
+| `Vault_AuthAzureRole` | `Bound Subscription IDs` | Lists Azure subscriptions permitted for authentication. |
+| `Vault_AuthAzureRole` | `Bound Resource Groups` | Lists Azure resource groups permitted for authentication. |
+| `Vault_AuthAzureRole` | `Bound Scale Sets` | Lists virtual-machine scale sets permitted for authentication. |
+| `Vault_AuthAzureRole` | `Bound Resource IDs` | Lists exact Azure resource IDs permitted for authentication. |
+| `Vault_AuthAzureRole` | `Max TTL` | Records the maximum lifetime of tokens issued through the role. |
+| `Vault_AuthAzureRole` | `Max JWT Exp` | Records the maximum accepted remaining lifetime of an Azure JWT. |
+| `Vault_AuthAzureRole` | `Primary Binding Type` | Identifies the principal Azure binding used by the role. |
+| `Vault_AuthAzureRole` | `Binding Configuration Valid` | Indicates whether the collected role has a usable Azure binding. |
+| `Vault_AuthAzureRole` | `Login Validation Surface` | Summarizes the Azure identity surface validated during login. |
+| `Vault_AuthAzureRole` | `Login Required Fields` | Lists fields required to authenticate against the role. |
+| `Vault_AuthAzureRole` | `Login Required Instance Fields` | Lists VM or scale-set fields required for instance-bound login. |
+| `Vault_AuthAzureRole` | `Alias Metadata Keys` | Lists Azure fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -312,10 +417,28 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodCf` | `CF API Address`, `CF Username`, `Identity CA Certificates Set`, `Identity CA Certificate Count`, `CF API Trusted Certificates Set`, `CF API Trusted Certificate Count`, `Login Max Seconds Not Before`, `Login Max Seconds Not After`, `CF Timeout`, `Force New Client`, `CF API Mutual TLS Certificate Configured`, `CF API Mutual TLS Key Configured` | Cloud Foundry API and instance-identity trust configuration without exporting private credential material. |
-| `Vault_AuthCfRole` | `Role Name`, `Bound Application IDs`, `Bound Space IDs`, `Bound Organization IDs`, `Bound Instance IDs`, `Bound CIDRs`, `Disable IP Matching`, `Alias Metadata Keys` | Application, organization, space, instance, and network selectors. |
+| `Vault_AuthMethodCf` | `CF API Address` | Records the Cloud Foundry API endpoint trusted by the auth mount. |
+| `Vault_AuthMethodCf` | `CF Username` | Identifies the Cloud Foundry account used for API validation. |
+| `Vault_AuthMethodCf` | `Identity CA Certificates Set` | Indicates whether instance-identity CA certificates are configured. |
+| `Vault_AuthMethodCf` | `Identity CA Certificate Count` | Counts the configured instance-identity CA certificates. |
+| `Vault_AuthMethodCf` | `CF API Trusted Certificates Set` | Indicates whether custom CA certificates are configured for the Cloud Foundry API. |
+| `Vault_AuthMethodCf` | `CF API Trusted Certificate Count` | Counts custom CA certificates trusted for Cloud Foundry API connections. |
+| `Vault_AuthMethodCf` | `Login Max Seconds Not Before` | Records the allowed clock skew before an instance-identity certificate becomes valid. |
+| `Vault_AuthMethodCf` | `Login Max Seconds Not After` | Records the allowed clock skew after an instance-identity certificate expires. |
+| `Vault_AuthMethodCf` | `CF Timeout` | Records the timeout for Cloud Foundry API requests. |
+| `Vault_AuthMethodCf` | `Force New Client` | Indicates whether Vault creates a new Cloud Foundry API client for each operation. |
+| `Vault_AuthMethodCf` | `CF API Mutual TLS Certificate Configured` | Indicates whether a client certificate is configured for mutual TLS to the Cloud Foundry API. |
+| `Vault_AuthMethodCf` | `CF API Mutual TLS Key Configured` | Indicates whether the corresponding mutual-TLS private key is configured without exposing it. |
+| `Vault_AuthCfRole` | `Role Name` | Names the Cloud Foundry authentication role. |
+| `Vault_AuthCfRole` | `Bound Application IDs` | Lists Cloud Foundry applications permitted to authenticate. |
+| `Vault_AuthCfRole` | `Bound Space IDs` | Lists Cloud Foundry spaces permitted to authenticate. |
+| `Vault_AuthCfRole` | `Bound Organization IDs` | Lists Cloud Foundry organizations permitted to authenticate. |
+| `Vault_AuthCfRole` | `Bound Instance IDs` | Lists application instances permitted to authenticate. |
+| `Vault_AuthCfRole` | `Bound CIDRs` | Lists network ranges permitted for role login. |
+| `Vault_AuthCfRole` | `Disable IP Matching` | Indicates whether Vault skips source-IP matching against the instance identity. |
+| `Vault_AuthCfRole` | `Alias Metadata Keys` | Lists Cloud Foundry fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -346,10 +469,45 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodGcp` | `Client Email`, `Client ID`, `Private Key ID`, `Project ID`, `IAM Alias`, `IAM Metadata`, `GCE Alias`, `GCE Metadata`, `Service Account Email`, `Identity Token Audience`, `Identity Token TTL`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Custom API Endpoint`, `Custom IAM Endpoint`, `Custom CRM Endpoint`, `Custom Compute Endpoint` | GCP credential identity, alias behavior, rotation, and custom service endpoints. |
-| `Vault_AuthGcpRole` | `Role Name`, `Role Type`, `Role ID`, `Project ID`, `GCE Alias`, `IAM Alias`, `Bound Projects`, `Bound Service Accounts`, `Bound Zones`, `Bound Regions`, `Bound Instance Groups`, `Bound Labels`, `Max JWT Exp`, `Allow GCE Inference`, `Add Group Aliases`, `Login Validation Surface`, `Login Required Fields`, `Alias Metadata Keys` | IAM/GCE selectors, inference behavior, and login validation contract. |
+| `Vault_AuthMethodGcp` | `Client Email` | Identifies the GCP client credential account configured for validation. |
+| `Vault_AuthMethodGcp` | `Client ID` | Records the configured Google client identifier. |
+| `Vault_AuthMethodGcp` | `Private Key ID` | Identifies the configured private-key version without exposing key material. |
+| `Vault_AuthMethodGcp` | `Project ID` | Identifies the GCP project associated with backend credentials. |
+| `Vault_AuthMethodGcp` | `IAM Alias` | Identifies the IAM value used to construct Identity aliases. |
+| `Vault_AuthMethodGcp` | `IAM Metadata` | Lists IAM fields projected into alias metadata. |
+| `Vault_AuthMethodGcp` | `GCE Alias` | Identifies the GCE value used to construct Identity aliases. |
+| `Vault_AuthMethodGcp` | `GCE Metadata` | Lists GCE fields projected into alias metadata. |
+| `Vault_AuthMethodGcp` | `Service Account Email` | Records the service account used by Vault's workload identity. |
+| `Vault_AuthMethodGcp` | `Identity Token Audience` | Records the audience requested for Vault workload identity tokens. |
+| `Vault_AuthMethodGcp` | `Identity Token TTL` | Records the lifetime requested for Vault workload identity tokens. |
+| `Vault_AuthMethodGcp` | `Rotation Period` | Records the interval for automatic credential rotation. |
+| `Vault_AuthMethodGcp` | `Rotation Schedule` | Records the schedule used for credential rotation. |
+| `Vault_AuthMethodGcp` | `Rotation Window` | Records the permitted window for scheduled rotation. |
+| `Vault_AuthMethodGcp` | `Disable Automated Rotation` | Indicates whether automatic credential rotation is disabled. |
+| `Vault_AuthMethodGcp` | `Custom API Endpoint` | Records the general Google API endpoint override. |
+| `Vault_AuthMethodGcp` | `Custom IAM Endpoint` | Records the IAM API endpoint override. |
+| `Vault_AuthMethodGcp` | `Custom CRM Endpoint` | Records the Cloud Resource Manager endpoint override. |
+| `Vault_AuthMethodGcp` | `Custom Compute Endpoint` | Records the Compute Engine API endpoint override. |
+| `Vault_AuthGcpRole` | `Role Name` | Names the GCP authentication role. |
+| `Vault_AuthGcpRole` | `Role Type` | Identifies whether the role accepts IAM or GCE login. |
+| `Vault_AuthGcpRole` | `Role ID` | Records Vault's stable identifier for the GCP role. |
+| `Vault_AuthGcpRole` | `Project ID` | Identifies the project context used by the role. |
+| `Vault_AuthGcpRole` | `GCE Alias` | Identifies the GCE attribute used as the Identity alias name. |
+| `Vault_AuthGcpRole` | `IAM Alias` | Identifies the IAM attribute used as the Identity alias name. |
+| `Vault_AuthGcpRole` | `Bound Projects` | Lists GCP projects permitted to authenticate. |
+| `Vault_AuthGcpRole` | `Bound Service Accounts` | Lists service accounts permitted to authenticate. |
+| `Vault_AuthGcpRole` | `Bound Zones` | Lists Compute Engine zones permitted to authenticate. |
+| `Vault_AuthGcpRole` | `Bound Regions` | Lists Compute Engine regions permitted to authenticate. |
+| `Vault_AuthGcpRole` | `Bound Instance Groups` | Lists instance groups permitted to authenticate. |
+| `Vault_AuthGcpRole` | `Bound Labels` | Lists required resource-label matches. |
+| `Vault_AuthGcpRole` | `Max JWT Exp` | Records the maximum accepted remaining lifetime of a login JWT. |
+| `Vault_AuthGcpRole` | `Allow GCE Inference` | Indicates whether IAM login may infer a GCE instance identity. |
+| `Vault_AuthGcpRole` | `Add Group Aliases` | Indicates whether Google group memberships become Vault group aliases. |
+| `Vault_AuthGcpRole` | `Login Validation Surface` | Summarizes the GCP identity surface validated during login. |
+| `Vault_AuthGcpRole` | `Login Required Fields` | Lists fields required in a login request for the role. |
+| `Vault_AuthGcpRole` | `Alias Metadata Keys` | Lists GCP fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -382,11 +540,21 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodGithub` | `Organization`, `Organization ID`, `Base URL`, `Authentication Type`, `Login Requires Scope`, `Login Metadata Fields`, `TTL`, `Max TTL`, `Alias Metadata Keys` | GitHub organization boundary, API location, login requirements, and method-default token behavior. |
-| `Vault_AuthGithubUser` | `Username`, `Policies` | Vault-local user-to-policy mapping. |
-| `Vault_AuthGithubTeam` | `Team Name`, `Policies` | Vault-local team-to-policy mapping. |
+| `Vault_AuthMethodGithub` | `Organization` | Names the GitHub organization whose members may authenticate. |
+| `Vault_AuthMethodGithub` | `Organization ID` | Records the immutable GitHub organization identifier when available. |
+| `Vault_AuthMethodGithub` | `Base URL` | Records the GitHub API base URL, including Enterprise Server overrides. |
+| `Vault_AuthMethodGithub` | `Authentication Type` | Identifies the GitHub authentication flow exposed by the mount. |
+| `Vault_AuthMethodGithub` | `Login Requires Scope` | Indicates whether login requires a token carrying the configured GitHub scope. |
+| `Vault_AuthMethodGithub` | `Login Metadata Fields` | Lists GitHub response fields relevant to login and alias construction. |
+| `Vault_AuthMethodGithub` | `TTL` | Records the default lifetime of tokens issued through the mount. |
+| `Vault_AuthMethodGithub` | `Max TTL` | Records the maximum lifetime of tokens issued through the mount. |
+| `Vault_AuthMethodGithub` | `Alias Metadata Keys` | Lists GitHub fields copied into Identity alias metadata. |
+| `Vault_AuthGithubUser` | `Username` | Names the GitHub user in the Vault-local mapping. |
+| `Vault_AuthGithubUser` | `Policies` | Lists policies granted to the mapped GitHub user. |
+| `Vault_AuthGithubTeam` | `Team Name` | Names the GitHub team in the Vault-local mapping. |
+| `Vault_AuthGithubTeam` | `Policies` | Lists policies granted to members of the mapped GitHub team. |
 
 ### Attack Paths
 
@@ -417,10 +585,52 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodJwtOidc` | `OIDC Discovery URL`, `OIDC Client ID`, `OIDC Response Mode`, `OIDC Response Types`, `Namespace In State`, `JWKS URL`, `JWKS Pair Count`, `JWKS Pair URLs`, `JWT Validation Pubkeys`, `JWT Supported Algs`, `Bound Issuer`, `Default Role`, `Provider Config Keys`, `Fetch Groups`, `OIDC Client Secret Set`, `JWKS CA PEM Set`, `OIDC Discovery CA PEM Set`, `Validation Method`, `Supports Browser Flow`, `Supports Direct JWT Login` | Inbound JWT/OIDC trust roots, browser-flow configuration, and validation mode. |
-| `Vault_AuthJwtOidcRole` | `Role Name`, `Role Type`, `User Claim`, `Groups Claim`, `Bound Subject`, `Bound Audiences`, `Bound Claims`, `Bound Claims Type`, `Claim Mappings`, `Allowed Redirect URIs`, `OIDC Scopes`, `User Claim JSON Pointer`, `Clock Skew Leeway`, `Expiration Leeway`, `Not Before Leeway`, `Verbose OIDC Logging`, `Max Age`, `Validation Method`, `Binding Configuration Valid`, `Login Required Fields`, `Login Optional Fields`, `Supports Browser Flow`, `Supports Direct JWT Login`, `Alias Metadata Keys` | Claim, audience, redirect, timing, and flow constraints used to decide whether a token can satisfy the role. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Discovery URL` | Records the OpenID Provider discovery endpoint trusted by the mount. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Client ID` | Identifies Vault's registered OIDC client at the provider. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Response Mode` | Records the response mode requested during browser authentication. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Response Types` | Lists the response types accepted during the OIDC flow. |
+| `Vault_AuthMethodJwtOidc` | `Namespace In State` | Indicates whether the Vault namespace is encoded into the OIDC state value. |
+| `Vault_AuthMethodJwtOidc` | `JWKS URL` | Records the remote JSON Web Key Set used to validate JWT signatures. |
+| `Vault_AuthMethodJwtOidc` | `JWKS Pair Count` | Counts configured issuer-to-JWKS URL pairs. |
+| `Vault_AuthMethodJwtOidc` | `JWKS Pair URLs` | Lists additional JWKS endpoints selected by issuer. |
+| `Vault_AuthMethodJwtOidc` | `JWT Validation Pubkeys` | Records configured static public keys used for JWT verification. |
+| `Vault_AuthMethodJwtOidc` | `JWT Supported Algs` | Lists JWT signature algorithms accepted by the mount. |
+| `Vault_AuthMethodJwtOidc` | `Bound Issuer` | Records the issuer claim required in accepted tokens. |
+| `Vault_AuthMethodJwtOidc` | `Default Role` | Names the role selected when login omits an explicit role. |
+| `Vault_AuthMethodJwtOidc` | `Provider Config Keys` | Lists provider-specific configuration keys present on the mount. |
+| `Vault_AuthMethodJwtOidc` | `Fetch Groups` | Indicates whether Vault retrieves group information from the provider. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Client Secret Set` | Indicates whether a confidential OIDC client secret is configured without exposing it. |
+| `Vault_AuthMethodJwtOidc` | `JWKS CA PEM Set` | Indicates whether custom CA trust is configured for JWKS retrieval. |
+| `Vault_AuthMethodJwtOidc` | `OIDC Discovery CA PEM Set` | Indicates whether custom CA trust is configured for OIDC discovery. |
+| `Vault_AuthMethodJwtOidc` | `Validation Method` | Summarizes whether validation uses discovery, remote JWKS, or static keys. |
+| `Vault_AuthMethodJwtOidc` | `Supports Browser Flow` | Indicates whether the configuration supports interactive OIDC login. |
+| `Vault_AuthMethodJwtOidc` | `Supports Direct JWT Login` | Indicates whether the configuration supports direct JWT submission. |
+| `Vault_AuthJwtOidcRole` | `Role Name` | Names the JWT/OIDC role. |
+| `Vault_AuthJwtOidcRole` | `Role Type` | Identifies whether the role uses JWT or OIDC semantics. |
+| `Vault_AuthJwtOidcRole` | `User Claim` | Names the claim used to construct the Identity alias. |
+| `Vault_AuthJwtOidcRole` | `Groups Claim` | Names the claim used to derive Identity group aliases. |
+| `Vault_AuthJwtOidcRole` | `Bound Subject` | Records the required token subject. |
+| `Vault_AuthJwtOidcRole` | `Bound Audiences` | Lists audiences accepted by the role. |
+| `Vault_AuthJwtOidcRole` | `Bound Claims` | Records additional claim values required by the role. |
+| `Vault_AuthJwtOidcRole` | `Bound Claims Type` | Identifies whether bound claims use literal or glob matching. |
+| `Vault_AuthJwtOidcRole` | `Claim Mappings` | Maps token claims into alias or token metadata fields. |
+| `Vault_AuthJwtOidcRole` | `Allowed Redirect URIs` | Lists callback URIs permitted for OIDC login. |
+| `Vault_AuthJwtOidcRole` | `OIDC Scopes` | Lists additional scopes requested from the provider. |
+| `Vault_AuthJwtOidcRole` | `User Claim JSON Pointer` | Indicates whether the user claim is interpreted as a JSON Pointer. |
+| `Vault_AuthJwtOidcRole` | `Clock Skew Leeway` | Records tolerated clock skew during token validation. |
+| `Vault_AuthJwtOidcRole` | `Expiration Leeway` | Records additional tolerance applied to token expiration. |
+| `Vault_AuthJwtOidcRole` | `Not Before Leeway` | Records additional tolerance applied to the token's not-before time. |
+| `Vault_AuthJwtOidcRole` | `Verbose OIDC Logging` | Indicates whether verbose OIDC diagnostic logging is enabled. |
+| `Vault_AuthJwtOidcRole` | `Max Age` | Records the maximum accepted age of the upstream authentication event. |
+| `Vault_AuthJwtOidcRole` | `Validation Method` | Summarizes the validation path applicable to the role. |
+| `Vault_AuthJwtOidcRole` | `Binding Configuration Valid` | Indicates whether the role has sufficient claim or audience bindings. |
+| `Vault_AuthJwtOidcRole` | `Login Required Fields` | Lists fields required in a login request for the role. |
+| `Vault_AuthJwtOidcRole` | `Login Optional Fields` | Lists fields accepted but not required by the role. |
+| `Vault_AuthJwtOidcRole` | `Supports Browser Flow` | Indicates whether this role can be used for browser-based OIDC login. |
+| `Vault_AuthJwtOidcRole` | `Supports Direct JWT Login` | Indicates whether this role accepts direct JWT login. |
+| `Vault_AuthJwtOidcRole` | `Alias Metadata Keys` | Lists token claims copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -451,10 +661,35 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodKerberos` | `Kerberos Configured`, `LDAP Configured`, `Service Account`, `Add Group Aliases`, `Remove Instance Name`, `LDAP URL`, `LDAP Bind DN`, `Bind Password Set`, `LDAP User DN`, `LDAP Group DN`, `LDAP User Attribute`, `LDAP Group Attribute`, `LDAP UPN Domain`, `Case Sensitive Names`, `Discover DN`, `Anonymous Group Search`, `Deny Null Bind`, `User Filter`, `Group Filter`, `Start TLS`, `TLS Min Version`, `TLS Max Version`, `Insecure TLS`, `Certificate Set`, `Alias Metadata Keys` | Kerberos service behavior and LDAP group-resolution configuration. |
-| `Vault_AuthKerberosGroup` | `Group Name`, `Policies` | Vault-local Kerberos group policy mapping. |
+| `Vault_AuthMethodKerberos` | `Kerberos Configured` | Indicates whether the Kerberos service configuration was readable. |
+| `Vault_AuthMethodKerberos` | `LDAP Configured` | Indicates whether LDAP authorization and group lookup are configured. |
+| `Vault_AuthMethodKerberos` | `Service Account` | Records the Kerberos service principal used by the mount. |
+| `Vault_AuthMethodKerberos` | `Add Group Aliases` | Indicates whether LDAP groups are emitted as Identity group aliases. |
+| `Vault_AuthMethodKerberos` | `Remove Instance Name` | Indicates whether the instance component is removed from Kerberos principal names. |
+| `Vault_AuthMethodKerberos` | `LDAP URL` | Records the LDAP server URL used for authorization lookups. |
+| `Vault_AuthMethodKerberos` | `LDAP Bind DN` | Records the distinguished name used for LDAP searches. |
+| `Vault_AuthMethodKerberos` | `Bind Password Set` | Indicates whether an LDAP bind password is configured without exposing it. |
+| `Vault_AuthMethodKerberos` | `LDAP User DN` | Records the LDAP subtree searched for users. |
+| `Vault_AuthMethodKerberos` | `LDAP Group DN` | Records the LDAP subtree searched for groups. |
+| `Vault_AuthMethodKerberos` | `LDAP User Attribute` | Names the LDAP attribute used to identify users. |
+| `Vault_AuthMethodKerberos` | `LDAP Group Attribute` | Names the LDAP attribute used to identify groups. |
+| `Vault_AuthMethodKerberos` | `LDAP UPN Domain` | Records the UPN domain appended during LDAP user lookup. |
+| `Vault_AuthMethodKerberos` | `Case Sensitive Names` | Indicates whether LDAP user and group names are case-sensitive. |
+| `Vault_AuthMethodKerberos` | `Discover DN` | Indicates whether Vault discovers each user's distinguished name. |
+| `Vault_AuthMethodKerberos` | `Anonymous Group Search` | Indicates whether group searches may run without the user bind. |
+| `Vault_AuthMethodKerberos` | `Deny Null Bind` | Indicates whether LDAP null-bind responses are rejected. |
+| `Vault_AuthMethodKerberos` | `User Filter` | Records the LDAP filter used to locate users. |
+| `Vault_AuthMethodKerberos` | `Group Filter` | Records the LDAP filter used to resolve group membership. |
+| `Vault_AuthMethodKerberos` | `Start TLS` | Indicates whether the LDAP connection upgrades with StartTLS. |
+| `Vault_AuthMethodKerberos` | `TLS Min Version` | Records the minimum TLS version accepted for LDAP connections. |
+| `Vault_AuthMethodKerberos` | `TLS Max Version` | Records the maximum TLS version accepted for LDAP connections. |
+| `Vault_AuthMethodKerberos` | `Insecure TLS` | Indicates whether LDAP certificate verification is disabled. |
+| `Vault_AuthMethodKerberos` | `Certificate Set` | Indicates whether custom LDAP CA certificates are configured. |
+| `Vault_AuthMethodKerberos` | `Alias Metadata Keys` | Lists Kerberos or LDAP fields copied into Identity alias metadata. |
+| `Vault_AuthKerberosGroup` | `Group Name` | Names the LDAP/Kerberos group in the Vault-local mapping. |
+| `Vault_AuthKerberosGroup` | `Policies` | Lists policies granted to members of the mapped group. |
 
 ### Attack Paths
 
@@ -485,10 +720,32 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodKubernetes` | `Kubernetes Host`, `Kubernetes CA Cert Set`, `PEM Keys Set`, `Token Reviewer JWT Set`, `Disable Local CA JWT`, `Disable ISS Validation`, `Use Annotations As Alias Metadata`, `Issuer`, `Kubernetes CA Source`, `Token Reviewer Source` | Cluster trust, issuer validation, reviewer credentials, and fallback sources. |
-| `Vault_AuthKubernetesRole` | `Role Name`, `Bound Service Account Names`, `Bound Service Account Namespaces`, `Bound Service Account Namespace Selector`, `Audience`, `Alias Name Source`, `Namespace Binding Mode`, `TTL`, `Max TTL`, `Period`, `Binding Configuration Valid`, `Login Required Fields`, `Kubernetes Identity Surface`, `Alias Metadata Keys` | Service-account, namespace, audience, alias, and token constraints. |
+| `Vault_AuthMethodKubernetes` | `Kubernetes Host` | Records the Kubernetes API server used for token validation. |
+| `Vault_AuthMethodKubernetes` | `Kubernetes CA Cert Set` | Indicates whether custom Kubernetes API CA trust is configured. |
+| `Vault_AuthMethodKubernetes` | `PEM Keys Set` | Indicates whether static public keys are configured for JWT verification. |
+| `Vault_AuthMethodKubernetes` | `Token Reviewer JWT Set` | Indicates whether a token-reviewer credential is configured without exposing it. |
+| `Vault_AuthMethodKubernetes` | `Disable Local CA JWT` | Indicates whether Vault avoids loading the local service-account token and CA. |
+| `Vault_AuthMethodKubernetes` | `Disable ISS Validation` | Indicates whether service-account issuer validation is disabled. |
+| `Vault_AuthMethodKubernetes` | `Use Annotations As Alias Metadata` | Indicates whether service-account annotations are copied into alias metadata. |
+| `Vault_AuthMethodKubernetes` | `Issuer` | Records the required service-account token issuer. |
+| `Vault_AuthMethodKubernetes` | `Kubernetes CA Source` | Identifies whether Kubernetes CA trust is configured, local, or unavailable. |
+| `Vault_AuthMethodKubernetes` | `Token Reviewer Source` | Identifies whether token review uses configured, local, or client JWT credentials. |
+| `Vault_AuthKubernetesRole` | `Role Name` | Names the Kubernetes authentication role. |
+| `Vault_AuthKubernetesRole` | `Bound Service Account Names` | Lists service-account names permitted to authenticate. |
+| `Vault_AuthKubernetesRole` | `Bound Service Account Namespaces` | Lists namespaces from which service accounts may authenticate. |
+| `Vault_AuthKubernetesRole` | `Bound Service Account Namespace Selector` | Records the label selector used to admit namespaces. |
+| `Vault_AuthKubernetesRole` | `Audience` | Records the required service-account token audience. |
+| `Vault_AuthKubernetesRole` | `Alias Name Source` | Identifies the Kubernetes value used as the Identity alias name. |
+| `Vault_AuthKubernetesRole` | `Namespace Binding Mode` | Summarizes whether namespaces are matched by name, selector, or wildcard. |
+| `Vault_AuthKubernetesRole` | `TTL` | Records the initial lifetime of tokens issued through the role. |
+| `Vault_AuthKubernetesRole` | `Max TTL` | Records the maximum lifetime of tokens issued through the role. |
+| `Vault_AuthKubernetesRole` | `Period` | Records the renewal period for periodic tokens issued through the role. |
+| `Vault_AuthKubernetesRole` | `Binding Configuration Valid` | Indicates whether the role has a usable service-account and namespace binding. |
+| `Vault_AuthKubernetesRole` | `Login Required Fields` | Lists fields required in a Kubernetes login request. |
+| `Vault_AuthKubernetesRole` | `Kubernetes Identity Surface` | Summarizes the Kubernetes identity attributes validated by the role. |
+| `Vault_AuthKubernetesRole` | `Alias Metadata Keys` | Lists Kubernetes fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -522,11 +779,48 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodLdap` | `LDAP URL`, `LDAP Bind DN`, `Bind Password Set`, `LDAP User DN`, `LDAP Group DN`, `LDAP User Attribute`, `LDAP Group Attribute`, `LDAP UPN Domain`, `Case Sensitive Names`, `Connection Timeout`, `Request Timeout`, `Discover DN`, `Deny Null Bind`, `Anonymous Group Search`, `User Filter`, `Group Filter`, `Username As Alias`, `Dereference Aliases`, `Max Page Size`, `Use Token Groups`, `Enable SAM Account Name Login`, `Start TLS`, `TLS Min Version`, `TLS Max Version`, `Insecure TLS`, `Certificate Set`, `Client TLS Certificate Set`, `Client TLS Key Set`, `Schema`, `Rotation URL`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Alias Metadata Keys` | LDAP connection, search, TLS, alias, schema, and bind-credential rotation configuration. |
-| `Vault_AuthLdapUser` | `Username`, `Policies`, `Groups` | Vault-local LDAP user policy and collected group mapping. |
-| `Vault_AuthLdapGroup` | `Group Name`, `Policies` | Vault-local LDAP group policy mapping. |
+| `Vault_AuthMethodLdap` | `LDAP URL` | Records the LDAP server URLs used for authentication and searches. |
+| `Vault_AuthMethodLdap` | `LDAP Bind DN` | Records the distinguished name used for authenticated directory searches. |
+| `Vault_AuthMethodLdap` | `Bind Password Set` | Indicates whether a directory bind password is configured without exposing it. |
+| `Vault_AuthMethodLdap` | `LDAP User DN` | Records the directory subtree searched for users. |
+| `Vault_AuthMethodLdap` | `LDAP Group DN` | Records the directory subtree searched for groups. |
+| `Vault_AuthMethodLdap` | `LDAP User Attribute` | Names the LDAP attribute used to identify users. |
+| `Vault_AuthMethodLdap` | `LDAP Group Attribute` | Names the LDAP attribute used to identify groups. |
+| `Vault_AuthMethodLdap` | `LDAP UPN Domain` | Records the UPN domain appended during user lookup. |
+| `Vault_AuthMethodLdap` | `Case Sensitive Names` | Indicates whether user and group names are matched case-sensitively. |
+| `Vault_AuthMethodLdap` | `Connection Timeout` | Records the timeout for establishing LDAP connections. |
+| `Vault_AuthMethodLdap` | `Request Timeout` | Records the timeout for LDAP requests after connection. |
+| `Vault_AuthMethodLdap` | `Discover DN` | Indicates whether Vault discovers each user's distinguished name. |
+| `Vault_AuthMethodLdap` | `Deny Null Bind` | Indicates whether LDAP null-bind responses are rejected. |
+| `Vault_AuthMethodLdap` | `Anonymous Group Search` | Indicates whether group searches may run without the authenticating user's bind. |
+| `Vault_AuthMethodLdap` | `User Filter` | Records the LDAP filter used to locate user entries. |
+| `Vault_AuthMethodLdap` | `Group Filter` | Records the LDAP filter used to resolve group membership. |
+| `Vault_AuthMethodLdap` | `Username As Alias` | Indicates whether the login username, rather than a directory attribute, becomes the alias name. |
+| `Vault_AuthMethodLdap` | `Dereference Aliases` | Records how LDAP aliases are dereferenced during searches. |
+| `Vault_AuthMethodLdap` | `Max Page Size` | Records the maximum LDAP paged-search result size. |
+| `Vault_AuthMethodLdap` | `Use Token Groups` | Indicates whether Active Directory tokenGroups are used for membership resolution. |
+| `Vault_AuthMethodLdap` | `Enable SAM Account Name Login` | Indicates whether Active Directory sAMAccountName login is enabled. |
+| `Vault_AuthMethodLdap` | `Start TLS` | Indicates whether LDAP connections upgrade with StartTLS. |
+| `Vault_AuthMethodLdap` | `TLS Min Version` | Records the minimum TLS version accepted for LDAP connections. |
+| `Vault_AuthMethodLdap` | `TLS Max Version` | Records the maximum TLS version accepted for LDAP connections. |
+| `Vault_AuthMethodLdap` | `Insecure TLS` | Indicates whether LDAP certificate verification is disabled. |
+| `Vault_AuthMethodLdap` | `Certificate Set` | Indicates whether custom LDAP CA certificates are configured. |
+| `Vault_AuthMethodLdap` | `Client TLS Certificate Set` | Indicates whether an LDAP mutual-TLS client certificate is configured. |
+| `Vault_AuthMethodLdap` | `Client TLS Key Set` | Indicates whether the corresponding client private key is configured without exposing it. |
+| `Vault_AuthMethodLdap` | `Schema` | Identifies the directory schema mode used by the backend. |
+| `Vault_AuthMethodLdap` | `Rotation URL` | Records the endpoint used to rotate the LDAP bind credential. |
+| `Vault_AuthMethodLdap` | `Rotation Period` | Records the interval for automatic bind-credential rotation. |
+| `Vault_AuthMethodLdap` | `Rotation Schedule` | Records the schedule used for bind-credential rotation. |
+| `Vault_AuthMethodLdap` | `Rotation Window` | Records the permitted window for scheduled rotation. |
+| `Vault_AuthMethodLdap` | `Disable Automated Rotation` | Indicates whether automatic bind-credential rotation is disabled. |
+| `Vault_AuthMethodLdap` | `Alias Metadata Keys` | Lists LDAP fields copied into Identity alias metadata. |
+| `Vault_AuthLdapUser` | `Username` | Names the LDAP user in the Vault-local mapping. |
+| `Vault_AuthLdapUser` | `Policies` | Lists policies granted directly to the mapped LDAP user. |
+| `Vault_AuthLdapUser` | `Groups` | Lists collected LDAP auth groups associated with the user. |
+| `Vault_AuthLdapGroup` | `Group Name` | Names the LDAP group in the Vault-local mapping. |
+| `Vault_AuthLdapGroup` | `Policies` | Lists policies granted to members of the mapped LDAP group. |
 
 ### Attack Paths
 
@@ -557,10 +851,18 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodOci` | `Home Tenancy ID`, `Supported Login Types`, `Login Request Fields` | Tenancy context and signed-request login contract. |
-| `Vault_AuthOciRole` | `Role Name`, `OCID List`, `OCI Group OCIDs`, `OCI Dynamic Group OCIDs`, `Login Validation Surface`, `Login Request Fields`, `Alias Metadata Keys` | OCI identity, group, and dynamic-group selectors. |
+| `Vault_AuthMethodOci` | `Home Tenancy ID` | Identifies the OCI tenancy trusted by the auth mount. |
+| `Vault_AuthMethodOci` | `Supported Login Types` | Lists OCI signed-request login modes supported by the mount. |
+| `Vault_AuthMethodOci` | `Login Request Fields` | Lists request fields accepted by the OCI login endpoint. |
+| `Vault_AuthOciRole` | `Role Name` | Names the OCI authentication role. |
+| `Vault_AuthOciRole` | `OCID List` | Lists explicitly permitted OCI principal identifiers. |
+| `Vault_AuthOciRole` | `OCI Group OCIDs` | Lists OCI identity groups permitted to authenticate. |
+| `Vault_AuthOciRole` | `OCI Dynamic Group OCIDs` | Lists OCI dynamic groups permitted to authenticate. |
+| `Vault_AuthOciRole` | `Login Validation Surface` | Summarizes the OCI identity attributes validated during login. |
+| `Vault_AuthOciRole` | `Login Request Fields` | Lists request fields required or consumed by the role. |
+| `Vault_AuthOciRole` | `Alias Metadata Keys` | Lists OCI fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -593,11 +895,22 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodOkta` | `Org Name`, `Base URL`, `API Token Status`, `Group Membership Source`, `Bypass Okta MFA`, `Authentication Type`, `Login Metadata Fields`, `Alias Metadata Keys` | Okta organization, API-token presence state, group source, MFA behavior, and login contract. |
-| `Vault_AuthOktaUser` | `Username`, `Policies`, `Groups`, `Membership Evaluation Time` | Vault-local user grant and token-time group evaluation. |
-| `Vault_AuthOktaGroup` | `Group Name`, `Policies` | Vault-local Okta group policy mapping. |
+| `Vault_AuthMethodOkta` | `Org Name` | Names the Okta organization used for authentication. |
+| `Vault_AuthMethodOkta` | `Base URL` | Records the Okta domain or API base URL. |
+| `Vault_AuthMethodOkta` | `API Token Status` | Indicates whether an Okta API token is configured and whether its value was exposed by the read response. |
+| `Vault_AuthMethodOkta` | `Group Membership Source` | Identifies how Vault obtains Okta group membership. |
+| `Vault_AuthMethodOkta` | `Bypass Okta MFA` | Indicates whether Vault asks Okta to bypass its MFA challenge. |
+| `Vault_AuthMethodOkta` | `Authentication Type` | Identifies the Okta authentication flow used by the mount. |
+| `Vault_AuthMethodOkta` | `Login Metadata Fields` | Lists Okta values relevant to login and alias construction. |
+| `Vault_AuthMethodOkta` | `Alias Metadata Keys` | Lists Okta fields copied into Identity alias metadata. |
+| `Vault_AuthOktaUser` | `Username` | Names the Okta user in the Vault-local mapping. |
+| `Vault_AuthOktaUser` | `Policies` | Lists policies granted directly to the mapped Okta user. |
+| `Vault_AuthOktaUser` | `Groups` | Lists Okta groups associated with the user during collection. |
+| `Vault_AuthOktaUser` | `Membership Evaluation Time` | Records when external group membership was evaluated. |
+| `Vault_AuthOktaGroup` | `Group Name` | Names the Okta group in the Vault-local mapping. |
+| `Vault_AuthOktaGroup` | `Policies` | Lists policies granted to members of the mapped Okta group. |
 
 ### Attack Paths
 
@@ -628,10 +941,22 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodRadius` | `Host`, `Port`, `Secret Set`, `NAS Port`, `NAS Identifier`, `Dictionary Path`, `Dial Timeout`, `Read Timeout`, `Retries`, `Username Template`, `Alias Metadata Keys`, `Unregistered User Policies` | RADIUS server, shared-secret presence, NAS, retry, user-template, and fallback-policy configuration. |
-| `Vault_AuthRadiusUser` | `Username`, `Policies` | Vault-local RADIUS user policy mapping. |
+| `Vault_AuthMethodRadius` | `Host` | Records the RADIUS server hostname or address. |
+| `Vault_AuthMethodRadius` | `Port` | Records the UDP port used for RADIUS authentication. |
+| `Vault_AuthMethodRadius` | `Secret Set` | Indicates whether the RADIUS shared secret is configured without exposing it. |
+| `Vault_AuthMethodRadius` | `NAS Port` | Records the NAS-Port value sent in RADIUS requests. |
+| `Vault_AuthMethodRadius` | `NAS Identifier` | Records the NAS-Identifier value sent in RADIUS requests. |
+| `Vault_AuthMethodRadius` | `Dictionary Path` | Records the custom RADIUS attribute dictionary path. |
+| `Vault_AuthMethodRadius` | `Dial Timeout` | Records the timeout for establishing communication with the RADIUS server. |
+| `Vault_AuthMethodRadius` | `Read Timeout` | Records the timeout for receiving a RADIUS response. |
+| `Vault_AuthMethodRadius` | `Retries` | Records the number of RADIUS request retries. |
+| `Vault_AuthMethodRadius` | `Username Template` | Records the template used to transform the submitted username. |
+| `Vault_AuthMethodRadius` | `Alias Metadata Keys` | Lists RADIUS values copied into Identity alias metadata. |
+| `Vault_AuthMethodRadius` | `Unregistered User Policies` | Lists fallback policies granted to authenticated users without a Vault-local user record. |
+| `Vault_AuthRadiusUser` | `Username` | Names the RADIUS user in the Vault-local mapping. |
+| `Vault_AuthRadiusUser` | `Policies` | Lists policies granted to the mapped RADIUS user. |
 
 ### Attack Paths
 
@@ -665,10 +990,32 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodSaml` | `IDP Metadata URL`, `IDP SSO URL`, `IDP Entity ID`, `IDP Certificate Set`, `IDP Configuration Mode`, `Entity ID`, `ACS URLs`, `Default Role Name`, `Role Parameter Required`, `Verbose Logging`, `Validate Response Signature`, `Validate Assertion Signature`, `Signature Validation Mode`, `Supported Login Types`, `Login Flow Request Fields` | SAML IdP trust, service-provider identity, callback, default-role, and signature-validation behavior. |
-| `Vault_AuthSamlRole` | `Role Name`, `Bound Subjects`, `Bound Subjects Type`, `Bound Attributes`, `Bound Attributes Type`, `Groups Attribute`, `Creates Group Aliases`, `Is Default Role`, `Alias Metadata Keys` | Subject, attribute, and group constraints used for role selection. |
+| `Vault_AuthMethodSaml` | `IDP Metadata URL` | Records the remote identity-provider metadata endpoint. |
+| `Vault_AuthMethodSaml` | `IDP SSO URL` | Records the identity provider's single sign-on endpoint. |
+| `Vault_AuthMethodSaml` | `IDP Entity ID` | Identifies the trusted SAML identity provider. |
+| `Vault_AuthMethodSaml` | `IDP Certificate Set` | Indicates whether an identity-provider signing certificate is configured. |
+| `Vault_AuthMethodSaml` | `IDP Configuration Mode` | Identifies whether trust comes from metadata, explicit endpoints, or certificates. |
+| `Vault_AuthMethodSaml` | `Entity ID` | Identifies Vault as the SAML service provider. |
+| `Vault_AuthMethodSaml` | `ACS URLs` | Lists assertion-consumer service callback URLs accepted by the mount. |
+| `Vault_AuthMethodSaml` | `Default Role Name` | Names the role selected when login omits an explicit role. |
+| `Vault_AuthMethodSaml` | `Role Parameter Required` | Indicates whether login must explicitly select a role. |
+| `Vault_AuthMethodSaml` | `Verbose Logging` | Indicates whether verbose SAML diagnostic logging is enabled. |
+| `Vault_AuthMethodSaml` | `Validate Response Signature` | Indicates whether Vault requires a valid signature on the SAML response. |
+| `Vault_AuthMethodSaml` | `Validate Assertion Signature` | Indicates whether Vault requires a valid signature on the SAML assertion. |
+| `Vault_AuthMethodSaml` | `Signature Validation Mode` | Summarizes the response and assertion signature requirements. |
+| `Vault_AuthMethodSaml` | `Supported Login Types` | Lists login flows supported by the SAML mount. |
+| `Vault_AuthMethodSaml` | `Login Flow Request Fields` | Lists fields used to initiate the SAML login flow. |
+| `Vault_AuthSamlRole` | `Role Name` | Names the SAML authentication role. |
+| `Vault_AuthSamlRole` | `Bound Subjects` | Lists SAML subjects permitted to use the role. |
+| `Vault_AuthSamlRole` | `Bound Subjects Type` | Identifies how bound-subject values are matched. |
+| `Vault_AuthSamlRole` | `Bound Attributes` | Records SAML attribute values required by the role. |
+| `Vault_AuthSamlRole` | `Bound Attributes Type` | Identifies how bound-attribute values are matched. |
+| `Vault_AuthSamlRole` | `Groups Attribute` | Names the assertion attribute used to create group aliases. |
+| `Vault_AuthSamlRole` | `Creates Group Aliases` | Indicates whether successful login emits Vault Identity group aliases. |
+| `Vault_AuthSamlRole` | `Is Default Role` | Indicates whether the mount selects this role by default. |
+| `Vault_AuthSamlRole` | `Alias Metadata Keys` | Lists SAML assertion fields copied into Identity alias metadata. |
 
 ### Attack Paths
 
@@ -701,11 +1048,29 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodScep` | `Delegated Authentication Only`, `Supported Authentication Types`, `Login Invocation`, `Role Selection Behavior` | SCEP challenge mode and delegated-authentication behavior. |
-| `Vault_AuthScepRole` | `Role Name`, `Display Name`, `Authentication Type`, `Challenge Authentication Required`, `Delegated Authentication Only`, `Alias Metadata Keys` | Static-challenge or delegated authentication requirements. |
-| `Vault_References` | `Reference Types`, `Reference Evidence`, `Authenticator Type`, `Delegated Auth Accessor`, `Delegation Allowed`, `SCEP Enabled`, `Expected Authentication Type`, `Role Selections` | Identifies the PKI protocol configuration that selects this method or role and whether the selection is compatible. |
+| `Vault_AuthMethodScep` | `Delegated Authentication Only` | Indicates whether SCEP enrollment must delegate authentication to another backend. |
+| `Vault_AuthMethodScep` | `Supported Authentication Types` | Lists SCEP challenge-authentication modes supported by the mount. |
+| `Vault_AuthMethodScep` | `Login Invocation` | Describes how the SCEP auth endpoint is invoked during enrollment. |
+| `Vault_AuthMethodScep` | `Role Selection Behavior` | Describes how SCEP enrollment selects an authentication role. |
+| `Vault_AuthScepRole` | `Role Name` | Names the SCEP authentication role. |
+| `Vault_AuthScepRole` | `Display Name` | Records the display name propagated into issued identity data. |
+| `Vault_AuthScepRole` | `Authentication Type` | Identifies the challenge or delegated authentication mode required by the role. |
+| `Vault_AuthScepRole` | `Challenge Authentication Required` | Indicates whether enrollment must present a valid SCEP challenge. |
+| `Vault_AuthScepRole` | `Delegated Authentication Only` | Indicates whether the role accepts only delegated authentication. |
+| `Vault_AuthScepRole` | `Alias Metadata Keys` | Lists SCEP values copied into Identity alias metadata. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| `Vault_References` | `Reference Types` | Lists the PKI-to-SCEP dependency types represented by the edge. |
+| `Vault_References` | `Reference Evidence` | Records the configuration values that establish the dependency. |
+| `Vault_References` | `Authenticator Type` | Identifies the delegated authentication backend family. |
+| `Vault_References` | `Delegated Auth Accessor` | Records the mount accessor of the selected delegated auth method. |
+| `Vault_References` | `Delegation Allowed` | Indicates whether the PKI protocol configuration permits delegation. |
+| `Vault_References` | `SCEP Enabled` | Indicates whether the referencing PKI SCEP surface is enabled. |
+| `Vault_References` | `Expected Authentication Type` | Records the SCEP authentication type expected by the PKI configuration. |
+| `Vault_References` | `Role Selections` | Lists explicit or compatible SCEP roles selected by the PKI configuration. |
 
 ### Attack Paths
 
@@ -739,11 +1104,54 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodSpiffe` | `Trust Domain`, `Trust Domain Configured`, `Profile`, `Audience`, `Trust Bundle Configuration Present`, `Cached Trust Bundle Available`, `Trust Bundle Format`, `Bundle Fetch Deferred`, `Endpoint URL`, `Endpoint SPIFFE ID`, `Endpoint Root CA Truststore Configured`, `Cached Bundle Config Version`, `Cached Bundle Fetched At`, `Cached Bundle Refresh Hint`, `Cached Bundle Sequence Number`, `Configuration Version`, `Passthrough Request Headers`, `Authorization Passthrough Header Configured`, `Listener Client Certificate Support`, `JWT SVID Authentication Prerequisites Present`, `X.509 SVID Authentication Prerequisites Present`, `JWT SVID Readiness`, `X.509 SVID Readiness`, `Supported SVID Types`, `Potential SVID Types`, `Login Role Selection` | Trust-domain, bundle, endpoint, listener, profile, and SVID readiness state. |
-| `Vault_AuthSpiffeRole` | `Role Name`, `Display Name`, `Workload ID Patterns`, `Has Wildcard Workload ID Patterns`, `Alias Metadata Keys`; dynamic template fields include `Template`, `Canonical Template`, `Template Format`, `Template Claims`, `Subject Template`, `Resolved Subject Template`, `Subject Scope`, `Subject Is Templated`, `Identity Template References` | Workload selectors and parsed role-template evidence. |
-| `Vault_AuthSpiffeMayMatchRole` | `Workload ID`, `Matched Patterns`, `Match Types` | Explains why an observed entity alias is compatible with the role without asserting credential possession. |
+| `Vault_AuthMethodSpiffe` | `Trust Domain` | Records the SPIFFE trust domain accepted by the mount. |
+| `Vault_AuthMethodSpiffe` | `Trust Domain Configured` | Indicates whether an explicit trust domain is configured. |
+| `Vault_AuthMethodSpiffe` | `Profile` | Identifies the SPIFFE authentication profile used by the mount. |
+| `Vault_AuthMethodSpiffe` | `Audience` | Records the audience required in JWT-SVIDs. |
+| `Vault_AuthMethodSpiffe` | `Trust Bundle Configuration Present` | Indicates whether trust-bundle retrieval is configured. |
+| `Vault_AuthMethodSpiffe` | `Cached Trust Bundle Available` | Indicates whether Vault has a cached trust bundle available for validation. |
+| `Vault_AuthMethodSpiffe` | `Trust Bundle Format` | Identifies the format of the configured or cached trust bundle. |
+| `Vault_AuthMethodSpiffe` | `Bundle Fetch Deferred` | Indicates whether trust-bundle retrieval was deferred during collection. |
+| `Vault_AuthMethodSpiffe` | `Endpoint URL` | Records the SPIFFE Workload API or bundle endpoint. |
+| `Vault_AuthMethodSpiffe` | `Endpoint SPIFFE ID` | Records the SPIFFE ID expected from the configured endpoint. |
+| `Vault_AuthMethodSpiffe` | `Endpoint Root CA Truststore Configured` | Indicates whether custom root trust is configured for the endpoint. |
+| `Vault_AuthMethodSpiffe` | `Cached Bundle Config Version` | Records the configuration version associated with the cached bundle. |
+| `Vault_AuthMethodSpiffe` | `Cached Bundle Fetched At` | Records when the cached trust bundle was fetched. |
+| `Vault_AuthMethodSpiffe` | `Cached Bundle Refresh Hint` | Records the provider's suggested bundle refresh interval. |
+| `Vault_AuthMethodSpiffe` | `Cached Bundle Sequence Number` | Records the sequence number of the cached trust bundle. |
+| `Vault_AuthMethodSpiffe` | `Configuration Version` | Records the SPIFFE backend configuration version. |
+| `Vault_AuthMethodSpiffe` | `Passthrough Request Headers` | Lists request headers forwarded to the SPIFFE endpoint. |
+| `Vault_AuthMethodSpiffe` | `Authorization Passthrough Header Configured` | Indicates whether an authorization header is forwarded to the endpoint. |
+| `Vault_AuthMethodSpiffe` | `Listener Client Certificate Support` | Indicates whether the Vault listener can supply client-certificate identity. |
+| `Vault_AuthMethodSpiffe` | `JWT SVID Authentication Prerequisites Present` | Indicates whether the mount has the trust and audience data required for JWT-SVID login. |
+| `Vault_AuthMethodSpiffe` | `X.509 SVID Authentication Prerequisites Present` | Indicates whether the mount has the trust and listener data required for X.509-SVID login. |
+| `Vault_AuthMethodSpiffe` | `JWT SVID Readiness` | Summarizes whether JWT-SVID authentication is operational or missing prerequisites. |
+| `Vault_AuthMethodSpiffe` | `X.509 SVID Readiness` | Summarizes whether X.509-SVID authentication is operational or missing prerequisites. |
+| `Vault_AuthMethodSpiffe` | `Supported SVID Types` | Lists SVID types proven usable by the collected configuration. |
+| `Vault_AuthMethodSpiffe` | `Potential SVID Types` | Lists SVID types that may be usable when unresolved prerequisites are satisfied. |
+| `Vault_AuthMethodSpiffe` | `Login Role Selection` | Describes how a SPIFFE login selects a role. |
+| `Vault_AuthSpiffeRole` | `Role Name` | Names the SPIFFE authentication role. |
+| `Vault_AuthSpiffeRole` | `Display Name` | Records the display name assigned to tokens created through the role. |
+| `Vault_AuthSpiffeRole` | `Workload ID Patterns` | Lists SPIFFE workload-ID selectors accepted by the role. |
+| `Vault_AuthSpiffeRole` | `Has Wildcard Workload ID Patterns` | Indicates whether any workload selector contains a wildcard. |
+| `Vault_AuthSpiffeRole` | `Alias Metadata Keys` | Lists SPIFFE values copied into Identity alias metadata. |
+| `Vault_AuthSpiffeRole` | `Template` | Records the original identity template associated with the role. |
+| `Vault_AuthSpiffeRole` | `Canonical Template` | Records the normalized form used for template comparison. |
+| `Vault_AuthSpiffeRole` | `Template Format` | Identifies the syntax used by the role template. |
+| `Vault_AuthSpiffeRole` | `Template Claims` | Lists identity claims referenced by the template. |
+| `Vault_AuthSpiffeRole` | `Subject Template` | Records the template used to match the SPIFFE subject. |
+| `Vault_AuthSpiffeRole` | `Resolved Subject Template` | Records the subject template after resolvable values are substituted. |
+| `Vault_AuthSpiffeRole` | `Subject Scope` | Describes the workload-ID scope selected by the subject template. |
+| `Vault_AuthSpiffeRole` | `Subject Is Templated` | Indicates whether role matching depends on template expansion. |
+| `Vault_AuthSpiffeRole` | `Identity Template References` | Lists Vault Identity values referenced by the template. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| `Vault_AuthSpiffeMayMatchRole` | `Workload ID` | Records the observed SPIFFE workload ID evaluated against the role. |
+| `Vault_AuthSpiffeMayMatchRole` | `Matched Patterns` | Lists role selectors matched by the workload ID. |
+| `Vault_AuthSpiffeMayMatchRole` | `Match Types` | Identifies whether compatibility came from exact, wildcard, or template matching. |
 
 ### Attack Paths
 
@@ -776,11 +1184,43 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethodTlsCert` | `Disable Binding`, `Enable Identity Alias Metadata`, `Enable Metadata On Failures`, `OCSP Cache Size`, `Role Cache Size` | Certificate-binding, metadata, OCSP cache, and role-cache behavior. |
-| `Vault_AuthTlsCertRole` | `Role Name`, `Display Name`, `Certificate Set`, `OCSP Enabled`, `OCSP CA Certificates Set`, `OCSP Servers Override`, `OCSP Fail Open`, `OCSP Query All Servers`, `OCSP This Update Max Age`, `OCSP Max Retries`, `Allowed Names`, `Required Extensions`, `Allowed Common Names`, `Allowed DNS SANs`, `Allowed Email SANs`, `Allowed URI SANs`, `Allowed Organizational Units`, `Allowed Organizations`, `Allowed Metadata Extensions`, `TTL`, `Max TTL`, `Period`, `Alias Metadata Keys` | Trusted material, certificate-name/extension matching, OCSP, and token lifetime constraints. |
-| `Vault_AuthTlsCertCrl` | `CRL Name`, `Configured`, `Source Type`, `Revoked Serial Count`, `Revoked Serials`, `CRL Distribution Point URL`, `CRL Valid Until` | Collected revocation-list source and status. |
+| `Vault_AuthMethodTlsCert` | `Disable Binding` | Indicates whether renewed tokens may be used without presenting the original client certificate. |
+| `Vault_AuthMethodTlsCert` | `Enable Identity Alias Metadata` | Indicates whether certificate metadata is written to Identity aliases. |
+| `Vault_AuthMethodTlsCert` | `Enable Metadata On Failures` | Indicates whether certificate metadata is returned for failed authentication attempts. |
+| `Vault_AuthMethodTlsCert` | `OCSP Cache Size` | Records the maximum number of OCSP responses retained in cache. |
+| `Vault_AuthMethodTlsCert` | `Role Cache Size` | Records the maximum number of certificate roles retained in cache. |
+| `Vault_AuthTlsCertRole` | `Role Name` | Names the TLS certificate authentication role. |
+| `Vault_AuthTlsCertRole` | `Display Name` | Records the display name assigned to tokens issued through the role. |
+| `Vault_AuthTlsCertRole` | `Certificate Set` | Indicates whether trusted certificate material is configured on the role. |
+| `Vault_AuthTlsCertRole` | `OCSP Enabled` | Indicates whether the role validates certificate status through OCSP. |
+| `Vault_AuthTlsCertRole` | `OCSP CA Certificates Set` | Indicates whether custom CA certificates are configured for OCSP validation. |
+| `Vault_AuthTlsCertRole` | `OCSP Servers Override` | Lists OCSP responders that override certificate-provided locations. |
+| `Vault_AuthTlsCertRole` | `OCSP Fail Open` | Indicates whether authentication may continue when OCSP responders are unavailable. |
+| `Vault_AuthTlsCertRole` | `OCSP Query All Servers` | Indicates whether Vault queries every configured OCSP responder. |
+| `Vault_AuthTlsCertRole` | `OCSP This Update Max Age` | Records the maximum accepted age of an OCSP response's `thisUpdate` value. |
+| `Vault_AuthTlsCertRole` | `OCSP Max Retries` | Records the maximum number of OCSP request retries. |
+| `Vault_AuthTlsCertRole` | `Allowed Names` | Lists legacy certificate names accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Required Extensions` | Records certificate extensions and values required by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed Common Names` | Lists certificate common names accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed DNS SANs` | Lists DNS subject-alternative names accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed Email SANs` | Lists email subject-alternative names accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed URI SANs` | Lists URI subject-alternative names accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed Organizational Units` | Lists certificate organizational units accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed Organizations` | Lists certificate organizations accepted by the role. |
+| `Vault_AuthTlsCertRole` | `Allowed Metadata Extensions` | Lists certificate extensions copied into alias metadata. |
+| `Vault_AuthTlsCertRole` | `TTL` | Records the initial lifetime of tokens issued through the role. |
+| `Vault_AuthTlsCertRole` | `Max TTL` | Records the maximum lifetime of tokens issued through the role. |
+| `Vault_AuthTlsCertRole` | `Period` | Records the renewal period for periodic tokens issued through the role. |
+| `Vault_AuthTlsCertRole` | `Alias Metadata Keys` | Lists certificate fields copied into Identity alias metadata. |
+| `Vault_AuthTlsCertCrl` | `CRL Name` | Names the certificate revocation list record. |
+| `Vault_AuthTlsCertCrl` | `Configured` | Indicates whether the CRL record was successfully collected. |
+| `Vault_AuthTlsCertCrl` | `Source Type` | Identifies whether revocation data is stored directly or retrieved from a distribution point. |
+| `Vault_AuthTlsCertCrl` | `Revoked Serial Count` | Counts certificate serial numbers present in the CRL. |
+| `Vault_AuthTlsCertCrl` | `Revoked Serials` | Lists revoked certificate serial numbers when exposed by Vault. |
+| `Vault_AuthTlsCertCrl` | `CRL Distribution Point URL` | Records the remote location used to retrieve revocation data. |
+| `Vault_AuthTlsCertCrl` | `CRL Valid Until` | Records when the collected CRL expires. |
 
 ### Attack Paths
 
@@ -815,11 +1255,38 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthTokenRole` | `Role Name`, `Allowed Policies`, `Disallowed Policies`, `Allowed Policies Glob`, `Disallowed Policies Glob`, `Allowed Entity Aliases`, `Orphan`, `Renewable`, `Path Suffix` | Policy delegation, entity-alias selection, lineage, renewal, and path behavior. |
-| Token creation edges | `Authorization Modes`, `Token Lineages`, `Role Names`, `Allowed Policies`, `Allowed Policy Globs`, `Allowed Entity Aliases`, `Policy Selection Scopes`, `Restriction Bases`, `Can Expand Privileges`, plus token constraints | Explains why issuance is restricted or proves policy expansion through sudo, a role, or an entity alias. |
-| Token lookup/manage edges | `Operation Requirements` and `Requirements` | Records per-operation capability and sudo requirements for lookup, renewal, revocation, and accessor operations. |
+| `Vault_AuthTokenRole` | `Role Name` | Names the token creation role. |
+| `Vault_AuthTokenRole` | `Allowed Policies` | Lists policies the role may explicitly add to created tokens. |
+| `Vault_AuthTokenRole` | `Disallowed Policies` | Lists policies the role may not add to created tokens. |
+| `Vault_AuthTokenRole` | `Allowed Policies Glob` | Lists policy-name patterns the role may add to created tokens. |
+| `Vault_AuthTokenRole` | `Disallowed Policies Glob` | Lists policy-name patterns excluded from created tokens. |
+| `Vault_AuthTokenRole` | `Allowed Entity Aliases` | Lists entity aliases that may be selected when creating a token. |
+| `Vault_AuthTokenRole` | `Orphan` | Indicates whether created tokens omit a parent-token relationship. |
+| `Vault_AuthTokenRole` | `Renewable` | Indicates whether tokens created through the role may be renewed. |
+| `Vault_AuthTokenRole` | `Path Suffix` | Records the suffix appended to generated token paths. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| Token creation edges | `Authorization Modes` | Lists the token creation modes authorized by the matched endpoints. |
+| Token creation edges | `Token Lineages` | Identifies whether created tokens are service, batch, orphan, or parented tokens. |
+| Token creation edges | `Role Names` | Lists token roles through which issuance is authorized. |
+| Token creation edges | `Allowed Policies` | Lists exact policies the issuance path may select. |
+| Token creation edges | `Allowed Policy Globs` | Lists policy-name patterns the issuance path may select. |
+| Token creation edges | `Allowed Entity Aliases` | Lists entity aliases the issuance path may bind to a token. |
+| Token creation edges | `Policy Selection Scopes` | Describes whether policy selection is caller-restricted, role-restricted, or sudo-authorized. |
+| Token creation edges | `Restriction Bases` | Lists the constraints used to classify issuance as restricted. |
+| Token creation edges | `Can Expand Privileges` | Indicates whether the issued token can provably obtain privileges beyond the caller's baseline. |
+| Token creation edges | `Token Bound CIDRs` | Lists network ranges to which the generated token is bound. |
+| Token creation edges | `Token Type` | Identifies the type of token produced by the issuance path. |
+| Token creation edges | `Token Num Uses` | Records the maximum number of uses permitted for the generated token. |
+| Token creation edges | `Token Period` | Records the renewal period applied to a generated periodic token. |
+| Token creation edges | `Token Explicit Max TTL` | Records the hard lifetime cap applied to the generated token. |
+| Token creation edges | `Token No Default Policy` | Indicates whether the generated token omits Vault's built-in `default` policy. |
+| Token creation edges | `Requirements` | Lists role constraints or sudo requirements that must hold for issuance. |
+| Token lookup/manage edges | `Operation Requirements` | Lists capability or sudo prerequisites for each represented token operation. |
+| Token lookup/manage edges | `Requirements` | Summarizes additional prerequisites for lookup, renewal, revocation, or accessor use. |
 
 Token roles include allowed/disallowed policies, orphan behavior, renewable state, path suffix, CIDRs, TTLs, periods, explicit maximum TTL, and token type.
 
@@ -871,12 +1338,21 @@ This authentication method does not define any specialized edges.
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthUserpassUser` | `Username`, `Alias Metadata Keys` plus common token and policy fields | Local username and token behavior; password material is never collected. |
-| `Vault_ControlObject` | `Control Methods`, `Control Parameters`, `Impacts`, and policy-assignment context | Identifies an unrestricted attacker-controlled password reset and the policies reachable through the user. |
+| `Vault_AuthUserpassUser` | `Username` | Names the local UserPass account. |
+| `Vault_AuthUserpassUser` | `Alias Metadata Keys` | Lists UserPass fields copied into Identity alias metadata; password material is never collected. |
+
+| Edge Type | Property | Description |
+| --- | --- | --- |
+| `Vault_ControlObject` | `Control Methods` | Identifies password replacement as the takeover mechanism. |
+| `Vault_ControlObject` | `Control Parameters` | Lists writable request parameters that permit the takeover. |
+| `Vault_ControlObject` | `Impacts` | Lists the authentication or policy outcomes produced by controlling the user. |
+| `Vault_ControlObject` | `Assignable Policies` | Lists observed policies that an unrestricted user update can assign. |
+| `Vault_ControlObject` | `Policy Assignment Parameters` | Lists writable request parameters that control policy assignment. |
+| `Vault_ControlObject` | `Policy Assignment States` | Indicates whether policy selection is unrestricted or value-constrained. |
+| `Vault_ControlObject` | `Unresolved Policy Selectors` | Records policy selectors whose possible targets could not be fully resolved. |
 
 ### Attack Paths
 
 UserPass uses the common object-takeover-to-policy and auth-user identity-correlation paths when a policy can set an attacker-controlled password for the concrete user. Traversal can reach policies already configured on the UserPass user directly and additional policies through the user's observed identity mapping. Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
-

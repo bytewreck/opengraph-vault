@@ -4609,8 +4609,26 @@ class VaultCollector:
             elif auth_type == "kerberos":
                 kerberos_config = self.client.read(f"auth/{path}config") or {}
                 kerberos_ldap_config = self.client.read(f"auth/{path}config/ldap") or {}
+                kerberos_token_policies = (
+                    kerberos_ldap_config.get("token_policies")
+                    or kerberos_ldap_config.get("policies")
+                    or []
+                )
+                if isinstance(kerberos_token_policies, str):
+                    kerberos_token_policies = [
+                        policy.strip()
+                        for policy in kerberos_token_policies.split(",")
+                        if policy.strip()
+                    ]
+                else:
+                    kerberos_token_policies = [
+                        str(policy).strip()
+                        for policy in kerberos_token_policies
+                        if str(policy).strip()
+                    ]
                 self._auth_methods[accessor]["add_group_aliases"] = bool(kerberos_config.get("add_group_aliases", False))
                 self._auth_methods[accessor]["case_sensitive_names"] = bool(kerberos_ldap_config.get("case_sensitive_names", False))
+                self._auth_methods[accessor]["token_policies"] = kerberos_token_policies
                 if kerberos_config or kerberos_ldap_config:
                     kerberos_props = {
                         "Kerberos Configured": bool(kerberos_config),
@@ -4638,7 +4656,7 @@ class VaultCollector:
                         "insecure_tls": bool(kerberos_ldap_config.get("insecure_tls", False)),
                         "Certificate Set": bool(kerberos_ldap_config.get("certificate")),
                         "Alias Metadata Keys": sorted((kerberos_ldap_config.get("alias_metadata") or {}).keys()),
-                        "Token Policies": kerberos_ldap_config.get("token_policies") or [],
+                        "Token Policies": kerberos_token_policies,
                         "Token Bound Cidrs": kerberos_ldap_config.get("token_bound_cidrs") or [],
                         "Token Explicit Max Ttl": to_graph_property_value(kerberos_ldap_config.get("token_explicit_max_ttl")),
                         "Token Max Ttl": to_graph_property_value(kerberos_ldap_config.get("token_max_ttl")),
@@ -10709,7 +10727,7 @@ class VaultCollector:
                     ))
 
         for accessor, info in self._auth_methods.items():
-            if info.get("type") != "ldap":
+            if info.get("type") not in {"ldap", "kerberos"}:
                 continue
             for pol_name in info.get("token_policies") or []:
                 if pol_name in self._policy_node_ids:
