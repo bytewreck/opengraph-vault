@@ -70,14 +70,14 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_ReadConfig` | Policy | Auth method | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
-| `Vault_ManageConfig` | Policy | Auth method | :x: | Changes mount tuning, backend configuration, root credentials, or maintenance state. |
-| `Vault_ListObjects` | Policy | Auth method | :x: | Lists roles, users, groups, CRLs, or another method-specific child collection. |
-| `Vault_CreateObject` | Policy | Auth method or exact synthetic child | :x: | Creates a child object or records authority to create an unobserved exact target. |
-| `Vault_ReadObject` | Policy | Concrete auth child | :x: | Reads durable role, user, group, CRL, or other child configuration. |
-| `Vault_ManageObject` | Policy | Concrete auth child | :x: | Updates, patches, deletes, or otherwise administers a child without proving takeover. |
-| `Vault_ControlObject` | Policy | Concrete auth child or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves takeover of the target authentication outcome. |
-| `Vault_PotentialAccess` | Policy | Unobserved or unresolved auth target | :x: | Preserves a possible authentication or takeover outcome whose prerequisites are not proven. |
+| `Vault_ReadConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
+| `Vault_ManageConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Changes mount tuning, backend configuration, root credentials, or maintenance state. |
+| `Vault_ListObjects` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Lists roles, users, groups, CRLs, or another method-specific child collection. |
+| `Vault_CreateObject` | `Vault_Policy` | `Vault_AuthMethod` or exact synthetic child | :x: | Creates a child object or records authority to create an unobserved exact target. |
+| `Vault_ReadObject` | `Vault_Policy` | Concrete auth child | :x: | Reads durable role, user, group, CRL, or other child configuration. |
+| `Vault_ManageObject` | `Vault_Policy` | Concrete auth child | :x: | Updates, patches, deletes, or otherwise administers a child without proving takeover. |
+| `Vault_ControlObject` | `Vault_Policy` | Concrete auth child or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves takeover of the target authentication outcome. |
+| `Vault_PotentialAccess` | `Vault_Policy` | Unobserved or unresolved auth target | :x: | Preserves a possible authentication or takeover outcome whose prerequisites are not proven. |
 
 ### Common Properties
 
@@ -122,6 +122,7 @@ flowchart LR
     AG -->|Vault_LinksPolicy| P1
     VE -->|Vault_LinksPolicy| P2[Vault_Policy]
     VG -->|Vault_LinksPolicy| P2
+    AU -->|Vault_MemberOf| AG
 ```
 
 The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
@@ -129,10 +130,8 @@ The direct branch records policies configured on the auth principal. The identit
 ```mermaid
 flowchart LR
     authority[Vault_Policy] -->|Vault_ControlObject| AU[Vault_AuthUser]
-    authority -->|Vault_ControlObject| AG[Vault_AuthGroup]
     authority -->|Vault_ControlObject| AR[Vault_AuthRole]
     AU -->|Vault_LinksPolicy| granted[Vault_Policy]
-    AG -->|Vault_LinksPolicy| granted
     AR -->|Vault_LinksPolicy| granted
 ```
 
@@ -829,6 +828,7 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 ```mermaid
 flowchart LR
     P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]
+    PS -->|Vault_Contains| P2[Vault_Policy]
 ```
 
 ```mermaid
@@ -841,7 +841,7 @@ flowchart LR
 flowchart LR
     P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
     EA -->|Vault_MapsTo| VE[Vault_Entity]
-    VE -->|Vault_LinksPolicy| P2
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]
 ```
 
 The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
