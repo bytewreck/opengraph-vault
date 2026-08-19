@@ -77,23 +77,6 @@ Collection globs expand read and manage rights to compatible observed children. 
 
 ### Common Attack Paths
 
-Auth configuration participates in attack paths in four ways:
-
-```mermaid
-flowchart LR
-    AU[Vault_AuthUser] -->|Vault_MapsTo| EA[Vault_EntityAlias]
-    EA -->|Vault_MapsTo| VE[Vault_Entity]
-    AU -->|Vault_LinksPolicy| P1[Vault_Policy]
-    AR[Vault_AuthRole] -->|Vault_LinksPolicy| P1
-    AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
-    GA -->|Vault_MapsTo| VG[Vault_Group]
-    AG -->|Vault_LinksPolicy| P1
-    VE -->|Vault_LinksPolicy| P2[Vault_Policy]
-    VG -->|Vault_LinksPolicy| P2
-```
-
-The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
-
 Method-wide defaults are represented directly on the auth method:
 
 ```mermaid
@@ -109,6 +92,23 @@ flowchart LR
 | RADIUS | `Unregistered User Default` | Policy granted after successful RADIUS authentication when no configured user record matches. |
 
 These links describe the policy outcome after successful external authentication. They do not prove possession of GitHub, LDAP, Okta, RADIUS, or Kerberos credentials.
+
+Auth configuration participates in attack paths in three ways:
+
+```mermaid
+flowchart LR
+    AU[Vault_AuthUser] -->|Vault_MapsTo| EA[Vault_EntityAlias]
+    EA -->|Vault_MapsTo| VE[Vault_Entity]
+    AU -->|Vault_LinksPolicy| P1[Vault_Policy]
+    AR[Vault_AuthRole] -->|Vault_LinksPolicy| P1
+    AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
+    GA -->|Vault_MapsTo| VG[Vault_Group]
+    AG -->|Vault_LinksPolicy| P1
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]
+    VG -->|Vault_LinksPolicy| P2
+```
+
+The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
 
 ```mermaid
 flowchart LR
@@ -145,24 +145,13 @@ Configuration uses `Vault_ReadConfig` and `Vault_ManageConfig`; role CRUD uses g
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or AliCloud method | AliCloud method or role | :white_check_mark: | Places the mount and its observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | AliCloud method | :x: | Reads mount or AliCloud backend configuration. |
-| `Vault_ManageConfig` | Policy | AliCloud method | :x: | Changes mount tuning or AliCloud backend configuration. |
-| `Vault_ListObjects` | Policy | AliCloud method | :x: | Lists configured AliCloud roles. |
-| `Vault_CreateObject` | Policy | AliCloud method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | AliCloud role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | AliCloud role | :x: | Updates or deletes a concrete role. |
-| `Vault_LinksPolicy` | AliCloud role | Policy | :white_check_mark: | Records policies granted after successful authentication through the role. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
-| `Vault_AuthMethodAliCloud` | None beyond common auth-method and mount properties | The AliCloud configuration endpoint does not contribute another stable node-property family. |
 | `Vault_AuthAliCloudRole` | `Role Name`, `ARN`, `Alias Metadata Keys` | RAM role selector and alias behavior; common token and policy fields are defined above. |
-| AliCloud edges | None beyond common ACL, object, configuration, and policy-link properties | AliCloud has no additional specialized edge-evidence family. |
 
 ### Attack Paths
 
@@ -189,24 +178,14 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or AppRole method | AppRole method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | AppRole method | :x: | Reads mount or AppRole backend configuration. |
-| `Vault_ManageConfig` | Policy | AppRole method | :x: | Changes mount tuning or AppRole backend configuration. |
-| `Vault_ListObjects` | Policy | AppRole method | :x: | Lists AppRole roles. |
-| `Vault_CreateObject` | Policy | AppRole method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | AppRole role | :x: | Reads role configuration, including RoleID state when available. |
-| `Vault_ManageObject` | Policy | AppRole role | :x: | Updates or deletes a concrete role. |
 | `Vault_AuthApproleReadSecretId` | Policy | AppRole role | :x: | Reads SecretID accessor metadata. |
 | `Vault_AuthApproleGenerateSecretId` | Policy | AppRole role | :white_check_mark: | Generates a SecretID when a usable RoleID is known or independently readable. |
 | `Vault_AuthApproleManageSecretId` | Policy | AppRole role | :x: | Destroys SecretIDs or SecretID accessors. |
-| `Vault_PotentialAccess` | Policy | AppRole role | :x: | Records SecretID generation with unresolved RoleID or other prerequisites. |
-| `Vault_LinksPolicy` | AppRole role | Policy | :white_check_mark: | Records policies granted after successful AppRole authentication. |
 
 ### Properties
 
 | Applies to | Non-common properties | Meaning |
 | --- | --- | --- |
-| `Vault_AuthMethodApprole` | None beyond common auth-method and mount properties | AppRole behavior is primarily configured on roles. |
 | `Vault_AuthApproleRole` | `Role Name`, `Role ID`, `Bind Secret ID`, `Local Secret IDs`, `Secret ID Bound CIDRs`, `Secret ID Num Uses`, `Secret ID TTL`, `Alias Metadata Keys` | RoleID and SecretID requirements that govern whether generated material can authenticate. |
 | AppRole SecretID edges | `Authorization Modes`, `Role ID Required`, `Role ID Observed`, `Role ID Obtainable`, `Role ID Access Capabilities`, `Role ID Sources`, `Secret ID Required`, `Local Secret IDs`, `Secret ID Bound CIDRs`, `Secret ID Num Uses`, `Secret ID TTL` | Records the complete login-material prerequisite state used to choose traversable generation versus potential access. |
 
@@ -217,7 +196,7 @@ RoleID is always required for login. SecretID generation alone is not treated as
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_AuthApproleGenerateSecretId| role[Vault_AuthApproleRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 The chain is traversable only when RoleID is known or independently readable. Without RoleID, SecretID generation becomes `Vault_PotentialAccess`. SecretID accessor reads and SecretID destruction remain non-traversable.
@@ -245,15 +224,7 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or AWS method | AWS method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | AWS method | :x: | Reads mount, client, identity, or endpoint configuration. |
-| `Vault_ManageConfig` | Policy | AWS method | :x: | Changes backend configuration, tuning, or root credentials. |
-| `Vault_ListObjects` | Policy | AWS method | :x: | Lists AWS auth roles. |
-| `Vault_CreateObject` | Policy | AWS method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | AWS role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | AWS role | :x: | Updates or deletes a concrete role. |
 | `Vault_AuthAwsCreateRoleTag` | Policy | AWS role | :x: | Creates a role tag that may satisfy one AWS login prerequisite. |
-| `Vault_LinksPolicy` | AWS role | Policy | :white_check_mark: | Records policies granted after successful IAM or EC2 authentication. |
 
 ### Properties
 
@@ -288,16 +259,7 @@ Mount-wide tenant, environment, resource, and identity credential settings use g
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or Azure method | Azure method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Azure method | :x: | Reads tenant, environment, resource, or identity configuration. |
-| `Vault_ManageConfig` | Policy | Azure method | :x: | Changes Azure auth configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | Azure method | :x: | Lists Azure auth roles. |
-| `Vault_CreateObject` | Policy | Azure method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Azure role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | Azure role | :x: | Updates or deletes a concrete role. |
-| `Vault_LinksPolicy` | Azure role | Policy | :white_check_mark: | Records policies granted after successful Azure authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -305,7 +267,6 @@ Mount-wide tenant, environment, resource, and identity credential settings use g
 | --- | --- | --- |
 | `Vault_AuthMethodAzure` | `Tenant ID`, `Resource`, `Client ID`, `Environment`, `Identity Token Audience`, `Identity Token TTL`, `Max Retries`, `Retry Delay`, `Max Retry Delay`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Disable Automated Rotation`, `Authentication Type`, `Login Required Fields`, `Login Optional Fields` | Azure trust context, client credential mode, retry/rotation behavior, and login request contract. |
 | `Vault_AuthAzureRole` | `Role Name`, `Bound Service Principal IDs`, `Bound Group IDs`, `Bound Locations`, `Bound Subscription IDs`, `Bound Resource Groups`, `Bound Scale Sets`, `Bound Resource IDs`, `Max TTL`, `Max JWT Exp`, `Primary Binding Type`, `Binding Configuration Valid`, `Login Validation Surface`, `Login Required Fields`, `Login Required Instance Fields`, `Alias Metadata Keys` | Azure workload selectors and validation status. |
-| Azure edges | None beyond common ACL, object, configuration, policy-link, and control properties | Trust takeover uses the common `Vault_ControlObject` context. |
 
 ### Attack Paths
 
@@ -332,18 +293,7 @@ Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObj
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or CF method | CF method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | CF method | :x: | Reads Cloud Foundry trust and API configuration. |
-| `Vault_ManageConfig` | Policy | CF method | :x: | Changes ordinary backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | CF method | :x: | Lists Cloud Foundry roles. |
-| `Vault_CreateObject` | Policy | CF method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | CF role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | CF role | :x: | Updates or deletes a role without proving authentication takeover. |
-| `Vault_ControlObject` | Policy | CF role | :white_check_mark: | Replaces instance-identity trust with attacker-controlled values compatible with the role. |
-| `Vault_PotentialAccess` | Policy | CF role | :x: | Records value-constrained trust replacement whose exploitability is unresolved. |
-| `Vault_LinksPolicy` | CF role | Policy | :white_check_mark: | Records policies granted after successful Cloud Foundry authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -358,7 +308,7 @@ Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObj
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthCfRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 This path is derived only when configuration and parameter constraints prove that the caller can replace the instance-identity CA trust with attacker-controlled values. Role CIDRs, instance-IP matching, and token-bound CIDRs are retained as requirements on the edge. Ordinary CF configuration access remains non-traversable.
@@ -384,16 +334,7 @@ The collector models Vault's binding configuration but does not independently pr
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or GCP method | GCP method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | GCP method | :x: | Reads GCP auth configuration. |
-| `Vault_ManageConfig` | Policy | GCP method | :x: | Changes GCP auth configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | GCP method | :x: | Lists GCP auth roles. |
-| `Vault_CreateObject` | Policy | GCP method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | GCP role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | GCP role | :x: | Updates or deletes a concrete role. |
-| `Vault_LinksPolicy` | GCP role | Policy | :white_check_mark: | Records policies granted after successful IAM or GCE authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -430,17 +371,7 @@ User and team CRUD uses generic object edges. External organization membership i
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or GitHub method | GitHub method, user, or team | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | GitHub method | :x: | Reads GitHub organization and backend configuration. |
-| `Vault_ManageConfig` | Policy | GitHub method | :x: | Changes GitHub backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | GitHub method | :x: | Lists GitHub user or team mappings. |
-| `Vault_CreateObject` | Policy | GitHub method or synthetic mapping | :x: | Creates a user or team mapping. |
-| `Vault_ReadObject` | Policy | GitHub user or team | :x: | Reads a concrete mapping. |
-| `Vault_ManageObject` | Policy | GitHub user or team | :x: | Updates or deletes a concrete mapping. |
-| `Vault_MapsTo` | GitHub user or team | Entity Alias or Group Alias | :white_check_mark: | Correlates a Vault-local GitHub mapping with canonical Vault Identity. |
-| `Vault_LinksPolicy` | GitHub method, user, or team | Policy | :white_check_mark: | Records method-default or mapping-specific policies granted after login. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -484,18 +415,7 @@ Mount properties include discovery, verification keys, bound issuer, algorithms,
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or JWT/OIDC method | JWT/OIDC method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | JWT/OIDC method | :x: | Reads discovery, verification-key, issuer, and provider configuration. |
-| `Vault_ManageConfig` | Policy | JWT/OIDC method | :x: | Changes ordinary trust configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | JWT/OIDC method | :x: | Lists JWT/OIDC roles. |
-| `Vault_CreateObject` | Policy | JWT/OIDC method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | JWT/OIDC role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | JWT/OIDC role | :x: | Updates or deletes a role without proving authentication takeover. |
-| `Vault_ControlObject` | Policy | JWT/OIDC role | :white_check_mark: | Replaces trust or claim-routing values so attacker-controlled assertions can satisfy the role. |
-| `Vault_PotentialAccess` | Policy | JWT/OIDC role | :x: | Records constrained trust replacement whose exploitability is unresolved. |
-| `Vault_LinksPolicy` | JWT/OIDC role | Policy | :white_check_mark: | Records policies granted after successful JWT or OIDC authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -510,7 +430,7 @@ Mount properties include discovery, verification keys, bound issuer, algorithms,
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthJwtOidcRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 The path requires proof that attacker-controlled issuer, discovery, verification-key, or claim values can satisfy the concrete role. Constrained trust changes produce `Vault_PotentialAccess` or ordinary management instead.
@@ -536,17 +456,7 @@ SPN, keytab, LDAP, case behavior, and token configuration use method properties 
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or Kerberos method | Kerberos method or group | :white_check_mark: | Places the mount and observed group mappings in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Kerberos method | :x: | Reads Kerberos, keytab, and LDAP configuration. |
-| `Vault_ManageConfig` | Policy | Kerberos method | :x: | Changes Kerberos backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | Kerberos method | :x: | Lists Kerberos group mappings. |
-| `Vault_CreateObject` | Policy | Kerberos method or synthetic group | :x: | Creates a group mapping. |
-| `Vault_ReadObject` | Policy | Kerberos group | :x: | Reads a concrete group mapping. |
-| `Vault_ManageObject` | Policy | Kerberos group | :x: | Updates or deletes a concrete group mapping. |
-| `Vault_MapsTo` | Kerberos group | Group Alias | :white_check_mark: | Correlates a Kerberos mapping with a canonical Vault group alias. |
-| `Vault_LinksPolicy` | Kerberos group | Policy | :white_check_mark: | Records policies granted through the Kerberos group mapping. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -589,18 +499,7 @@ The mount records Kubernetes host, CA, token reviewer, issuer validation, and se
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or Kubernetes method | Kubernetes method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Kubernetes method | :x: | Reads cluster, CA, issuer, and token-reviewer configuration. |
-| `Vault_ManageConfig` | Policy | Kubernetes method | :x: | Changes ordinary backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | Kubernetes method | :x: | Lists Kubernetes auth roles. |
-| `Vault_CreateObject` | Policy | Kubernetes method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Kubernetes role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | Kubernetes role | :x: | Updates or deletes a role without proving authentication takeover. |
-| `Vault_ControlObject` | Policy | Kubernetes role | :white_check_mark: | Replaces cluster trust or reviewer credentials so an attacker-controlled token can satisfy the role. |
-| `Vault_PotentialAccess` | Policy | Kubernetes role | :x: | Records constrained trust replacement whose exploitability is unresolved. |
-| `Vault_LinksPolicy` | Kubernetes role | Policy | :white_check_mark: | Records policies granted after successful Kubernetes authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -615,7 +514,7 @@ The mount records Kubernetes host, CA, token reviewer, issuer validation, and se
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthKubernetesRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 This requires an unrestricted trust or reviewer replacement that makes an attacker-controlled Kubernetes token satisfy the observed role. Merely editing the role or reading cluster configuration does not create the path.
@@ -644,18 +543,7 @@ Configuration includes URLs, bind DN behavior, user/group search, nested groups,
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or LDAP method | LDAP method, user, or group | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | LDAP method | :x: | Reads connection, bind, search, certificate, and token configuration. |
-| `Vault_ManageConfig` | Policy | LDAP method | :x: | Changes LDAP backend configuration, tuning, or root credentials. |
-| `Vault_ListObjects` | Policy | LDAP method | :x: | Lists LDAP user or group mappings. |
-| `Vault_CreateObject` | Policy | LDAP method or synthetic mapping | :x: | Creates a user or group mapping. |
-| `Vault_ReadObject` | Policy | LDAP user or group | :x: | Reads a concrete mapping. |
-| `Vault_ManageObject` | Policy | LDAP user or group | :x: | Updates or deletes a concrete mapping. |
-| `Vault_MemberOf` | LDAP user | LDAP group | :white_check_mark: | Records group-policy inheritance observed through Vault's LDAP mapping behavior. |
-| `Vault_MapsTo` | LDAP user | Entity Alias | :white_check_mark: | Correlates a concrete LDAP user mapping with canonical Vault Identity. |
-| `Vault_LinksPolicy` | LDAP method, user, or group | Policy | :white_check_mark: | Records method-default, user-specific, or group-specific policy grants. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -701,16 +589,7 @@ VaultHound preserves the configured OCI selectors but does not independently res
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or OCI method | OCI method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | OCI method | :x: | Reads OCI auth configuration. |
-| `Vault_ManageConfig` | Policy | OCI method | :x: | Changes OCI auth configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | OCI method | :x: | Lists OCI auth roles. |
-| `Vault_CreateObject` | Policy | OCI method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | OCI role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | OCI role | :x: | Updates or deletes a concrete role. |
-| `Vault_LinksPolicy` | OCI role | Policy | :white_check_mark: | Records policies granted after successful OCI authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -747,17 +626,7 @@ Okta's API token is a write-only configuration input and is not returned by the 
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or Okta method | Okta method, user, or group | :white_check_mark: | Places the mount and observed mappings in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Okta method | :x: | Reads non-secret Okta organization and backend configuration. |
-| `Vault_ManageConfig` | Policy | Okta method | :x: | Changes Okta backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | Okta method | :x: | Lists Okta user or group mappings. |
-| `Vault_CreateObject` | Policy | Okta method or synthetic mapping | :x: | Creates a user or group mapping. |
-| `Vault_ReadObject` | Policy | Okta user or group | :x: | Reads a concrete mapping. |
-| `Vault_ManageObject` | Policy | Okta user or group | :x: | Updates or deletes a concrete mapping. |
-| `Vault_MapsTo` | Okta user or group | Entity Alias or Group Alias | :white_check_mark: | Correlates a Vault-local Okta mapping with canonical Vault Identity. |
-| `Vault_LinksPolicy` | Okta method, user, or group | Policy | :white_check_mark: | Records method-default or mapping-specific policies granted after login. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -801,17 +670,7 @@ Server, port, shared-secret-related configuration, NAS settings, and token behav
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or RADIUS method | RADIUS method or user | :white_check_mark: | Places the mount and observed user mappings in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | RADIUS method | :x: | Reads non-secret RADIUS server and NAS configuration. |
-| `Vault_ManageConfig` | Policy | RADIUS method | :x: | Changes RADIUS backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | RADIUS method | :x: | Lists RADIUS user mappings. |
-| `Vault_CreateObject` | Policy | RADIUS method or synthetic user | :x: | Creates a user mapping. |
-| `Vault_ReadObject` | Policy | RADIUS user | :x: | Reads a concrete user mapping. |
-| `Vault_ManageObject` | Policy | RADIUS user | :x: | Updates or deletes a concrete user mapping. |
-| `Vault_MapsTo` | RADIUS user | Entity Alias | :white_check_mark: | Correlates a concrete RADIUS mapping with canonical Vault Identity. |
-| `Vault_LinksPolicy` | RADIUS method or user | Policy | :white_check_mark: | Records default, unregistered-user-default, or user-specific policy grants. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -857,17 +716,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or SAML method | SAML method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
 | `Vault_AuthSamlDefaultRole` | SAML method | SAML role | :x: | Identifies the role selected when login omits an explicit role. |
-| `Vault_ReadConfig` | Policy | SAML method | :x: | Reads IdP trust and assertion-routing configuration. |
-| `Vault_ManageConfig` | Policy | SAML method | :x: | Changes ordinary SAML configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | SAML method | :x: | Lists SAML roles. |
-| `Vault_CreateObject` | Policy | SAML method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | SAML role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | SAML role | :x: | Updates or deletes a role without proving authentication takeover. |
-| `Vault_ControlObject` | Policy | SAML role | :white_check_mark: | Replaces IdP trust or routing so attacker-controlled assertions can satisfy the role. |
-| `Vault_PotentialAccess` | Policy | SAML role | :x: | Records constrained trust replacement whose exploitability is unresolved. |
-| `Vault_LinksPolicy` | SAML role | Policy | :white_check_mark: | Records policies granted after successful SAML authentication. |
 
 ### Properties
 
@@ -883,7 +732,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthSamlRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 The edge requires unrestricted attacker-controlled IdP metadata, certificate, or assertion-routing values compatible with the role. Routing-only writes or constrained trust replacement remain non-traversable or potential.
@@ -911,17 +760,7 @@ Challenge, validation, authentication type, role compatibility, and token policy
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or SCEP method | SCEP method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_References` | PKI mount | SCEP method or role | :x: | Records delegated SCEP authentication selected by PKI configuration. |
-| `Vault_ReadConfig` | Policy | SCEP method | :x: | Reads SCEP authentication configuration. |
-| `Vault_ManageConfig` | Policy | SCEP method | :x: | Changes SCEP authentication configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | SCEP method | :x: | Lists SCEP auth roles. |
-| `Vault_CreateObject` | Policy | SCEP method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | SCEP role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | SCEP role | :x: | Updates or deletes a concrete role. |
-| `Vault_LinksPolicy` | SCEP role | Policy | :white_check_mark: | Records policies granted after successful SCEP authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -959,15 +798,7 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or SPIFFE method | SPIFFE method or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | SPIFFE method | :x: | Reads trust-domain and bundle configuration. |
-| `Vault_ManageConfig` | Policy | SPIFFE method | :x: | Changes SPIFFE backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | SPIFFE method | :x: | Lists SPIFFE roles. |
-| `Vault_CreateObject` | Policy | SPIFFE method or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | SPIFFE role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | SPIFFE role | :x: | Updates or deletes a concrete role. |
 | `Vault_AuthSpiffeMayMatchRole` | Entity Alias | SPIFFE role | :x: | Records selector compatibility without proving possession of a valid SPIFFE credential. |
-| `Vault_LinksPolicy` | SPIFFE role | Policy | :white_check_mark: | Records policies granted after successful SPIFFE authentication. |
 
 ### Properties
 
@@ -1004,18 +835,7 @@ Roles include trusted certificate material, names, DNS/email/URI constraints, or
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or TLS Certificate method | TLS Certificate method, role, or CRL | :white_check_mark: | Places the mount and observed trust objects in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | TLS Certificate method | :x: | Reads backend and mount configuration. |
-| `Vault_ManageConfig` | Policy | TLS Certificate method | :x: | Changes backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | TLS Certificate method | :x: | Lists certificate roles or CRLs. |
-| `Vault_CreateObject` | Policy | TLS Certificate method or synthetic object | :x: | Creates a role or CRL record. |
-| `Vault_ReadObject` | Policy | TLS Certificate role or CRL | :x: | Reads a concrete trust object. |
-| `Vault_ManageObject` | Policy | TLS Certificate role or CRL | :x: | Updates or deletes a trust object without proving login takeover. |
-| `Vault_ControlObject` | Policy | TLS Certificate role | :white_check_mark: | Replaces trusted material or constraints so attacker-controlled certificates can satisfy the role. |
-| `Vault_PotentialAccess` | Policy | TLS Certificate role | :x: | Records constrained trust replacement whose exploitability is unresolved. |
-| `Vault_LinksPolicy` | TLS Certificate role | Policy | :white_check_mark: | Records policies granted after successful certificate authentication. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
@@ -1031,7 +851,7 @@ Roles include trusted certificate material, names, DNS/email/URI constraints, or
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_ControlObject| role[Vault_AuthTlsCertRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 This requires the ability to replace trusted certificate material or matching constraints with values controlled by the attacker. CRL maintenance and constrained role changes do not automatically confer login ability.
@@ -1057,19 +877,11 @@ flowchart LR
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or Token method | Token method or role | :white_check_mark: | Places the built-in token method and observed token roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Token method | :x: | Reads token backend or mount configuration. |
-| `Vault_ManageConfig` | Policy | Token method | :x: | Changes token backend configuration, tuning, or maintenance state. |
-| `Vault_ListObjects` | Policy | Token method | :x: | Lists token roles. |
-| `Vault_CreateObject` | Policy | Token method or synthetic role | :x: | Creates a token role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Token role | :x: | Reads a concrete token role. |
-| `Vault_ManageObject` | Policy | Token role | :x: | Updates or deletes a concrete token role. |
 | `Vault_AuthTokenReadToken` | Policy | Token method or role context | :x: | Looks up token or accessor state. |
 | `Vault_AuthTokenCreateRestrictedToken` | Policy | Token method or role | :x: | Creates a token constrained to the caller's policy subset. |
 | `Vault_AuthTokenCreatePrivilegedToken` | Policy | Token role, Policy Store, or Entity Alias | :white_check_mark: | Creates a token with proven policy expansion through a role, sudo, or privileged alias. |
 | `Vault_AuthTokenManageToken` | Policy | Token method or role context | :x: | Renews or revokes tokens. |
 | `Vault_AuthTokenListAccessors` | Policy | Token method | :x: | Lists token accessors through the sudo-gated endpoint. |
-| `Vault_LinksPolicy` | Token role | Policy | :white_check_mark: | Records policies delegated by the token role. |
 
 ### Properties
 
@@ -1087,7 +899,7 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 ```mermaid
 flowchart LR
     policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| role[Vault_AuthTokenRole]
-    role -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    role -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 ```mermaid
@@ -1099,7 +911,7 @@ flowchart LR
 flowchart LR
     policy[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| alias[Vault_EntityAlias]
     alias -->|Vault_MapsTo| entity[Vault_Entity]
-    entity -->|Vault_LinksPolicy| granted["Granted Vault_Policy"]
+    entity -->|Vault_LinksPolicy| granted[Vault_Policy]
 ```
 
 The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
@@ -1125,18 +937,7 @@ Password, policy, and token-setting updates are generic object management. An un
 
 ### Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Auth Store or UserPass method | UserPass method or user | :white_check_mark: | Places the mount and observed users in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | UserPass method | :x: | Reads UserPass backend or mount configuration. |
-| `Vault_ManageConfig` | Policy | UserPass method | :x: | Changes UserPass backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | UserPass method | :x: | Lists UserPass users. |
-| `Vault_CreateObject` | Policy | UserPass method or synthetic user | :x: | Creates a user or records authority to create an unobserved user. |
-| `Vault_ReadObject` | Policy | UserPass user | :x: | Reads a concrete user's non-secret configuration. |
-| `Vault_ManageObject` | Policy | UserPass user | :x: | Updates policies or token settings without proving account takeover. |
-| `Vault_ControlObject` | Policy | UserPass user | :white_check_mark: | Sets an attacker-controlled password for the concrete user. |
-| `Vault_MapsTo` | UserPass user | Entity Alias | :white_check_mark: | Correlates the local user with canonical Vault Identity. |
-| `Vault_LinksPolicy` | UserPass user | Policy | :white_check_mark: | Records policies configured directly on the user. |
+This authentication method does not define any specialized edges.
 
 ### Properties
 
