@@ -75,11 +75,9 @@ Auth-specific principals do not replace canonical Vault identity. Where mount ac
 ```mermaid
 flowchart LR
     EA[Vault_EntityAlias]:::entityAliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
-    EA -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
-    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+    VE -->|Vault_LinksPolicy| P[Vault_Policy]:::policyNode
     GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
-    GA -->|Vault_LinksPolicy| P1
-    VG -->|Vault_LinksPolicy| P2
+    VG -->|Vault_LinksPolicy| P
     VE -->|Vault_MemberOf| VG
   
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
@@ -92,9 +90,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_MapsTo|Vault_OnAuthMethod|Vault_MemberOf|Vault_LinksPolicy*1..3]->(d)
-WHERE (s:Vault_AuthUser OR s:Vault_AuthGroup OR s:Vault_Entity OR s:Vault_Group)
-  AND (d:Vault_EntityAlias OR d:Vault_GroupAlias OR d:Vault_Entity OR d:Vault_Group OR d:Vault_AuthMethod OR d:Vault_Policy)
+MATCH p = (s)-[:Vault_MapsTo|Vault_MemberOf|Vault_LinksPolicy*1..]->(d)
+WHERE (s:Vault_Entity OR s:Vault_EntityAlias OR s:Vault_Group OR s:Vault_GroupAlias)
+  AND (d:Vault_Entity OR d:Vault_EntityAlias OR d:Vault_Group OR d:Vault_GroupAlias OR d:Vault_Policy)
 RETURN p
 ```
 
