@@ -23,15 +23,18 @@ Mermaid diagrams in this guide use solid arrows for traversable relationships an
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| entity[Entities]:::entityNode
-    store -->|Vault_Contains| group[Groups]:::groupNode
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| VE[Vault_Entity]:::entityNode
+    store -->|Vault_Contains| EA[Vault_EntityAlias]:::groupNode
+    store -->|Vault_Contains| VG[Vault_Group]:::groupNode
+    store -->|Vault_Contains| GA[Vault_GroupAlias]:::groupAliasNode
     store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
     store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
     store -->|Vault_Contains| scim[Vault_ScimClient]:::scimNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
     classDef oidcNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
     classDef mfaNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
