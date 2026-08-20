@@ -80,7 +80,8 @@ flowchart LR
     GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
     GA -->|Vault_LinksPolicy| P1
     VG -->|Vault_LinksPolicy| P2
-
+    VE -->|Vault_MemberOf| VG
+  
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
