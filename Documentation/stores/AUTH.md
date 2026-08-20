@@ -1027,8 +1027,12 @@ OCI roles capture group and dynamic-group OCIDs, tenancy constraints, request-he
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodOci]
-    method -->|Vault_Contains| role[Vault_AuthOciRole]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodOci]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthOciRole]:::authRoleNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1077,9 +1081,14 @@ Okta auth contains Vault-local user and group policy mappings and method-wide Ok
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodOkta]
-    method -->|Vault_Contains| user[Vault_AuthOktaUser]
-    method -->|Vault_Contains| group[Vault_AuthOktaGroup]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodOkta]:::authMethodNode
+    method -->|Vault_Contains| user[Vault_AuthOktaUser]:::authUserNode
+    method -->|Vault_Contains| group[Vault_AuthOktaGroup]:::authGroupNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
+    classDef authGroupNode fill:#5499C7,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1134,8 +1143,12 @@ RADIUS stores mount-wide server/NAS configuration and optional Vault-local user-
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodRadius]
-    method -->|Vault_Contains| user[Vault_AuthRadiusUser]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodRadius]:::authMethodNode
+    method -->|Vault_Contains| user[Vault_AuthRadiusUser]:::authUserNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1188,9 +1201,13 @@ SAML models IdP trust at the method and attribute/subject matching at roles.
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodSaml]
-    method -->|Vault_Contains| role[Vault_AuthSamlRole]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodSaml]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthSamlRole]:::authRoleNode
     method -.->|Vault_AuthSamlDefaultRole| role
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1256,10 +1273,15 @@ SCEP auth supports static-challenge and Intune-style authentication used by comp
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodScep]
-    method -->|Vault_Contains| role[Vault_AuthScepRole]
-    pki[Vault_SecretsEnginePki] -.->|Vault_References| method
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodScep]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthScepRole]:::authRoleNode
+    pki[Vault_SecretsEnginePki]:::mountNode -.->|Vault_References| method
     pki -.->|Vault_References| role
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1318,9 +1340,14 @@ SPIFFE roles match workload identities validated by trust-domain, JWT, or X.509 
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodSpiffe]
-    method -->|Vault_Contains| role[Vault_AuthSpiffeRole]
-    alias[Vault_EntityAlias] -.->|Vault_AuthSpiffeMayMatchRole| role
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodSpiffe]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthSpiffeRole]:::authRoleNode
+    alias[Vault_EntityAlias]:::entityAliasNode -.->|Vault_AuthSpiffeMayMatchRole| role
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1405,9 +1432,14 @@ TLS Certificate auth contains trusted certificate roles and CRL records.
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodTlsCert]
-    method -->|Vault_Contains| role[Vault_AuthTlsCertRole]
-    method -->|Vault_Contains| crl[Vault_AuthTlsCertCrl]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodTlsCert]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthTlsCertRole]:::authRoleNode
+    method -->|Vault_Contains| crl[Vault_AuthTlsCertCrl]:::authObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
+    classDef authObjectNode fill:#AF7AC5,color:#fff,stroke:#76448A,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1483,8 +1515,12 @@ Token auth contains token roles but does not enumerate ordinary live tokens. A r
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodToken]
-    method -->|Vault_Contains| role[Vault_AuthTokenRole]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodToken]:::authMethodNode
+    method -->|Vault_Contains| role[Vault_AuthTokenRole]:::authRoleNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1550,8 +1586,11 @@ Token roles include allowed/disallowed policies, orphan behavior, renewable stat
 
 ```mermaid
 flowchart LR
-    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]
-    PS -->|Vault_Contains| P2[Vault_Policy]
+    P1[Vault_Policy]:::policyNode -->|Vault_AuthTokenCreatePrivilegedToken| PS["Vault_Store: POLICIES"]:::storeNode
+    PS -->|Vault_Contains| P2[Vault_Policy]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1563,8 +1602,11 @@ RETURN p
 
 ```mermaid
 flowchart LR
-    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| AR[Vault_AuthTokenRole]
-    AR -->|Vault_LinksPolicy| P2[Vault_Policy]
+    P1[Vault_Policy]:::policyNode -->|Vault_AuthTokenCreatePrivilegedToken| AR[Vault_AuthTokenRole]:::authRoleNode
+    AR -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1576,9 +1618,13 @@ RETURN p
 
 ```mermaid
 flowchart LR
-    P1[Vault_Policy] -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]
-    EA -->|Vault_MapsTo| VE[Vault_Entity]
-    VE -->|Vault_LinksPolicy| P2[Vault_Policy]
+    P1[Vault_Policy]:::policyNode -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]:::entityAliasNode
+    EA -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -1596,8 +1642,12 @@ UserPass stores local username records with password state, token policies, TTLs
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH] -->|Vault_Contains| method[Vault_AuthMethodUserpass]
-    method -->|Vault_Contains| user[Vault_AuthUserpassUser]
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethodUserpass]:::authMethodNode
+    method -->|Vault_Contains| user[Vault_AuthUserpassUser]:::authUserNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
 ```
 
 Equivalent Cypher query:

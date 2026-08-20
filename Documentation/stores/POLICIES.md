@@ -4,10 +4,16 @@ The Policy Store contains namespace-local policy documents and anchors policy-re
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: POLICIES]
-    store -->|Vault_Contains| policy[Vault_Policy]
-    identity[Entity, group, or auth object] -->|Vault_LinksPolicy| policy
-    policy -->|Declared access edge| target[Concrete Vault object]
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: POLICIES]:::storeNode
+    store -->|Vault_Contains| policy[Vault_Policy]:::policyNode
+    identity[Entity, group, or auth object]:::identityNode -->|Vault_LinksPolicy| policy
+    policy -->|Declared access edge| target[Concrete Vault object]:::objectNode
+
+    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef objectNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
 
 ## Nodes
@@ -33,11 +39,18 @@ The collector stores parsed ACL rules internally for edge resolution. Raw secret
 
 ```mermaid
 flowchart LR
-    store[Policy Store] -->|Vault_Contains| policy[Vault_Policy]
-    entity[Vault_Entity] -->|Vault_LinksPolicy| policy
-    group[Vault_Group] -->|Vault_LinksPolicy| policy
-    role[Auth role, user, or group] -->|Vault_LinksPolicy| policy
-    method[Auth method default] -->|Vault_LinksPolicy| policy
+    store[Policy Store]:::storeNode -->|Vault_Contains| policy[Vault_Policy]:::policyNode
+    entity[Vault_Entity]:::entityNode -->|Vault_LinksPolicy| policy
+    group[Vault_Group]:::groupNode -->|Vault_LinksPolicy| policy
+    role[Auth role, user, or group]:::authObjectNode -->|Vault_LinksPolicy| policy
+    method[Auth method default]:::authMethodNode -->|Vault_LinksPolicy| policy
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef authObjectNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -51,10 +64,13 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    admin[Vault_Policy] -->|Vault_ListObjects| store[Policy Store]
+    admin[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Policy Store]:::storeNode
     admin -->|Vault_CreateObject| store
-    admin -->|Vault_ReadObject| target[Vault_Policy]
+    admin -->|Vault_ReadObject| target[Vault_Policy]:::policyNode
     admin -->|Vault_ManageObject| target
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -80,11 +96,15 @@ Policies normally serve as the authority-bearing middle of a path:
 
 ```mermaid
 flowchart LR
-    principal["Identity or authentication object"] -->|Vault_LinksPolicy| policy[Vault_Policy]
-    policy -->|Vault_KvReadSecret| secret[Vault_KvFile]
-    policy -->|Vault_GenerateCredentials| role[Secrets role]
-    policy -->|Vault_ControlObject| controlled["Identity or auth object"]
-    controlled -->|Vault_LinksPolicy| elevated["Additional Vault_Policy"]
+    principal["Identity or authentication object"]:::identityNode -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
+    policy -->|Vault_KvReadSecret| secret[Vault_KvFile]:::secretObjectNode
+    policy -->|Vault_GenerateCredentials| role[Secrets role]:::secretObjectNode
+    policy -->|Vault_ControlObject| controlled["Identity or auth object"]:::identityNode
+    controlled -->|Vault_LinksPolicy| elevated["Additional Vault_Policy"]:::policyNode
+
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 These are representative concrete outcomes rather than an exhaustive list. Each relationship label is an edge kind defined by the schema; the relevant subsystem guide documents its complete set of traversable operations.
@@ -93,8 +113,11 @@ Control of an identity or authentication object can reach policies already linke
 
 ```mermaid
 flowchart LR
-    policyA["Vault_Policy A"] -->|Vault_ControlObject| object["Identity or auth object"]
-    object -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
+    policyA["Vault_Policy A"]:::policyNode -->|Vault_ControlObject| object["Identity or auth object"]:::identityNode
+    object -->|Vault_LinksPolicy| policyB["Vault_Policy B"]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 The model does not synthesize a direct Policy A to Policy B shortcut from policy-assignment parameters. Those parameters remain contextual evidence on management, control, or potential-access edges. A standalone `Vault_ManageObject` edge to Policy B is intentionally not traversable.
@@ -112,11 +135,16 @@ For each path block, VaultHound:
 
 ```mermaid
 flowchart LR
-    document[Vault_Policy] --> block[HCL path block]
-    block --> matcher[Exact, +, *, or template matcher]
-    matcher --> endpoint[Supported Vault endpoint]
-    endpoint --> edge[Specific or generic access edge]
-    edge --> target[Observed, synthetic, or potential target]
+    document[Vault_Policy]:::policyNode --> block[HCL path block]:::processNode
+    block --> matcher[Exact, +, *, or template matcher]:::processNode
+    matcher --> endpoint[Supported Vault endpoint]:::endpointNode
+    endpoint --> edge[Specific or generic access edge]:::processNode
+    edge --> target[Observed, synthetic, or potential target]:::objectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef processNode fill:#7F8C8D,color:#fff,stroke:#4D5656,stroke-width:2px
+    classDef endpointNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
+    classDef objectNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
 
 | Form | Behavior |

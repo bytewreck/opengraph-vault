@@ -4,12 +4,20 @@ The Identity Store represents Vault's namespace-local identity subsystem under `
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: IDENTITY]
-    store -->|Vault_Contains| entity[Entities]
-    store -->|Vault_Contains| group[Groups]
-    store -->|Vault_Contains| oidc[OIDC resources]
-    store -->|Vault_Contains| mfa[MFA resources]
-    store -->|Vault_Contains| scim[Vault_ScimClient]
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: IDENTITY]:::storeNode
+    store -->|Vault_Contains| entity[Entities]:::entityNode
+    store -->|Vault_Contains| group[Groups]:::groupNode
+    store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
+    store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
+    store -->|Vault_Contains| scim[Vault_ScimClient]:::scimNode
+
+    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef oidcNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
+    classDef mfaNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
 ```
 
 The store is the destination for collection-wide list/create and identity configuration rights. Exact reads and management rights target concrete identity objects.
@@ -32,12 +40,20 @@ Auth-specific principals do not replace canonical Vault identity. Where mount ac
 
 ```mermaid
 flowchart LR
-    principal[Vault_AuthUser or Vault_AuthGroup] -->|Vault_MapsTo| alias[Entity or Group Alias]
-    alias -->|Vault_MapsTo| identity[Vault_Entity or Vault_Group]
-    alias -->|Vault_OnAuthMethod| method[Vault_AuthMethod]
-    entity[Vault_Entity] -->|Vault_MemberOf| group[Vault_Group]
-    child[Vault_Group] -->|Vault_MemberOf| parent[Vault_Group]
-    identity -->|Vault_LinksPolicy| policy[Vault_Policy]
+    principal[Vault_AuthUser or Vault_AuthGroup]:::authObjectNode -->|Vault_MapsTo| alias[Entity or Group Alias]:::aliasNode
+    alias -->|Vault_MapsTo| identity[Vault_Entity or Vault_Group]:::identityNode
+    alias -->|Vault_OnAuthMethod| method[Vault_AuthMethod]:::authMethodNode
+    entity[Vault_Entity]:::entityNode -->|Vault_MemberOf| group[Vault_Group]:::groupNode
+    child[Vault_Group]:::groupNode -->|Vault_MemberOf| parent[Vault_Group]:::groupNode
+    identity -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
+
+    classDef authObjectNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
+    classDef aliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -71,12 +87,16 @@ Identity administration introduces no additional durable object kind. It targets
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_ListObjects| store[Identity Store]
+    policy[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Identity Store]:::storeNode
     policy -->|Vault_CreateObject| store
-    policy -->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]
+    policy -->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]:::identityNode
     policy -->|Vault_ManageObject| object
-    policy -->|Vault_ControlObject| controlled[Takeover-capable identity target]
-    controlled -->|Vault_LinksPolicy| granted[Vault_Policy]
+    policy -->|Vault_ControlObject| controlled[Takeover-capable identity target]:::identityNode
+    controlled -->|Vault_LinksPolicy| granted[Vault_Policy]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -112,8 +132,11 @@ Identity takeover can expose every policy linked to the controlled identity obje
 
 ```mermaid
 flowchart LR
-    policyA["Vault_Policy A"] -->|Vault_ControlObject| group[Vault_Group]
-    group -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
+    policyA["Vault_Policy A"]:::policyNode -->|Vault_ControlObject| group[Vault_Group]:::groupNode
+    group -->|Vault_LinksPolicy| policyB["Vault_Policy B"]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
 ```
 
 This path reaches only policies observed as linked to the controlled group. Policy-assignment parameters remain evidence on the relevant management or control edge and do not create a direct policy-to-policy relationship.
@@ -122,8 +145,11 @@ Rebinding an alias under attacker control targets the candidate canonical identi
 
 ```mermaid
 flowchart LR
-    policyA["Vault_Policy A"] -->|Vault_ControlObject| identity["Vault_Entity or Vault_Group"]
-    identity -->|Vault_LinksPolicy| policyB["Vault_Policy B"]
+    policyA["Vault_Policy A"]:::policyNode -->|Vault_ControlObject| identity["Vault_Entity or Vault_Group"]:::identityNode
+    identity -->|Vault_LinksPolicy| policyB["Vault_Policy B"]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 The `Vault_ControlObject` properties distinguish this path from membership takeover:
@@ -138,7 +164,10 @@ No additional alias hop follows `Vault_ControlObject`: the collector derives con
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_ReadCredential| credential["Vault_OidcApplication or Vault_MfaMethod"]
+    policy[Vault_Policy]:::policyNode -->|Vault_ReadCredential| credential["Vault_OidcApplication or Vault_MfaMethod"]:::credentialNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 This path is emitted only when the authenticated read returns usable secret material, such as a confidential OIDC client secret or an enrollment/integration credential. Ordinary identity reads remain non-traversable.
@@ -160,12 +189,20 @@ The outbound OIDC model is distinct from the JWT/OIDC authentication method. Her
 
 ```mermaid
 flowchart LR
-    provider[Vault_OidcProvider] -->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]
-    provider -->|Vault_OidcSupportsScope| scope[Vault_OidcScope]
-    app -->|Vault_References| key[Vault_OidcKey]
-    principal[Vault_Entity or Vault_Group] -->|Vault_OidcAssignedTo| assignment[Vault_OidcAssignment]
+    provider[Vault_OidcProvider]:::oidcProviderNode -->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]:::oidcApplicationNode
+    provider -->|Vault_OidcSupportsScope| scope[Vault_OidcScope]:::oidcScopeNode
+    app -->|Vault_References| key[Vault_OidcKey]:::oidcKeyNode
+    principal[Vault_Entity or Vault_Group]:::identityNode -->|Vault_OidcAssignedTo| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
     assignment -->|Vault_OidcGrantsAccess| app
-    entity[Vault_Entity] -->|Vault_OidcAuthenticateTo| app
+    entity[Vault_Entity]:::entityNode -->|Vault_OidcAuthenticateTo| app
+
+    classDef oidcProviderNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
+    classDef oidcApplicationNode fill:#1ABC9C,color:#111,stroke:#117864,stroke-width:2px
+    classDef oidcScopeNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
+    classDef oidcKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+    classDef oidcAssignmentNode fill:#2980B9,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 ### Edges
@@ -201,14 +238,20 @@ The direct authentication edge is derived from collected configuration; the inte
 
 ```mermaid
 flowchart LR
-    entity[Vault_Entity] -->|Vault_OidcAuthenticateTo| application[Vault_OidcApplication]
+    entity[Vault_Entity]:::entityNode -->|Vault_OidcAuthenticateTo| application[Vault_OidcApplication]:::oidcApplicationNode
+
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef oidcApplicationNode fill:#1ABC9C,color:#111,stroke:#117864,stroke-width:2px
 ```
 
 This derived edge requires an applicable assignment, an allowing provider, and compatible application/provider configuration. The assignment and provider edges alone do not create an attack path.
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateIdentityToken| role[Vault_OidcTokenRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateIdentityToken| role[Vault_OidcTokenRole]:::oidcTokenRoleNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef oidcTokenRoleNode fill:#148F77,color:#fff,stroke:#0B5345,stroke-width:2px
 ```
 
 The path represents the ability to mint a Vault identity token through an observed signing role. If the role's signing-key allowlist is empty or incompatible, no attack edge is emitted; an unresolved signing key produces `Vault_PotentialAccess`.
@@ -224,11 +267,17 @@ The path represents the ability to mint a Vault identity token through an observ
 
 ```mermaid
 flowchart LR
-    enforcement -->|Vault_MfaAppliesTo| target[Entity, group, or auth method]
-    enforcement[Vault_MfaLoginEnforcement] -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]
-    policy[Vault_Policy] -->|Vault_MfaSelfEnroll| method
+    enforcement -->|Vault_MfaAppliesTo| target[Entity, group, or auth method]:::identityNode
+    enforcement[Vault_MfaLoginEnforcement]:::mfaEnforcementNode -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]:::mfaMethodNode
+    policy[Vault_Policy]:::policyNode -->|Vault_MfaSelfEnroll| method
     policy -->|Vault_MfaGenerateSecret| method
-    policy -->|Vault_PotentialAccess| entity[Vault_Entity]
+    policy -->|Vault_PotentialAccess| entity[Vault_Entity]:::entityNode
+
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef mfaEnforcementNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef mfaMethodNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 ### Edges
@@ -270,12 +319,17 @@ MFA topology edges and self-enrollment permissions are non-traversable because c
 
 ```mermaid
 flowchart LR
-    client[Vault_ScimClient] -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]
-    client -.->|Vault_ScimManages| resource["Client-owned Vault_Entity or Vault_Group"]
-    policy[Vault_Policy] -.->|Vault_ScimProtocolAccess| client
+    client[Vault_ScimClient]:::scimNode -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]:::entityNode
+    client -.->|Vault_ScimManages| resource["Client-owned Vault_Entity or Vault_Group"]:::identityNode
+    policy[Vault_Policy]:::policyNode -.->|Vault_ScimProtocolAccess| client
     principal -.->|Vault_ScimReadResources| client
     principal -.->|Vault_ScimProvisionResources| resource
     principal -.->|Vault_PotentialAccess| client
+
+    classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
 
 ### Edges

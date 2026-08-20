@@ -39,10 +39,16 @@ The following matrix summarizes secrets-engine implementation and test status:
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MOUNTS]
-    store -->|Vault_Contains| mount[Vault_SecretsEngine]
-    mount -->|Vault_Contains| object[Observed child resource]
-    object -.->|Vault_References| dependency[Referenced resource]
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MOUNTS]:::storeNode
+    store -->|Vault_Contains| mount[Vault_SecretsEngine]:::mountNode
+    mount -->|Vault_Contains| object[Observed child resource]:::secretObjectNode
+    object -.->|Vault_References| dependency[Referenced resource]:::referenceNode
+
+    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
 ```
 
 Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
@@ -89,9 +95,13 @@ AWS dynamic roles describe IAM user, assumed role, federation token, or session 
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineAws]
-    mount -->|Vault_Contains| dynamic[Vault_AwsRole]
-    mount -->|Vault_Contains| static[Vault_AwsStaticRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAws]:::mountNode
+    mount -->|Vault_Contains| dynamic[Vault_AwsRole]:::secretObjectNode
+    mount -->|Vault_Contains| static[Vault_AwsStaticRole]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 Dynamic-role properties include policy documents and ARNs, role ARNs, IAM groups, tags, permissions boundaries, credential modes, TTLs, and MFA configuration. Traversable generation requires at least one proven viable mode; session-token-only access requiring an MFA code becomes `Vault_PotentialAccess` when that prerequisite is unresolved.
@@ -134,14 +144,20 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_AwsRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_AwsRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The destination role records whether Vault returns an IAM user, assumed-role credential, federation token, or session token. The edge is traversable only when at least one configured mode is viable. A session-token-only role that requires an unproven MFA code instead produces `Vault_PotentialAccess`.
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_ReadStaticCredentials| role[Vault_AwsStaticRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_ReadStaticCredentials| role[Vault_AwsStaticRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 This yields the managed IAM user's current credential through Vault. Neither path proves the generated principal's downstream AWS permissions; those require correlation with AWS graph data.
@@ -152,9 +168,13 @@ Azure dynamic roles generate service principals; static roles map existing appli
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineAzure]
-    mount -->|Vault_Contains| dynamic[Vault_AzureRole]
-    mount -->|Vault_Contains| static[Vault_AzureStaticRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAzure]:::mountNode
+    mount -->|Vault_Contains| dynamic[Vault_AzureRole]:::secretObjectNode
+    mount -->|Vault_Contains| static[Vault_AzureStaticRole]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 Roles retain Azure role assignments, groups, application settings, TTL behavior, and generated credential effects. `Vault_AzureImportStaticRole` is a specialized non-traversable administrative operation; ordinary role CRUD uses generic object edges.
@@ -195,8 +215,11 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic[Vault_AzureRole]
-    policy -->|Vault_ReadStaticCredentials| static[Vault_AzureStaticRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| dynamic[Vault_AzureRole]:::secretObjectNode
+    policy -->|Vault_ReadStaticCredentials| static[Vault_AzureStaticRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The first path obtains a generated Azure service-principal credential constrained by the dynamic role. The second reads the current credential managed through the concrete static role. Importing or managing a static role is not itself traversable because it does not prove that usable credential material is returned.
@@ -207,11 +230,16 @@ Database mounts contain plugin connections, dynamic roles, and static roles. Rol
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineDatabase]
-    mount -->|Vault_Contains| connection[Vault_DatabaseConnection]
-    mount -->|Vault_Contains| role[Vault_DatabaseRole]
-    mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineDatabase]:::mountNode
+    mount -->|Vault_Contains| connection[Vault_DatabaseConnection]:::referenceNode
+    mount -->|Vault_Contains| role[Vault_DatabaseRole]:::secretObjectNode
+    mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]:::secretObjectNode
     role -.->|Vault_References: Database Connection| connection
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
 ```
 
 ### Nodes
@@ -256,15 +284,22 @@ Dynamic credential generation requires an observed compatible connection and an 
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]
-    role -.->|Vault_References: Database Connection| connection[Vault_DatabaseConnection]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]:::secretObjectNode
+    role -.->|Vault_References: Database Connection| connection[Vault_DatabaseConnection]:::referenceNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
 ```
 
 The attack path terminates at the role; `Vault_References` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_ReadStaticCredentials| role[Vault_DatabaseStaticRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_ReadStaticCredentials| role[Vault_DatabaseStaticRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 Static credential reads target the exact managed account and do not depend on dynamic-role connection viability in the same way.
@@ -275,10 +310,14 @@ The GCP engine models rolesets, static service accounts, and impersonated accoun
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineGcp]
-    mount -->|Vault_Contains| roleset[Vault_GcpRoleset]
-    mount -->|Vault_Contains| static[Vault_GcpStaticAccount]
-    mount -->|Vault_Contains| impersonated[Vault_GcpImpersonatedAccount]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcp]:::mountNode
+    mount -->|Vault_Contains| roleset[Vault_GcpRoleset]:::secretObjectNode
+    mount -->|Vault_Contains| static[Vault_GcpStaticAccount]:::secretObjectNode
+    mount -->|Vault_Contains| impersonated[Vault_GcpImpersonatedAccount]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and credential effects. Static and impersonated accounts retain OAuth token or service-account-key surfaces supported by their endpoint. The collector does not independently verify Google Cloud IAM.
@@ -319,9 +358,12 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| roleset[Vault_GcpRoleset]
-    policy -->|Vault_GenerateCredentials| static[Vault_GcpStaticAccount]
-    policy -->|Vault_GenerateCredentials| impersonated[Vault_GcpImpersonatedAccount]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| roleset[Vault_GcpRoleset]:::secretObjectNode
+    policy -->|Vault_GenerateCredentials| static[Vault_GcpStaticAccount]:::secretObjectNode
+    policy -->|Vault_GenerateCredentials| impersonated[Vault_GcpImpersonatedAccount]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The edge represents the ability to request a credential from the concrete GCP object. Rolesets support OAuth access tokens or service-account keys according to their configured secret type; static accounts expose OAuth access-token or service-account-key endpoints; impersonated accounts expose OAuth access tokens. The paths prove Vault-side credential acquisition, not the resulting Google Cloud IAM permissions.
@@ -332,8 +374,12 @@ GCP KMS nodes represent Vault registrations of external Google Cloud KMS keys.
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineGcpKms]
-    mount -->|Vault_Contains| key[Vault_GcpKmsKey]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcpKms]:::mountNode
+    mount -->|Vault_Contains| key[Vault_GcpKmsKey]:::keyNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 ### Nodes
@@ -375,8 +421,11 @@ Unknown key purpose produces `Vault_PotentialAccess` rather than a traversable d
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GcpKmsDecrypt| key[Vault_GcpKmsKey]
+    policy[Vault_Policy]:::policyNode -->|Vault_GcpKmsDecrypt| key[Vault_GcpKmsKey]:::keyNode
     policy -->|Vault_GcpKmsSign| key
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 Decrypt represents a plaintext oracle; sign represents use of signing authority. Both require a compatible observed key purpose. Encrypt, re-encrypt, and verify remain non-traversable because they do not reveal plaintext or confer signing authority.
@@ -387,10 +436,15 @@ KV models path hierarchy without collecting plaintext values. Directories and fi
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineKv]
-    mount -->|Vault_Contains| directory[Vault_KvDirectory]
-    directory -->|Vault_Contains| file[Vault_KvFile]
-    file -->|Vault_Contains| pair[Vault_KvPair]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKv]:::mountNode
+    mount -->|Vault_Contains| directory[Vault_KvDirectory]:::kvObjectNode
+    directory -->|Vault_Contains| file[Vault_KvFile]:::kvObjectNode
+    file -->|Vault_Contains| pair[Vault_KvPair]:::kvPairNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
 ```
 
 `Vault_KvDirectory` is a logical path prefix, not a mutable Vault object. `Vault_KvFile` is a secret path. `Vault_KvPair` exposes only top-level key names; values are never exported.
@@ -452,12 +506,20 @@ A policy-backed identity path can reach a concrete secret file:
 
 ```mermaid
 flowchart LR
-    user[Vault_AuthUser] -->|Vault_MapsTo| alias[Vault_EntityAlias]
-    alias -->|Vault_MapsTo| entity[Vault_Entity]
-    entity -->|Vault_MemberOf| group[Vault_Group]
-    group -->|Vault_LinksPolicy| policy[Vault_Policy]
-    policy -->|Vault_KvReadSecret| file[Vault_KvFile]
-    file -->|Vault_Contains| pair[Vault_KvPair]
+    user[Vault_AuthUser]:::authUserNode -->|Vault_MapsTo| alias[Vault_EntityAlias]:::entityAliasNode
+    alias -->|Vault_MapsTo| entity[Vault_Entity]:::entityNode
+    entity -->|Vault_MemberOf| group[Vault_Group]:::groupNode
+    group -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
+    policy -->|Vault_KvReadSecret| file[Vault_KvFile]:::kvObjectNode
+    file -->|Vault_Contains| pair[Vault_KvPair]:::kvPairNode
+
+    classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
 ```
 
 The file read exposes plaintext at request time. The pair node records only a top-level key name; VaultHound does not store its value.
@@ -480,8 +542,12 @@ Kubernetes secrets roles describe the service account and optional RBAC objects 
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineKubernetes]
-    mount -->|Vault_Contains| role[Vault_KubernetesRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKubernetes]:::mountNode
+    mount -->|Vault_Contains| role[Vault_KubernetesRole]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 Roles retain service-account name, allowed namespaces, namespace selectors, token TTL, generated role or cluster-role bindings, and request parameters. Generation effects identify namespaced versus cluster-scoped outcomes. Live Kubernetes RBAC is not independently verified.
@@ -518,7 +584,10 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_KubernetesRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_KubernetesRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The edge represents generation of a Kubernetes service-account token through the concrete role. Role properties describe namespace selectors and generated namespaced or cluster-scoped bindings. The path does not independently prove the live Kubernetes RBAC attached to the resulting token.
@@ -529,11 +598,16 @@ The LDAP secrets engine manages dynamic credentials, static accounts, and servic
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineLdap]
-    mount -->|Vault_Contains| dynamic[Vault_LdapDynamicRole]
-    mount -->|Vault_Contains| static[Vault_LdapStaticRole]
-    mount -->|Vault_Contains| library[Vault_LdapLibrarySet]
-    library -->|Vault_Contains| account[Vault_LdapServiceAccount]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineLdap]:::mountNode
+    mount -->|Vault_Contains| dynamic[Vault_LdapDynamicRole]:::secretObjectNode
+    mount -->|Vault_Contains| static[Vault_LdapStaticRole]:::secretObjectNode
+    mount -->|Vault_Contains| library[Vault_LdapLibrarySet]:::secretObjectNode
+    library -->|Vault_Contains| account[Vault_LdapServiceAccount]:::credentialNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 ### Nodes
@@ -582,9 +656,13 @@ Unknown account availability becomes potential access. Checkout is not routed th
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| dynamic[Vault_LdapDynamicRole]
-    policy -->|Vault_ReadStaticCredentials| static[Vault_LdapStaticRole]
-    policy -->|Vault_LdapCheckoutServiceAccount| service[Vault_LdapServiceAccount]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| dynamic[Vault_LdapDynamicRole]:::secretObjectNode
+    policy -->|Vault_ReadStaticCredentials| static[Vault_LdapStaticRole]:::secretObjectNode
+    policy -->|Vault_LdapCheckoutServiceAccount| service[Vault_LdapServiceAccount]:::credentialNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 Dynamic and static role paths yield LDAP credentials according to their role mode. Checkout targets only an observed account currently marked available. Unknown availability emits `Vault_PotentialAccess`; it does not create a traversable edge to the library set and fan out through containment.
@@ -595,11 +673,17 @@ PKI mounts contain roles, issuers, and keys. An issuer references its key; it do
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEnginePki]
-    mount -->|Vault_Contains| role[Vault_PkiRole]
-    mount -->|Vault_Contains| issuer[Vault_PkiIssuer]
-    mount -->|Vault_Contains| key[Vault_PkiKey]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEnginePki]:::mountNode
+    mount -->|Vault_Contains| role[Vault_PkiRole]:::secretObjectNode
+    mount -->|Vault_Contains| issuer[Vault_PkiIssuer]:::issuerNode
+    mount -->|Vault_Contains| key[Vault_PkiKey]:::pkiKeyNode
     issuer -.->|Vault_References| key
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef issuerNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef pkiKeyNode fill:#A04000,color:#fff,stroke:#6E2C00,stroke-width:2px
 ```
 
 ### Nodes
@@ -663,14 +747,18 @@ Certificate issuance and signing target the concrete resource that constrains th
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_PkiIssueCertificate| role[Vault_PkiRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_PkiIssueCertificate| role[Vault_PkiRole]:::secretObjectNode
     policy -->|Vault_PkiSignCertificate| role
     policy -->|Vault_PkiSignVerbatim: role-qualified| role
-    policy -->|Vault_PkiIssueCertificate: issuer external policy| issuer[Vault_PkiIssuer]
+    policy -->|Vault_PkiIssueCertificate: issuer external policy| issuer[Vault_PkiIssuer]:::issuerNode
     policy -->|Vault_PkiSignCertificate: issuer external policy| issuer
     policy -->|Vault_PkiSignVerbatim: resolved default or selected issuer| issuer
     policy -->|Vault_PkiSignIntermediate| issuer
     policy -->|Vault_PkiSignSelfIssued| issuer
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef issuerNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
 
 A role glob such as:
@@ -693,8 +781,12 @@ SSH uses one role node kind for OTP and CA role modes. The role properties ident
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineSsh]
-    mount -->|Vault_Contains| role[Vault_SshRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineSsh]:::mountNode
+    mount -->|Vault_Contains| role[Vault_SshRole]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 ### Nodes
@@ -735,9 +827,12 @@ CA and zero-address configuration uses generic config edges. CA public keys are 
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_SshGenerateOtp| otp["Vault_SshRole: OTP"]
-    policy -->|Vault_SshSignKey| ca["Vault_SshRole: CA"]
+    policy[Vault_Policy]:::policyNode -->|Vault_SshGenerateOtp| otp["Vault_SshRole: OTP"]:::secretObjectNode
+    policy -->|Vault_SshSignKey| ca["Vault_SshRole: CA"]:::secretObjectNode
     policy -->|Vault_SshIssueKeyPair| ca
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 OTP generation returns a usable one-time password. Signing turns an attacker-supplied public key into an SSH certificate. Key-pair issuance returns new private-key material and its certificate. Role-mode compatibility is checked before any of these traversable edges are emitted.
@@ -748,8 +843,12 @@ Terraform Cloud roles generate organization, team, or user API tokens.
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTerraform]
-    mount -->|Vault_Contains| role[Vault_TerraformRole]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTerraform]:::mountNode
+    mount -->|Vault_Contains| role[Vault_TerraformRole]:::secretObjectNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The mount stores Terraform Cloud address and token configuration. Role and generation properties identify token mode, organization, team or user target, TTL, and generated credential material.
@@ -786,7 +885,10 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_GenerateCredentials| role[Vault_TerraformRole]
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_TerraformRole]:::secretObjectNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
 The path yields a Terraform Cloud organization, team, or user API token according to the role. It proves token generation through Vault, while the resulting Terraform Cloud authorization remains an external-system concern.
@@ -797,8 +899,12 @@ TOTP mounts contain named key configurations.
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTotp]
-    mount -->|Vault_Contains| key[Vault_TotpKey]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTotp]:::mountNode
+    mount -->|Vault_Contains| key[Vault_TotpKey]:::keyNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 ### Nodes
@@ -836,7 +942,10 @@ Keys include issuer, account name, period, algorithm, digits, skew, key size, an
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_TotpGenerateCode| key[Vault_TotpKey]
+    policy[Vault_Policy]:::policyNode -->|Vault_TotpGenerateCode| key[Vault_TotpKey]:::keyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 The edge is traversable because the endpoint returns a currently usable code. `Vault_TotpValidateCode` remains non-traversable because validation accepts a candidate code but does not reveal one.
@@ -847,9 +956,14 @@ Transit mounts contain cryptographic keys and expose operations without returnin
 
 ```mermaid
 flowchart LR
-    store[Mount Store] -->|Vault_Contains| mount[Vault_SecretsEngineTransit]
-    mount -->|Vault_Contains| key[Vault_TransitKey]
-    key -.->|Vault_ManagedBy| managed[Vault_ManagedKey]
+    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTransit]:::mountNode
+    mount -->|Vault_Contains| key[Vault_TransitKey]:::transitKeyNode
+    key -.->|Vault_ManagedBy| managed[Vault_ManagedKey]:::managedKeyNode
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 ### Nodes
@@ -899,11 +1013,14 @@ Key properties include type, versions, derivation, convergent encryption, export
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_TransitDecrypt| key[Vault_TransitKey]
+    policy[Vault_Policy]:::policyNode -->|Vault_TransitDecrypt| key[Vault_TransitKey]:::transitKeyNode
     policy -->|Vault_TransitSign| key
     policy -->|Vault_TransitGenerateCmac| key
     policy -->|Vault_TransitGenerateHmac| key
     policy -->|Vault_TransitExportKey| key
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
 ```
 
 Decrypt is a plaintext oracle. Sign, CMAC, and HMAC exercise concrete cryptographic authority. `/sign/:key` records `Signing Targets: Message or Digest`, while `/keys/:key/csr` records `Signing Targets: Certificate Signing Request`; both merge into the same key edge when both surfaces are authorized. Secret export is emitted only when the observed key type supports the requested export and the key is exportable. Public-key reads use `Vault_ReadObject`, while BYOK-wrapped export uses non-traversable `Vault_TransitExportByokKey`.

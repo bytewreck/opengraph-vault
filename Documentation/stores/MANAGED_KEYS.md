@@ -4,11 +4,18 @@ The Managed Keys Store represents the namespace-local Enterprise registry at `sy
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace] -->|Vault_Contains| store[Vault_Store: MANAGED KEYS]
-    store -->|Vault_Contains| managed[Vault_ManagedKey]
-    transit[Vault_TransitKey] -->|Vault_ManagedBy| managed
-    pki[Vault_PkiKey] -->|Vault_ManagedBy| managed
-    policy[Vault_Policy] -->|Vault_CanUseManagedKey| managed
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MANAGED KEYS]:::storeNode
+    store -->|Vault_Contains| managed[Vault_ManagedKey]:::managedKeyNode
+    transit[Vault_TransitKey]:::transitKeyNode -->|Vault_ManagedBy| managed
+    pki[Vault_PkiKey]:::pkiKeyNode -->|Vault_ManagedBy| managed
+    policy[Vault_Policy]:::policyNode -->|Vault_CanUseManagedKey| managed
+
+    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+    classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef pkiKeyNode fill:#A04000,color:#fff,stroke:#6E2C00,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
 
 ## Nodes
@@ -43,11 +50,15 @@ Provider-specific configuration is retained in human-readable properties where p
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_ListObjects| store[Managed Keys Store]
+    policy[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Managed Keys Store]:::storeNode
     policy -->|Vault_CreateObject| store
-    policy -->|Vault_ReadObject| managed[Vault_ManagedKey]
+    policy -->|Vault_ReadObject| managed[Vault_ManagedKey]:::managedKeyNode
     policy -->|Vault_ManageObject| managed
     policy -->|Vault_CanUseManagedKey| managed
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 | Edge | Source | Destination | Traversable | Meaning |
@@ -76,9 +87,13 @@ There is no direct traversable edge into `Vault_ManagedKey`. The registration is
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy] -->|Vault_TransitDecrypt| transit[Vault_TransitKey]
+    policy[Vault_Policy]:::policyNode -->|Vault_TransitDecrypt| transit[Vault_TransitKey]:::transitKeyNode
     policy -->|Vault_TransitSign| transit
-    transit -.->|Vault_ManagedBy: non-traversable| managed[Vault_ManagedKey]
+    transit -.->|Vault_ManagedBy: non-traversable| managed[Vault_ManagedKey]:::managedKeyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
 ```
 
 The attack path terminates at the Transit operation. `Vault_ManagedBy` remains non-traversable evidence showing which external key backs that operation. `Vault_CanUseManagedKey` is also non-traversable because system mechanisms can expose materially different outcomes and do not necessarily reveal or confer control of the provider key.
