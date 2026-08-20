@@ -114,6 +114,7 @@ flowchart LR
     authority -.->|Vault_CreateObject| store
     authority -.->|Vault_ReadObject| policy[Vault_Policy]:::policyNode
     authority -.->|Vault_ManageObject| policy
+    authority -->|Vault_Contains| policy
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -254,8 +255,6 @@ These properties belong to the concrete edge kind being emitted; "policy-derived
 Policy-to-target edges remain visible even when a derived Identity-template edge exists. This preserves both the policy that declares the authority and the concrete identity representation for which the template resolves.
 
 VaultHound intentionally avoids materializing every non-templated policy grant as a duplicate principal-to-resource relationship. Policy assignment and group membership already provide the traversable route to declared authority:
-
-`Principal -> Vault_LinksPolicy -> Vault_Policy -> operation edge -> target`
 
 ```mermaid
 flowchart LR
