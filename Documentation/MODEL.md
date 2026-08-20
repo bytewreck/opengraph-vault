@@ -157,7 +157,7 @@ Derived relationships are emitted only where composition adds a materially usefu
 - Controlling a policy-bearing entity, group, auth user, or auth role exposes the policies already connected through `Vault_LinksPolicy`.
 - An OIDC assignment and provider configuration prove application authentication.
 
-`Declared`, `Derived`, and `Effective` identify these cases. `Via Policies` and `Policy Origins` retain provenance without changing the logical source of an edge.
+The edge kind, source and target kinds, and operation-specific properties identify the resulting security relationship. `Templated` identifies rendered identity-template authority, while `Via Policies` and `Policy Origins` retain policy provenance without changing the logical source of an edge.
 
 ## Policy Path Resolution
 
@@ -268,21 +268,17 @@ Policy-derived edge metadata is a cross-cutting applicability category, not a no
 | Property | Type | Meaning |
 | --- | --- | --- |
 | `Capabilities` | string[] | Only capabilities relevant to the exported edge operation. |
-| `Matched Paths` | string[] | Concrete or template-rendered request paths matched by the rule. |
+| `Matched Paths` | string[] | Template-rendered request paths matched by the rule. This property is emitted only when rendering changes the original HCL path; non-templated edges use `Matched Policy Paths` alone. |
 | `Matched Policy Paths` | string[] | Original HCL paths before template rendering. |
 | `Scopes` | string[] | Exact, collection, pattern, subtree, mount, or similar target scope. |
 | `Surfaces` | string[] | Backend API surfaces represented by the edge. |
 | `Operations` | string[] | Human-readable actions represented by the edge. |
 | `Requirements` | string[] | Preconditions required for the operation to succeed. |
-| `Declared` | boolean | The relationship represents authority declared directly by a policy path. |
-| `Derived` | boolean | The relationship was composed from policy authority and additional collected context. |
-| `Effective` | boolean | The collector resolved the relationship to a concrete effective principal and target. |
 | `Templated` | boolean | The policy path contains a Vault identity template. |
 | `Template Entity Fields` | string[] | Entity attributes referenced by the template. |
-| `Template Alias Fields` | string[] | Alias attributes referenced by the template. |
+| `Template Alias Accessors` | string[] | Auth mount accessors selecting entity aliases referenced by the template. |
 | `Template Group IDs` | string[] | Identity groups referenced by ID. |
-| `Resolved Source Types` | string[] | Identity representations used to render the path. |
-| `Resolved For Entity IDs` | string[] | Canonical entities for which the policy was resolved. |
+| `Template Group Names` | string[] | Identity groups referenced by name or resolved from referenced group IDs. |
 | `Via Policies` | string[] | Policies contributing to the effective relationship. |
 | `Policy Origins` | string[] | Direct, group-inherited, auth-role, or other policy provenance. |
 | `Policy Bases` | string[] | Vault policy families participating in resolution. |
@@ -315,12 +311,14 @@ This table is the canonical contract for the most frequently reused generic prop
 | `Vault_References`<br>`Vault_ManagedBy` | `Reference Evidence` | string[] | Records configuration evidence that proves the dependency. |
 | Policy-derived access edges (category) | `Potential Only` | boolean | Marks an intentionally non-traversable outcome whose target or prerequisite remains unresolved. |
 | Policy-derived access edges (category) | `Target Observed` | boolean | Indicates whether Vault returned the destination rather than the collector inferring it. |
+| `Vault_CreateObject` and creation-capable potential edges | `Can Create Unobserved Objects` | boolean | Indicates that the policy can create members of the represented collection even though no concrete target object was observed. |
 | `Vault_PotentialAccess` | `Potential Outcomes` | string[] | Lists security outcomes that could become available after uncertainty is resolved. |
 | `Vault_PotentialAccess` | `Requirements` | string[] | Lists unresolved prerequisites that prevent an asserted outcome. |
 | `Vault_PotentialAccess` | `Resolution Status` | string[] | Explains why the target or prerequisite could not be proven. |
 | Compatibility-aware operation edges (category) | `Viable Operations` | string[] | Lists operations proven compatible with the observed target and its current state. |
 | Compatibility-aware operation edges (category) | `Operation Requirements` | string[] | Lists operation-qualified prerequisites such as CAS, version, or target-state conditions. |
 | `Vault_ControlObject` | `Control Methods` | string[] | Identifies the proven takeover mechanism, such as password reset or trust replacement. |
+| `Vault_ControlObject` | `Direct Control` | boolean | Indicates that the represented mutation directly establishes control of the target rather than relying on an unresolved prerequisite. |
 | `Vault_ControlObject` | `Control Parameters` | string[] | Lists request parameters whose control makes takeover possible. |
 | `Vault_ControlObject` | `Impacts` | string[] | Describes resulting offensive capabilities. |
 | `Vault_ControlObject` | `Assignable Policies` | string[] | Lists concrete policies assignable through the proven control operation. |

@@ -15,6 +15,7 @@ Environment Variables:
 
 import argparse
 import base64
+import copy
 import hashlib
 import json
 import logging
@@ -87,6 +88,20 @@ PEM_CERTIFICATE_PATTERN = re.compile(
 CAPABILITY_EDGE_KINDS = {
     "deny": "Vault_DenyAccess",
 }
+
+# Deny rules do not carry an operation capability that backend-specific
+# dispatchers can use to resolve their concrete target. Probe every modeled
+# operation while intercepting the resulting targets as deny evidence.
+DENY_TARGET_RESOLUTION_CAPABILITIES = [
+    "create",
+    "delete",
+    "list",
+    "patch",
+    "read",
+    "recover",
+    "sudo",
+    "update",
+]
 
 POLICY_LINK_EDGE_KINDS = {
     "Vault_HasPolicy": "Direct Assignment",
@@ -3646,6 +3661,7 @@ class VaultCollector:
         self._sanitized_server_config: dict[str, Any] = {}
         self._active_auth_object_dispatch: dict[str, Any] | None = None
         self._active_policy_path_info: dict[str, Any] | None = None
+        self._active_deny_edge_context: dict[str, Any] | None = None
 
         # Lookup tables built during collection
         self._entity_by_id: dict[str, dict] = {}
@@ -19122,42 +19138,208 @@ class VaultCollector:
         path_info: dict[str, Any],
     ):
         """Run an identity-rendered path through every modeled ACL surface."""
+        normalized_caps = ["deny"] if "deny" in caps else caps
+        policy_path = str(path_info.get("path") or path)
+        if "deny" in normalized_caps:
+            self._emit_resolved_non_kv_deny_edges(
+                source_node,
+                path,
+                policy_path,
+                path_info,
+                include_identity=True,
+            )
+            self._dispatch_native_kv_deny_access(
+                source_node,
+                path,
+                policy_path=path,
+                path_info=path_info,
+            )
+            return
+
+        self._dispatch_modeled_access(
+            source_node,
+            path,
+            normalized_caps,
+            policy_path=path,
+            path_info=path_info,
+            include_identity=True,
+        )
+
+    def _dispatch_native_kv_deny_access(
+        self,
+        source_node: str,
+        path: str,
+        policy_path: str,
+        path_info: dict[str, Any] | None,
+    ):
+        """Emit established KV deny edges without invoking mutating backend probes."""
+        if path == "*":
+            for info in self._secrets_engines.values():
+                if info.get("type") != "kv":
+                    continue
+                self._emit_kv_mount_access_edges(
+                    source_node,
+                    info,
+                    ["deny"],
+                    path,
+                    matched_policy_path=policy_path,
+                )
+            return
+
+        self._check_secrets_access(
+            source_node,
+            path,
+            ["deny"],
+            policy_path=policy_path,
+            path_info=path_info,
+            engine_types={"kv"},
+        )
+
+    def _dispatch_modeled_access(
+        self,
+        source_node: str,
+        path: str,
+        caps: list[str],
+        policy_path: str,
+        path_info: dict[str, Any] | None,
+        include_identity: bool,
+    ):
+        """Dispatch one ACL path to every supported subsystem it can address."""
         self._dispatch_auth_access(
             source_node,
             path,
             caps,
-            policy_path=path,
+            policy_path=policy_path,
             path_info=path_info,
         )
-        self._check_mount_management(source_node, path, caps)
+        self._check_mount_management(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
 
         self._check_secrets_access(
             source_node,
             path,
             caps,
-            policy_path=path,
+            policy_path=policy_path,
             path_info=path_info,
         )
-        self._check_policy_management(source_node, path, caps)
+        self._check_policy_management(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
         self._check_managed_key_access(
             source_node,
             path,
             caps,
-            policy_path=path,
+            policy_path=policy_path,
             path_info=path_info,
         )
         self._check_managed_key_mount_tune_access(
             source_node,
             path,
             caps,
-            policy_path=path,
+            policy_path=policy_path,
             path_info=path_info,
         )
-        self._check_identity_management(source_node, path, caps, policy_path=path, path_info=path_info)
-        self._check_identity_visibility_access(source_node, path, caps, policy_path=path)
-        self._check_oidc_authorize_access(source_node, path, caps, policy_path=path)
-        self._check_scim_protocol_access(source_node, path, caps, policy_path=path)
-        self._check_identity_auxiliary_access(source_node, path, caps, policy_path=path)
+        if not include_identity:
+            return
+
+        self._check_identity_management(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+            path_info=path_info,
+        )
+        self._check_identity_visibility_access(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
+        self._check_oidc_authorize_access(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
+        self._check_scim_protocol_access(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
+        self._check_identity_auxiliary_access(
+            source_node,
+            path,
+            caps,
+            policy_path=policy_path,
+        )
+
+    def _emit_resolved_non_kv_deny_edges(
+        self,
+        source_node: str,
+        path: str,
+        policy_path: str,
+        path_info: dict[str, Any] | None,
+        include_identity: bool,
+    ):
+        """Resolve a deny rule through normal dispatch without emitting grants."""
+        probe = copy.copy(self)
+        for attribute_name, value in self.__dict__.items():
+            if isinstance(value, (dict, list, set)):
+                setattr(probe, attribute_name, copy.deepcopy(value))
+
+        probe_context: dict[str, Any] = {
+            "source": source_node,
+            "matched_path": path,
+            "matched_policy_path": policy_path,
+            "templated": "{{" in policy_path,
+            "preexisting_node_ids": {node.id for node in self.nodes},
+            "captured_edges": [],
+        }
+        probe._active_deny_edge_context = probe_context
+        probe._active_policy_path_info = path_info
+        if path == "*":
+            probe._emit_wildcard_edges(
+                source_node,
+                DENY_TARGET_RESOLUTION_CAPABILITIES,
+                path_info=path_info,
+            )
+        else:
+            probe._dispatch_modeled_access(
+                source_node,
+                path,
+                DENY_TARGET_RESOLUTION_CAPABILITIES,
+                policy_path=policy_path,
+                path_info=path_info,
+                include_identity=include_identity,
+            )
+
+        previous_path_info = self._active_policy_path_info
+        self._active_policy_path_info = path_info
+        try:
+            for capture in probe_context["captured_edges"]:
+                self._emit_or_merge_edge(
+                    source_node,
+                    capture["target"],
+                    "Vault_DenyAccess",
+                    properties=capture["properties"],
+                    array_property_keys={
+                        "matched_paths",
+                        "matched_policy_paths",
+                        "scopes",
+                        "surfaces",
+                    },
+                    boolean_or_property_keys={"templated"},
+                )
+        finally:
+            self._active_policy_path_info = previous_path_info
 
     def _merge_effective_template_edge_context(
         self,
@@ -19851,6 +20033,95 @@ class VaultCollector:
 
         return [fallback]
 
+    @staticmethod
+    def _is_native_kv_deny_target(
+        target_node: GraphNode | None,
+        attempted_kind: str,
+        attempted_properties: dict[str, Any],
+    ) -> bool:
+        if not target_node:
+            return False
+        is_kv_target = any(
+            kind == "Vault_SecretsEngineKv" or kind.startswith("Vault_Kv")
+            for kind in target_node.kinds
+        )
+        if not is_kv_target:
+            return False
+
+        system_mount_targets = {
+            "Mount Tuning",
+            "Secrets Engine Lifecycle",
+            "Secrets Engine Registration",
+        }
+        config_targets = set(VaultCollector._listify_property_value(
+            attempted_properties.get("config_targets")
+        ))
+        if attempted_kind in {"Vault_ReadConfig", "Vault_ManageConfig"} and (
+            config_targets & system_mount_targets
+        ):
+            return False
+        return True
+
+    def _emit_captured_deny_edge(
+        self,
+        source: str,
+        target: str,
+        attempted_kind: str,
+        attempted_properties: dict[str, Any],
+        target_node: GraphNode | None,
+    ):
+        """Convert one probe edge into aggregated deny evidence."""
+        context = self._active_deny_edge_context
+        if not context or source != context["source"]:
+            return
+        if target not in context["preexisting_node_ids"]:
+            return
+        if self._is_native_kv_deny_target(
+            target_node,
+            attempted_kind,
+            attempted_properties,
+        ):
+            return
+
+        scopes = self._listify_property_value(attempted_properties.get("scopes"))
+        if not scopes:
+            scopes = [
+                "pattern"
+                if self._identity_is_patterned(str(context["matched_path"]))
+                else "exact"
+            ]
+
+        surfaces: list[Any] = []
+        for property_name in (
+            "surfaces",
+            "request_surfaces",
+            "config_targets",
+            "identity_targets",
+            "scim_targets",
+            "authority_targets",
+            "certificate_targets",
+            "key_targets",
+            "read_targets",
+        ):
+            for value in self._listify_property_value(attempted_properties.get(property_name)):
+                if value not in surfaces:
+                    surfaces.append(value)
+
+        deny_properties: dict[str, Any] = {
+            "capabilities": ["deny"],
+            "matched_paths": [context["matched_path"]],
+            "matched_policy_paths": [context["matched_policy_path"]],
+            "scopes": scopes,
+        }
+        if surfaces:
+            deny_properties["surfaces"] = surfaces
+        if context.get("templated"):
+            deny_properties["templated"] = True
+        context["captured_edges"].append({
+            "target": target,
+            "properties": deny_properties,
+        })
+
     def _emit_or_merge_edge(
         self,
         source: str,
@@ -20057,6 +20328,16 @@ class VaultCollector:
 
             finally:
                 self._active_auth_object_dispatch = previous_dispatch
+            return
+
+        if self._active_deny_edge_context is not None:
+            self._emit_captured_deny_edge(
+                source,
+                target,
+                original_kind,
+                properties,
+                target_graph_node,
+            )
             return
 
         policy_assignment_properties = self._policy_assignment_properties(
@@ -21810,7 +22091,8 @@ class VaultCollector:
             policy_node = pol_info["node_id"]
 
             for pp in parsed_paths:
-                caps = pp["capabilities"]
+                raw_caps = pp["capabilities"]
+                caps = ["deny"] if "deny" in raw_caps else raw_caps
                 policy_path = pp["path"]
                 identity_path_is_templated = "{{" in policy_path
                 for path in self._expand_policy_paths_for_access(policy_path):
@@ -21819,93 +22101,53 @@ class VaultCollector:
                         previous_path_info = self._active_policy_path_info
                         self._active_policy_path_info = pp
                         try:
-                            self._emit_wildcard_edges(policy_node, caps, path_info=pp)
+                            if "deny" in caps:
+                                self._emit_resolved_non_kv_deny_edges(
+                                    policy_node,
+                                    path,
+                                    policy_path,
+                                    pp,
+                                    include_identity=not identity_path_is_templated,
+                                )
+                                self._dispatch_native_kv_deny_access(
+                                    policy_node,
+                                    path,
+                                    policy_path=policy_path,
+                                    path_info=pp,
+                                )
+                            else:
+                                self._emit_wildcard_edges(policy_node, caps, path_info=pp)
                         finally:
                             self._active_policy_path_info = previous_path_info
                         continue
 
-                    # Expand broad parent globs such as auth/* over each
-                    # observed auth method before applying backend semantics.
-                    self._dispatch_auth_access(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                        path_info=pp,
-                    )
-                    self._check_mount_management(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                    )
-
-                    # Check secrets engine access
-                    self._check_secrets_access(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                        path_info=pp,
-                    )
-
-                    # Check policy management
-                    self._check_policy_management(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                    )
-                    self._check_managed_key_access(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                        path_info=pp,
-                    )
-                    self._check_managed_key_mount_tune_access(
-                        policy_node,
-                        path,
-                        caps,
-                        policy_path=policy_path,
-                        path_info=pp,
-                    )
+                    if "deny" in caps:
+                        self._emit_resolved_non_kv_deny_edges(
+                            policy_node,
+                            path,
+                            policy_path,
+                            pp,
+                            include_identity=not identity_path_is_templated,
+                        )
+                        self._dispatch_native_kv_deny_access(
+                            policy_node,
+                            path,
+                            policy_path=policy_path,
+                            path_info=pp,
+                        )
+                        continue
 
                     # Identity templates are resolved per entity later; do not
                     # turn one policy object into apparent access to every
                     # concrete object produced by all template renderings.
-                    if not identity_path_is_templated:
-                        self._check_identity_management(
-                            policy_node,
-                            path,
-                            caps,
-                            policy_path=policy_path,
-                            path_info=pp,
-                        )
-                        self._check_identity_visibility_access(
-                            policy_node,
-                            path,
-                            caps,
-                            policy_path=policy_path,
-                        )
-                        self._check_oidc_authorize_access(
-                            policy_node,
-                            path,
-                            caps,
-                            policy_path=policy_path,
-                        )
-                        self._check_scim_protocol_access(
-                            policy_node,
-                            path,
-                            caps,
-                            policy_path=policy_path,
-                        )
-                        self._check_identity_auxiliary_access(
-                            policy_node,
-                            path,
-                            caps,
-                            policy_path=policy_path,
-                        )
+                    self._dispatch_modeled_access(
+                        policy_node,
+                        path,
+                        caps,
+                        policy_path=policy_path,
+                        path_info=pp,
+                        include_identity=not identity_path_is_templated,
+                    )
 
                 if identity_path_is_templated:
                     self._check_oidc_authorize_access(
@@ -31152,6 +31394,7 @@ class VaultCollector:
         caps: list[str],
         policy_path: str | None = None,
         path_info: dict[str, Any] | None = None,
+        engine_types: set[str] | None = None,
     ):
         """Check if policy path grants access to secrets engines.
 
@@ -31167,6 +31410,8 @@ class VaultCollector:
         policy_path = policy_path or path
         templated = "{{" in policy_path
         for accessor, info in self._secrets_engines.items():
+            if engine_types is not None and info.get("type") not in engine_types:
+                continue
             mount_path = info["path"]  # e.g., "kv/", "database/"
             mount_prefix = mount_path.rstrip("/")  # "kv", "database"
 

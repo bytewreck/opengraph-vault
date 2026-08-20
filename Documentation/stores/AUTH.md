@@ -102,7 +102,7 @@ The tables in each method section list only stable properties beyond the common 
 
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_AuthMethod` | `Auth Method Types` | Lists the concrete authentication backend types represented by the mount. |
+| Aggregated auth configuration and object-operation edges | `Auth Method Types` | Lists the authentication backend families represented when method-specific operations are merged into a common edge. Auth method mount nodes use the common `Type` property instead. |
 | `Vault_AuthRole` | `Policies` | Lists policies granted by concrete login-role kinds. `Vault_AuthTokenRole` instead constrains delegation through its allowed and disallowed policy properties. |
 | `Vault_AuthRole` | `Token Policies` | Lists policies encoded into tokens issued through concrete login-role kinds. This property is not emitted for `Vault_AuthTokenRole`. |
 | `Vault_AuthUserpassUser` | `Token Policies` | Lists policies encoded into tokens issued after successful UserPass authentication. Other `Vault_AuthUser` kinds expose backend mapping policies in their method-specific property tables. |
@@ -192,8 +192,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(x)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE x:Vault_AuthUser OR x:Vault_AuthRole
+MATCH p = (authority)-[:Vault_ControlObject]->(x)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (x:Vault_AuthUser OR x:Vault_AuthRole)
 RETURN p
 ```
 
@@ -325,7 +329,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_AuthApproleGenerateSecretId]->(:Vault_AuthApproleRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+MATCH p = (authority)-[:Vault_AuthApproleGenerateSecretId]->(:Vault_AuthApproleRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1589,7 +1597,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_Store)-[:Vault_Contains]->(:Vault_Policy)
+MATCH p = (authority)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_Store)-[:Vault_Contains]->(:Vault_Policy)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1605,7 +1617,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_AuthTokenRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+MATCH p = (authority)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_AuthTokenRole)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1620,7 +1636,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_EntityAlias)
+MATCH p = (authority)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_EntityAlias)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 

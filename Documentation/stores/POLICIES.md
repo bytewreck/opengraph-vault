@@ -125,8 +125,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(d)
-WHERE d:Vault_Store OR d:Vault_Policy
+MATCH p = (authority)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(d)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (d:Vault_Store OR d:Vault_Policy)
 RETURN p
 ```
 
@@ -156,7 +160,7 @@ Generic object-operation and policy-derived evidence properties follow the canon
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Policy Types` | Lists ACL, RGP, or EGP registry types represented by the edge. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Surfaces` | Identifies the modern, legacy, RGP, or EGP endpoint surface matched by the policy. |
 | `Vault_DenyAccess` | `Capabilities` | Records the overriding `deny` capability. |
-| `Vault_DenyAccess` | `Matched Paths` | Lists concrete or rendered request paths blocked by the rule. |
+| `Vault_DenyAccess` | `Matched Paths` | On template-resolved deny edges only, lists rendered request paths that differ from the original HCL paths. |
 | `Vault_DenyAccess` | `Matched Policy Paths` | Lists the original HCL paths that declared the deny rule. |
 | `Vault_DenyAccess` | `Scopes` | Identifies the exact, collection, pattern, subtree, or mount scope of the deny. |
 | `Vault_DenyAccess` | `Surfaces` | Identifies the endpoint families affected by the deny. |
@@ -206,11 +210,15 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(object)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE object:Vault_Entity
-   OR object:Vault_Group
-   OR object:Vault_AuthRole
-   OR object:Vault_AuthUser
+MATCH p = (authority)-[:Vault_ControlObject]->(object)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (object:Vault_Entity
+    OR object:Vault_Group
+    OR object:Vault_AuthRole
+    OR object:Vault_AuthUser)
 RETURN p
 ```
 
@@ -246,8 +254,12 @@ flowchart LR
 Equivalent Cypher query for the emitted policy outcomes:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[r]->(target)
-WHERE r.matched_policy_paths IS NOT NULL
+MATCH p = (authority)-[r]->(target)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND r.matched_policy_paths IS NOT NULL
 RETURN p
 ```
 

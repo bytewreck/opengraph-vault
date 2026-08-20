@@ -43,7 +43,10 @@ EDGE_ENDPOINTS = {
     "Vault_MemberOf": ("Vault_Entity, Vault_Group, or auth principal", "Vault_Group or auth group"),
     "Vault_MapsTo": ("Auth or alias representation", "Canonical alias, entity, or group"),
     "Vault_LinksPolicy": ("Identity, group, auth role, or auth principal", "Vault_Policy"),
-    "Vault_DenyAccess": ("Vault_Policy", "Matched Vault object or subsystem anchor"),
+    "Vault_DenyAccess": (
+        "Vault_Policy or template-resolved Vault_Entity, Vault_EntityAlias, or Vault_Group",
+        "Matched Vault object or subsystem anchor",
+    ),
     "Vault_PotentialAccess": ("Vault_Policy or resolved principal", "Unresolved, runtime-selected, or synthetic target"),
     "Vault_OnAuthMethod": ("Vault_EntityAlias or Vault_GroupAlias", "Vault_AuthMethod"),
     "Vault_ManagedBy": ("Vault key object", "Vault_ManagedKey"),

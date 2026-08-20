@@ -66,7 +66,6 @@ The namespace-local Managed Keys registry uses the shared `Vault_Store` anchor d
 | `Vault_Contains` | Managed Keys Store | Managed key | :white_check_mark: | The observed registration belongs to this namespace. |
 | `Vault_ManagedBy` | Transit key, PKI key or issuer, or SSH mount | Managed key | :x: | The Vault resource delegates cryptographic operations to the external key. |
 | `Vault_CanUseManagedKey` | PKI, SSH, or Transit mount | Managed key | :x: | The managed key's any-mount setting or explicit mount allowlist authorizes this compatible mount to consume the registration. |
-| `Vault_References` | Other configured object | Managed key | :x: | A non-owning configuration reference where managed-key semantics are less specific. |
 
 `Vault_ManagedBy` identifies the concrete Vault object backed by the external registration. `Vault_CanUseManagedKey` instead records mount-level eligibility and compatibility; neither edge implies that reading the registration reveals the external key.
 
@@ -111,8 +110,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(d)
-WHERE d:Vault_Store OR d:Vault_ManagedKey
+MATCH p = (authority)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(d)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (d:Vault_Store OR d:Vault_ManagedKey)
 RETURN p
 ```
 
@@ -169,7 +172,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_TransitDecrypt|Vault_TransitSign]->(:Vault_TransitKey)-[:Vault_ManagedBy]->(:Vault_ManagedKey)
+MATCH p = (authority)-[:Vault_TransitDecrypt|Vault_TransitSign]->(:Vault_TransitKey)-[:Vault_ManagedBy]->(:Vault_ManagedKey)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 

@@ -1,6 +1,6 @@
 # Mount Store
 
-The Mount Store represents the namespace-local secrets-engine registry at `sys/mounts`. It contains every observed secrets-engine mount. Supported engines receive a specific node kind, child-resource collection, and endpoint-aware access edges; unsupported engines remain generic `Vault_SecretsEngine` nodes with existence, path, type, and mount properties only.
+The Mount Store represents the namespace-local secrets-engine registry at `sys/mounts`. It contains every observed non-system secrets-engine mount. Supported engines receive a specific node kind, child-resource collection, and endpoint-aware access edges; unsupported observed non-system engines remain generic `Vault_SecretsEngine` nodes with existence, path, type, and mount properties only. System mounts such as `cubbyhole/` are excluded from Mount Store collection.
 
 The following matrix summarizes secrets-engine implementation and test status:
 
@@ -11,7 +11,7 @@ The following matrix summarizes secrets-engine implementation and test status:
 | AWS | :white_check_mark: | :x: | `Vault_SecretsEngineAws` |
 | Azure | :white_check_mark: | :x: | `Vault_SecretsEngineAzure` |
 | Consul | :x: | :x: | N/A |
-| Cubbyhole | :x: | :x: | N/A |
+| Cubbyhole | :x: | :x: | Excluded system mount |
 | Database | :white_check_mark: | :x: | `Vault_SecretsEngineDatabase` |
 | GCP | :white_check_mark: | :x: | `Vault_SecretsEngineGcp` |
 | GCP KMS | :white_check_mark: | :x: | `Vault_SecretsEngineGcpKms` |
@@ -33,7 +33,7 @@ The following matrix summarizes secrets-engine implementation and test status:
 | Transform | :x: | :x: | N/A |
 | Transit | :white_check_mark: | :x: | `Vault_SecretsEngineTransit` |
 
-`Identity` is modeled as the separate namespace-local [Identity Store](IDENTITY.md), not as a mount-specific secrets-engine implementation. Other unsupported engines are still emitted when observed as generic `Vault_SecretsEngine` nodes with their existence, type, path, and common mount properties.
+`Identity` is modeled as the separate namespace-local [Identity Store](IDENTITY.md), not as a mount-specific secrets-engine implementation. Cubbyhole is excluded as a system mount. Other unsupported non-system engines are still emitted when observed as generic `Vault_SecretsEngine` nodes with their existence, type, path, and common mount properties.
 
 ## Glob, Synthetic, And Control Behavior
 
@@ -41,7 +41,7 @@ The following matrix summarizes secrets-engine implementation and test status:
 - Exact missing roles, keys, accounts, or objects may create detached synthetic targets.
 - Collection-wide creation remains anchored to the mount and records the object type that may be created.
 - Unknown external prerequisites or unresolved runtime selectors become `Vault_PotentialAccess` rather than traversable outcomes.
-- Unsupported engines retain only their generic mount existence and type; their endpoint paths do not emit generic secret-access edges.
+- Unsupported observed non-system engines retain only their generic mount existence and type; their endpoint paths do not emit generic secret-access edges.
 
 ## Limitations
 
@@ -49,6 +49,23 @@ The following matrix summarizes secrets-engine implementation and test status:
 - External cloud, database, directory, and SaaS permissions are not independently validated.
 - Plugin-specific runtime conditions can further restrict an operation after ACL authorization.
 - Synthetic and unresolved resources remain non-traversable until a concrete compatible target is observed.
+
+## Unsupported Mounts
+
+Any observed non-system backend outside the supported set remains a generic `Vault_SecretsEngine`. VaultHound retains its path, type, accessor, local/seal-wrap flags, lease settings, and mount options where available. System mounts such as `cubbyhole/` are excluded rather than represented as generic secrets engines.
+
+Unsupported engines do not receive:
+
+- Child-resource collection.
+- Synthetic endpoint objects.
+- Generic secret-read or credential-generation edges.
+- Guessed endpoint semantics based only on the mount type string.
+
+This keeps unsupported existence visible without inventing attack paths.
+
+## External-System Boundary
+
+Cloud, database, LDAP, Kubernetes, and Terraform properties describe what Vault is configured to request or return. They do not prove downstream IAM, RBAC, directory, or network state. Hybrid graph edges should be added only when another collector resolves the external principal or resource unambiguously.
 
 ## Common Topology
 
@@ -135,7 +152,7 @@ AWS dynamic roles describe IAM user, assumed role, federation token, or session 
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAws]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAws]:::mountNode
     mount -->|Vault_Contains| dynamic[Vault_AwsRole]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_AwsStaticRole]:::secretObjectNode
 
@@ -147,9 +164,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineAws OR n:Vault_AwsRole OR n:Vault_AwsStaticRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineAws)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 Dynamic-role properties include policy documents and ARNs, role ARNs, IAM groups, tags, permissions boundaries, credential modes, TTLs, and MFA configuration. Traversable generation requires at least one proven viable mode; session-token-only access requiring an MFA code becomes `Vault_PotentialAccess` when that prerequisite is unresolved.
@@ -230,7 +247,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_AwsRole)
+MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_AwsRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -247,7 +268,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ReadStaticCredentials]->(:Vault_AwsStaticRole)
+MATCH p = (authority)-[:Vault_ReadStaticCredentials]->(:Vault_AwsStaticRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -259,7 +284,7 @@ Azure dynamic roles generate service principals; static roles map existing appli
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAzure]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineAzure]:::mountNode
     mount -->|Vault_Contains| dynamic[Vault_AzureRole]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_AzureStaticRole]:::secretObjectNode
 
@@ -271,9 +296,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineAzure OR n:Vault_AzureRole OR n:Vault_AzureStaticRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineAzure)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 Roles retain Azure role assignments, groups, application settings, TTL behavior, and generated credential effects. `Vault_AzureImportStaticRole` is a specialized non-traversable administrative operation; ordinary role CRUD uses generic object edges.
@@ -331,8 +356,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(role)
-WHERE role:Vault_AzureRole OR role:Vault_AzureStaticRole
+MATCH p = (authority)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(role)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (role:Vault_AzureRole OR role:Vault_AzureStaticRole)
 RETURN p
 ```
 
@@ -344,7 +373,7 @@ Database mounts contain plugin connections, dynamic roles, and static roles. Rol
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineDatabase]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineDatabase]:::mountNode
     mount -->|Vault_Contains| connection[Vault_DatabaseConnection]:::referenceNode
     mount -->|Vault_Contains| role[Vault_DatabaseRole]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]:::secretObjectNode
@@ -359,12 +388,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_References*1..3]->(n)
-WHERE n:Vault_SecretsEngineDatabase
-   OR n:Vault_DatabaseConnection
-   OR n:Vault_DatabaseRole
-   OR n:Vault_DatabaseStaticRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineDatabase)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains|Vault_References*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -419,7 +445,8 @@ This secrets engine does not define any specialized edges.
 | `Vault_References` | `Reference Types` | Classifies the dependency as a database connection. |
 | `Vault_References` | `Reference Evidence` | Identifies the role's configured connection field. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Surfaces` | Lists dynamic or static credential endpoints. |
-| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Modes` | Lists plugin-supported credential generation modes. |
+| `Vault_GenerateCredentials` | `Modes` | Lists plugin-supported dynamic-role credential generation modes after canonicalization. |
+| `Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Modes` | Distinguishes static-role retrieval from dynamic-role generation when the edge remains static or potential. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Credential Types` | Lists credential types returned by the plugin. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Material` | Identifies returned username, password, private-key, or certificate material. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Effects` | Describes the external database account or credential effect. |
@@ -446,7 +473,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_DatabaseRole)-[:Vault_References]->(:Vault_DatabaseConnection)
+MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_DatabaseRole)-[:Vault_References]->(:Vault_DatabaseConnection)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -463,7 +494,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
+MATCH p = (authority)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -475,7 +510,7 @@ The GCP engine models rolesets, static service accounts, and impersonated accoun
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcp]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcp]:::mountNode
     mount -->|Vault_Contains| roleset[Vault_GcpRoleset]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_GcpStaticAccount]:::secretObjectNode
     mount -->|Vault_Contains| impersonated[Vault_GcpImpersonatedAccount]:::secretObjectNode
@@ -488,12 +523,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineGcp
-   OR n:Vault_GcpRoleset
-   OR n:Vault_GcpStaticAccount
-   OR n:Vault_GcpImpersonatedAccount
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineGcp)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and credential effects. Static and impersonated accounts retain OAuth token or service-account-key surfaces supported by their endpoint. The collector does not independently verify Google Cloud IAM.
@@ -561,10 +593,14 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(target)
-WHERE target:Vault_GcpRoleset
-   OR target:Vault_GcpStaticAccount
-   OR target:Vault_GcpImpersonatedAccount
+MATCH p = (authority)-[:Vault_GenerateCredentials]->(target)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (target:Vault_GcpRoleset
+    OR target:Vault_GcpStaticAccount
+    OR target:Vault_GcpImpersonatedAccount)
 RETURN p
 ```
 
@@ -576,7 +612,7 @@ GCP KMS nodes represent Vault registrations of external Google Cloud KMS keys.
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcpKms]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineGcpKms]:::mountNode
     mount -->|Vault_Contains| key[Vault_GcpKmsKey]:::keyNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -587,9 +623,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineGcpKms OR n:Vault_GcpKmsKey
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineGcpKms)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -647,7 +683,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GcpKmsDecrypt|Vault_GcpKmsSign]->(:Vault_GcpKmsKey)
+MATCH p = (authority)-[:Vault_GcpKmsDecrypt|Vault_GcpKmsSign]->(:Vault_GcpKmsKey)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -659,10 +699,12 @@ KV models path hierarchy without collecting plaintext values. Directories and fi
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKv]:::mountNode
-    mount -->|Vault_Contains| directory[Vault_KvDirectory]:::kvObjectNode
-    directory -->|Vault_Contains| file[Vault_KvFile]:::kvObjectNode
-    file -->|Vault_Contains| pair[Vault_KvPair]:::kvPairNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKv]:::mountNode
+    mount -->|Vault_Contains| D1[Vault_KvDirectory]:::kvObjectNode
+    mount -->|Vault_Contains| F1[Vault_KvFile]:::kvObjectNode
+    F1 -->|Vault_Contains| P1[Vault_KvPair]:::kvPairNode
+    D1 -->|Vault_Contains| F2[Vault_KvFile]:::kvObjectNode
+    F2 -->|Vault_Contains| P2[Vault_KvPair]:::kvPairNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
@@ -673,9 +715,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..4]->(n)
-WHERE n:Vault_SecretsEngineKv OR n:Vault_KvDirectory OR n:Vault_KvFile OR n:Vault_KvPair
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineKv)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 `Vault_KvDirectory` is a logical path prefix, not a mutable Vault object. `Vault_KvFile` is a secret path. `Vault_KvPair` exposes only top-level key names; values are never exported.
@@ -827,7 +869,7 @@ Kubernetes secrets roles describe the service account and optional RBAC objects 
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKubernetes]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineKubernetes]:::mountNode
     mount -->|Vault_Contains| role[Vault_KubernetesRole]:::secretObjectNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -838,9 +880,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineKubernetes OR n:Vault_KubernetesRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineKubernetes)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 Roles retain service-account name, allowed namespaces, namespace selectors, token TTL, generated role or cluster-role bindings, and request parameters. Generation effects identify namespaced versus cluster-scoped outcomes. Live Kubernetes RBAC is not independently verified.
@@ -905,7 +947,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_KubernetesRole)
+MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_KubernetesRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -917,7 +963,7 @@ The LDAP secrets engine manages dynamic credentials, static accounts, and servic
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineLdap]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineLdap]:::mountNode
     mount -->|Vault_Contains| dynamic[Vault_LdapDynamicRole]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_LdapStaticRole]:::secretObjectNode
     mount -->|Vault_Contains| library[Vault_LdapLibrarySet]:::secretObjectNode
@@ -932,13 +978,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..3]->(n)
-WHERE n:Vault_SecretsEngineLdap
-   OR n:Vault_LdapDynamicRole
-   OR n:Vault_LdapStaticRole
-   OR n:Vault_LdapLibrarySet
-   OR n:Vault_LdapServiceAccount
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineLdap)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -1024,8 +1066,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials|Vault_LdapCheckoutServiceAccount]->(target)
-WHERE target:Vault_LdapDynamicRole OR target:Vault_LdapStaticRole OR target:Vault_LdapServiceAccount
+MATCH p = (authority)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials|Vault_LdapCheckoutServiceAccount]->(target)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (target:Vault_LdapDynamicRole OR target:Vault_LdapStaticRole OR target:Vault_LdapServiceAccount)
 RETURN p
 ```
 
@@ -1037,7 +1083,7 @@ PKI mounts contain roles, issuers, and keys. An issuer references its key; it do
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEnginePki]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEnginePki]:::mountNode
     mount -->|Vault_Contains| role[Vault_PkiRole]:::secretObjectNode
     mount -->|Vault_Contains| issuer[Vault_PkiIssuer]:::issuerNode
     mount -->|Vault_Contains| key[Vault_PkiKey]:::pkiKeyNode
@@ -1053,9 +1099,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_References*1..3]->(n)
-WHERE n:Vault_SecretsEnginePki OR n:Vault_PkiRole OR n:Vault_PkiIssuer OR n:Vault_PkiKey
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEnginePki)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains|Vault_References*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -1191,7 +1237,7 @@ Common containment, reference, configuration, object-lifecycle, and potential-ac
 | `Vault_ManageObject`<br>`Vault_PkiRevokeIssuer` | `Issuer Actions` | Lists issuer update, revoke, delete, or CRL-combination actions. |
 | `Vault_PkiProvisionIssuer` | `Creation Methods` | Distinguishes issuer generation and import workflows. |
 | `Vault_PkiProvisionIssuer`<br>`Vault_PkiManageRoot` | `Generation Types` | Records generated root or intermediate material types. |
-| `Vault_PkiProvisionIssuer` | `Import Types` | Records imported issuer bundle types. |
+| `Vault_PkiProvisionIssuer`<br>`Vault_ManageObject` | `Import Targets` | Records issuer or key bundle formats selected by PKI import endpoints. PKI key lifecycle edges are canonicalized to `Vault_ManageObject`. |
 | `Vault_PkiManageRoot`<br>`Vault_PkiDeleteRoot` | `Root Actions` | Lists root generation, rotation, replacement, signing, or deletion actions. |
 | `Vault_PkiManageIntermediate` | `Intermediate Actions` | Lists intermediate generation, cross-sign, and set-signed actions. |
 | `Vault_PkiAcmeCreateEab`<br>`Vault_PkiAcmeManageAccounts` | `ACME Operations` | Lists external-account-binding or account-management actions. |
@@ -1228,8 +1274,12 @@ The role-targeted `Vault_PkiSignVerbatim` path is role-qualified. Issuer-targete
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_PkiIssueCertificate|Vault_PkiSignCertificate|Vault_PkiSignVerbatim|Vault_PkiSignIntermediate|Vault_PkiSignSelfIssued]->(target)
-WHERE target:Vault_PkiRole OR target:Vault_PkiIssuer
+MATCH p = (authority)-[:Vault_PkiIssueCertificate|Vault_PkiSignCertificate|Vault_PkiSignVerbatim|Vault_PkiSignIntermediate|Vault_PkiSignSelfIssued]->(target)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (target:Vault_PkiRole OR target:Vault_PkiIssuer)
 RETURN p
 ```
 
@@ -1253,7 +1303,7 @@ SSH uses one role node kind for OTP and CA role modes. The role properties ident
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineSsh]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineSsh]:::mountNode
     mount -->|Vault_Contains| role[Vault_SshRole]:::secretObjectNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -1264,9 +1314,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineSsh OR n:Vault_SshRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineSsh)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -1349,7 +1399,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_SshGenerateOtp|Vault_SshSignKey|Vault_SshIssueKeyPair]->(:Vault_SshRole)
+MATCH p = (authority)-[:Vault_SshGenerateOtp|Vault_SshSignKey|Vault_SshIssueKeyPair]->(:Vault_SshRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1361,7 +1415,7 @@ Terraform Cloud roles generate organization, team, or user API tokens.
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTerraform]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTerraform]:::mountNode
     mount -->|Vault_Contains| role[Vault_TerraformRole]:::secretObjectNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -1372,9 +1426,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineTerraform OR n:Vault_TerraformRole
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineTerraform)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains|Vault_References*1..]->(n)
+RETURN mount, objects
 ```
 
 The mount stores Terraform Cloud address and token configuration. Role and generation properties identify token mode, organization, team or user target, TTL, and generated credential material.
@@ -1449,7 +1503,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_TerraformRole)
+MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_TerraformRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1461,7 +1519,7 @@ TOTP mounts contain named key configurations.
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTotp]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTotp]:::mountNode
     mount -->|Vault_Contains| key[Vault_TotpKey]:::keyNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -1472,9 +1530,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
-WHERE n:Vault_SecretsEngineTotp OR n:Vault_TotpKey
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineTotp)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -1530,7 +1588,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_TotpGenerateCode]->(:Vault_TotpKey)
+MATCH p = (authority)-[:Vault_TotpGenerateCode]->(:Vault_TotpKey)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -1542,7 +1604,7 @@ Transit mounts contain cryptographic keys and expose operations without returnin
 
 ```mermaid
 flowchart LR
-    store[Mount Store]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTransit]:::mountNode
+    store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngineTransit]:::mountNode
     mount -->|Vault_Contains| key[Vault_TransitKey]:::transitKeyNode
     key -.->|Vault_ManagedBy| managed[Vault_ManagedKey]:::managedKeyNode
 
@@ -1555,9 +1617,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_ManagedBy*1..3]->(n)
-WHERE n:Vault_SecretsEngineTransit OR n:Vault_TransitKey OR n:Vault_ManagedKey
-RETURN p
+MATCH mount = (:Vault_Store)-[:Vault_Contains]->(engine:Vault_SecretsEngineTransit)
+OPTIONAL MATCH objects = (engine)-[:Vault_Contains|Vault_ManagedBy*1..]->(n)
+RETURN mount, objects
 ```
 
 ### Nodes
@@ -1624,6 +1686,8 @@ Common containment, managed-key reference, configuration, object-lifecycle, and 
 | `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify` | `Context Required` | Indicates that the selected derived key requires a context value. |
 | `Vault_TransitEncrypt`<br>`Vault_TransitGenerateDataKey` | `Nonce Required` | Indicates that the request must supply a nonce. |
 | `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify` | `Batch Input Supported` | Indicates support for batch operation requests. |
+| `Vault_TransitGenerateDataKey` | `Generation Modes` | Distinguishes the `datakey`, `datakeys`, and `derivedkeys` endpoint families matched by the policy. |
+| `Vault_TransitGenerateDataKey` | `Data Key Outputs` | Identifies whether the endpoint returns plaintext or wrapped data-key material. |
 | `Vault_TransitSign` | `Signing Targets` | Distinguishes ordinary payload, digest, and CSR signing. |
 | `Vault_TransitVerify` | `Verification Targets` | Distinguishes signature, HMAC, and CMAC verification. |
 | `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify`<br>`Vault_PotentialAccess` | `Requirements` | Lists key type, context, exportability, or request prerequisites. |
@@ -1635,7 +1699,6 @@ Common containment, managed-key reference, configuration, object-lifecycle, and 
 | `Vault_TransitExportKey`<br>`Vault_TransitExportByokKey`<br>`Vault_PotentialAccess` | `Requirements` | Lists exportability, key-type, version, or destination-key prerequisites. |
 | `Vault_CreateObject`<br>`Vault_ManageObject` | `Operations` | Lists create, import, rotate, trim, configure, backup, restore, or delete actions. |
 | `Vault_CreateObject`<br>`Vault_ManageObject` | `Conditional Key Settings` | Lists key settings that condition lifecycle viability. |
-| `Vault_CreateObject`<br>`Vault_ManageObject` | `Import Types` | Distinguishes ordinary and versioned key import. |
 | `Vault_ManageObject` | `Backup Formats` | Identifies Transit backup representations. |
 | `Vault_ManageObject` | `Restore Modes` | Distinguishes new-key and overwrite restore behavior. |
 
@@ -1658,27 +1721,14 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_TransitDecrypt|Vault_TransitSign|Vault_TransitGenerateCmac|Vault_TransitGenerateHmac|Vault_TransitExportKey]->(:Vault_TransitKey)
+MATCH p = (authority)-[:Vault_TransitDecrypt|Vault_TransitSign|Vault_TransitGenerateCmac|Vault_TransitGenerateHmac|Vault_TransitExportKey]->(:Vault_TransitKey)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
 Decrypt is a plaintext oracle. Sign, CMAC, and HMAC exercise concrete cryptographic authority. `/sign/:key` records `Signing Targets: Message or Digest`, while `/keys/:key/csr` records `Signing Targets: Certificate Signing Request`; both merge into the same key edge when both surfaces are authorized. Secret export is emitted only when the observed key type supports the requested export and the key is exportable. Public-key reads use `Vault_ReadObject`, while BYOK-wrapped export uses non-traversable `Vault_TransitExportByokKey`.
 
 For an exact missing path such as `transit/decrypt/future-key`, the collector may create a detached synthetic key but emits `Vault_PotentialAccess` with `Target Observed: false`. The synthetic key is not attached through normal containment and therefore cannot become an asserted attack path.
-
-## Unsupported Mounts
-
-Any observed backend outside the supported table remains a generic `Vault_SecretsEngine`. VaultHound retains its path, type, accessor, local/seal-wrap flags, lease settings, and mount options where available.
-
-Unsupported engines do not receive:
-
-- Child-resource collection.
-- Synthetic endpoint objects.
-- Generic secret-read or credential-generation edges.
-- Guessed endpoint semantics based only on the mount type string.
-
-This keeps unsupported existence visible without inventing attack paths.
-
-## External-System Boundary
-
-Cloud, database, LDAP, Kubernetes, and Terraform properties describe what Vault is configured to request or return. They do not prove downstream IAM, RBAC, directory, or network state. Hybrid graph edges should be added only when another collector resolves the external principal or resource unambiguously.

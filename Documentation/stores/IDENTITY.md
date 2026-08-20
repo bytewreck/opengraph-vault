@@ -230,8 +230,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(identity)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE identity:Vault_Entity OR identity:Vault_Group
+MATCH p = (authority)-[:Vault_ControlObject]->(identity)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (identity:Vault_Entity OR identity:Vault_Group)
 RETURN p
 ```
 
@@ -262,13 +266,17 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadIdentity|Vault_ManageObject|Vault_ControlObject|Vault_LinksPolicy*1..2]->(d)
-WHERE d:Vault_Store
-   OR d:Vault_Entity
-   OR d:Vault_EntityAlias
-   OR d:Vault_Group
-   OR d:Vault_GroupAlias
-   OR d:Vault_Policy
+MATCH p = (authority)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadIdentity|Vault_ManageObject|Vault_ControlObject|Vault_LinksPolicy*1..2]->(d)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (d:Vault_Store
+    OR d:Vault_Entity
+    OR d:Vault_EntityAlias
+    OR d:Vault_Group
+    OR d:Vault_GroupAlias
+    OR d:Vault_Policy)
 RETURN p
 ```
 
@@ -294,9 +302,14 @@ Generic object-operation, takeover, and unresolved-outcome properties follow the
 | --- | --- | --- |
 | `Vault_ReadIdentity` | `Identity Targets` | Identifies the entity, group, alias, lookup, or identity-service data that can be read. |
 | `Vault_ReadIdentity` | `Operations` | Lists the authenticated identity-read operations represented by the edge. |
+| `Vault_ReadIdentity` | `Lookup Targets` | Identifies whether an authenticated lookup returns an entity record, a group record, or both. |
 | `Vault_ReadCredential` | `Identity Targets` | Identifies the secret-bearing OIDC or MFA object read by the policy. |
 | `Vault_ReadCredential` | `Operations` | Lists the authenticated read operations that return credential material. |
 | `Vault_ReadCredential` | `Exposure Confirmed` | Indicates that the authenticated response is proven to return usable credential material. |
+| `Vault_ReadCredential` | `Returned Fields` | Lists the credential-bearing response fields, such as an OIDC client secret, Duo integration secret, or Okta API token. |
+| `Vault_ReadIdentity`<br>`Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadCredential`<br>`Vault_PotentialAccess` | `Object References` | Preserves identity object IDs, names, method types, or request selectors when the referenced target is patterned or unresolved. |
+| `Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadCredential`<br>`Vault_OidcAuthorize` | `Pattern Covers Unobserved Targets` | Indicates that a policy pattern was expanded to observed objects but can also address matching objects absent from the collected graph. |
+| `Vault_ManageObject` | `Immutable Fields` | Lists fields Vault does not permit the represented update to change, including an OIDC application's key and client type or a SCIM client's alias mount accessor. |
 | `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists the configuration operations represented by the edge. |
 
 Canonical configuration-target and `Vault_ControlObject` evidence fields are documented in [Cross-Cutting Properties](../MODEL.md#cross-cutting-properties). Identity-specific indirect takeover evidence uses those shared `Via Object IDs` and `Via Object Names` fields.
@@ -316,8 +329,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ReadCredential]->(credential)
-WHERE credential:Vault_OidcApplication OR credential:Vault_MfaMethod
+MATCH p = (authority)-[:Vault_ReadCredential]->(credential)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (credential:Vault_OidcApplication OR credential:Vault_MfaMethod)
 RETURN p
 ```
 
@@ -374,11 +391,11 @@ The common non-owning `Vault_References` relationship is catalogued under [Commo
 | `Vault_OidcSupportsScope` | Provider | Scope | :x: | Provider exposes the scope. |
 | `Vault_OidcAssignedTo` | Entity or group | Assignment | :x: | Principal is selected by the assignment. |
 | `Vault_OidcGrantsAccess` | Assignment | Application | :x: | Assignment grants application eligibility. |
-| `Vault_OidcAuthorize` | Policy | Provider or application target | :x: | ACL permits the authenticated authorization surface. |
+| `Vault_OidcAuthorize` | Policy | Observed OIDC provider or Identity Store | :x: | ACL permits an authenticated OIDC provider authorization endpoint. Exact paths and non-template patterns with observed matches target those providers. When no concrete provider can be selected, unresolved patterned authority is anchored to the Identity Store. This edge never targets applications. |
 | `Vault_OidcAuthenticateTo` | Entity | Application | :white_check_mark: | Assignment and provider constraints compose into proven application access. |
 | `Vault_GenerateIdentityToken` | Policy | OIDC token role | :white_check_mark: | Policy can invoke a concrete identity-token signing role. |
 
-The direct authentication edge is derived from collected configuration; the intermediate assignment and provider edges remain visible as non-traversable evidence.
+The direct authentication edge is derived from collected configuration; the intermediate assignment and provider edges remain visible as non-traversable evidence. `Vault_OidcAuthorize` records ACL authority over provider authorization endpoints only. Application eligibility and proven application authentication remain represented by `Vault_OidcGrantsAccess` and `Vault_OidcAuthenticateTo`, respectively.
 
 ### Properties
 
@@ -423,6 +440,8 @@ The direct authentication edge is derived from collected configuration; the inte
 | `Vault_OidcAuthenticateTo` | `Provider Names` | Lists providers through which the application can be reached. |
 | `Vault_OidcAuthenticateTo` | `Matched Paths` | Lists authorization endpoints whose effective ACLs were evaluated. |
 | `Vault_OidcAuthenticateTo` | `ACL Basis` | Explains the ACL evidence used to derive application access. |
+| `Vault_OidcAuthorize` | `Provider Names` | Lists observed providers matched by the authorization path. Exact and expanded-pattern edges to a provider contain that provider; an Identity Store fallback may contain every observed provider matched by the unresolved pattern. |
+| `Vault_OidcAuthorize` | `Provider References` | Preserves the provider segment written in a patterned authorization path, such as `+`, `*`, or a template expression. The fully global `*` policy path has no provider reference. |
 | `Vault_GenerateIdentityToken`<br>`Vault_PotentialAccess` | `Key Eligibility` | Records whether each resolved signing key permits the token role's client ID. |
 | `Vault_GenerateIdentityToken`<br>`Vault_PotentialAccess` | `Signing Key Names` | Lists signing keys considered for identity-token generation. |
 | `Vault_GenerateIdentityToken` | `Eligible Role Names` | Lists observed token roles whose signing-key constraints are satisfied. |
@@ -459,7 +478,11 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_GenerateIdentityToken]->(:Vault_OidcTokenRole)
+MATCH p = (authority)-[:Vault_GenerateIdentityToken]->(:Vault_OidcTokenRole)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
 RETURN p
 ```
 
@@ -545,6 +568,7 @@ MFA methods and enforcements describe login prerequisites. The collector does no
 | `Vault_PotentialAccess` | `Potential Outcomes` | Identifies administrative TOTP enrollment as the possible result. |
 | `Vault_PotentialAccess` | `Credential Types` | Identifies the returned enrollment material. |
 | `Vault_PotentialAccess` | `Credential Uses` | Describes how the enrollment material could be used. |
+| `Vault_PotentialAccess` | `Subject Entity IDs` | Lists observed entities selected by constrained administrative TOTP enrollment requests. |
 | `Vault_PotentialAccess` | `Requirements` | Lists the primary-credential and enrollment-state prerequisites. |
 | `Vault_PotentialAccess` | `Resolution Status` | Explains why administrative enrollment remains conditional. |
 
@@ -566,8 +590,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_PotentialAccess]->(d)
-WHERE d:Vault_MfaMethod OR d:Vault_Entity OR d:Vault_Store
+MATCH p = (authority)-[:Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_PotentialAccess]->(d)
+WHERE (authority:Vault_Policy
+    OR authority:Vault_Entity
+    OR authority:Vault_EntityAlias
+    OR authority:Vault_Group)
+  AND (d:Vault_MfaMethod OR d:Vault_Entity OR d:Vault_Store)
 RETURN p
 ```
 
@@ -706,7 +734,7 @@ Policy inheritance from a group remains provenance on the edge. It does not make
 
 Rendered template relationships use the destination subsystem's exact operation edge kind and its ordinary properties; for example, a rendered KV read remains `Vault_KvReadSecret`. There is no template-only relationship kind to own a separate property table.
 
-The cross-cutting `Templated`, `Template Entity Fields`, `Resolved For Entity IDs`, `Resolved Source Types`, `Matched Policy Paths`, `Matched Paths`, and `Via Policies` metadata is documented by the shared [Policy-Derived Edge Metadata](../MODEL.md#policy-derived-edge-metadata) contract. Destination-store catalogues document properties specific to each concrete edge kind.
+The cross-cutting `Templated`, `Template Entity Fields`, `Template Alias Accessors`, `Template Group IDs`, `Template Group Names`, `Matched Policy Paths`, `Matched Paths`, and `Via Policies` metadata is documented by the shared [Policy-Derived Edge Metadata](../MODEL.md#policy-derived-edge-metadata) contract. Destination-store catalogues document properties specific to each concrete edge kind.
 
 ### Attack Paths
 

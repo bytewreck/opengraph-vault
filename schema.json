@@ -896,7 +896,7 @@
     },
     {
       "name": "Vault_DenyAccess",
-      "description": "Access capability edge showing that a Vault policy explicitly denies access on the target path or resource.",
+      "description": "Access evidence edge showing that a Vault policy, or an entity, entity alias, or group resolving a templated policy, is denied access on the target path or resource.",
       "is_traversable": false
     },
     {

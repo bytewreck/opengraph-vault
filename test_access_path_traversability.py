@@ -1151,5 +1151,148 @@ class TransitSigningTargetTests(unittest.TestCase):
         )
 
 
+class GlobalDenyAccessTests(unittest.TestCase):
+    @staticmethod
+    def collector_with_transit_keys():
+        collector = vc.VaultCollector(None, "https://vault.test")
+        collector._secrets_engines["transit-accessor"] = {
+            "accessor": "transit-accessor",
+            "type": "transit",
+            "path": "transit/",
+            "raw_path": "transit/",
+            "node_id": "transit-mount",
+            "options": {},
+        }
+        collector._transit_keys["transit-accessor"] = {
+            "application": {
+                "node_id": "transit-key-application",
+                "name": "application",
+                "key_type": "aes256-gcm96",
+                "supports_encryption": True,
+                "synthetic": False,
+            },
+            "database": {
+                "node_id": "transit-key-database",
+                "name": "database",
+                "key_type": "aes256-gcm96",
+                "supports_encryption": True,
+                "synthetic": False,
+            },
+        }
+        collector.nodes.extend([
+            graph_node("transit-mount", "Vault_SecretsEngineTransit"),
+            graph_node("transit-key-application", "Vault_TransitKey"),
+            graph_node("transit-key-database", "Vault_TransitKey"),
+        ])
+        return collector
+
+    @staticmethod
+    def collect_policy(collector, path, capabilities):
+        collector._policies["deny-policy"] = {
+            "node_id": "policy",
+            "type": "acl",
+            "parsed_paths": [{
+                "path": path,
+                "capabilities": capabilities,
+            }],
+        }
+        collector._compute_access_grant_edges()
+        return [edge for edge in collector.edges if edge.source == "policy"]
+
+    def test_exact_non_kv_deny_targets_observed_object(self):
+        collector = self.collector_with_transit_keys()
+
+        policy_edges = self.collect_policy(
+            collector,
+            "transit/encrypt/application",
+            ["deny"],
+        )
+
+        self.assertEqual(len(policy_edges), 1)
+        self.assertEqual(policy_edges[0].kind, "Vault_DenyAccess")
+        self.assertEqual(policy_edges[0].target, "transit-key-application")
+        self.assertEqual(policy_edges[0].properties["capabilities"], ["deny"])
+
+    def test_globbed_non_kv_deny_expands_to_observed_objects(self):
+        collector = self.collector_with_transit_keys()
+
+        policy_edges = self.collect_policy(
+            collector,
+            "transit/encrypt/*",
+            ["deny"],
+        )
+
+        deny_targets = {
+            edge.target for edge in policy_edges
+            if edge.kind == "Vault_DenyAccess"
+        }
+        self.assertEqual(deny_targets, {
+            "transit-key-application",
+            "transit-key-database",
+        })
+        self.assertTrue(all(edge.kind == "Vault_DenyAccess" for edge in policy_edges))
+
+    def test_deny_overrides_grant_capabilities_in_same_block(self):
+        collector = self.collector_with_transit_keys()
+
+        policy_edges = self.collect_policy(
+            collector,
+            "transit/encrypt/application",
+            ["deny", "read", "update"],
+        )
+
+        self.assertEqual(
+            [(edge.kind, edge.target) for edge in policy_edges],
+            [("Vault_DenyAccess", "transit-key-application")],
+        )
+        self.assertFalse(any(
+            edge.kind == "Vault_TransitEncrypt"
+            for edge in policy_edges
+        ))
+
+    def test_kv_mount_tune_deny_targets_the_kv_engine(self):
+        collector = vc.VaultCollector(None, "https://vault.test")
+        collector._secrets_engines["kv-accessor"] = {
+            "accessor": "kv-accessor",
+            "type": "kv",
+            "path": "kv/",
+            "raw_path": "kv/",
+            "node_id": "kv-mount",
+            "options": {"version": "2"},
+        }
+        collector.nodes.append(graph_node("kv-mount", "Vault_SecretsEngineKv"))
+
+        policy_edges = self.collect_policy(
+            collector,
+            "sys/mounts/kv/tune",
+            ["deny"],
+        )
+
+        self.assertEqual(len(policy_edges), 1)
+        self.assertEqual(policy_edges[0].kind, "Vault_DenyAccess")
+        self.assertEqual(policy_edges[0].target, "kv-mount")
+        self.assertEqual(policy_edges[0].properties["surfaces"], ["Mount Tuning"])
+
+    def test_deny_probe_does_not_materialize_synthetic_targets(self):
+        collector = self.collector_with_transit_keys()
+        collector._transit_keys["transit-accessor"] = {}
+        original_node_ids = [node.id for node in collector.nodes]
+        original_edges = list(collector.edges)
+
+        policy_edges = self.collect_policy(
+            collector,
+            "transit/encrypt/missing",
+            ["deny"],
+        )
+
+        self.assertEqual(policy_edges, [])
+        self.assertEqual(
+            [node.id for node in collector.nodes],
+            original_node_ids,
+        )
+        self.assertEqual(collector.edges, original_edges)
+        self.assertEqual(collector._transit_keys["transit-accessor"], {})
+
+
 if __name__ == "__main__":
     unittest.main()
