@@ -186,17 +186,14 @@ Auth-specific users and groups enter these paths only when `Vault_MapsTo` proves
 
 ```mermaid
 flowchart LR
-    authUser[Correlatable Vault_AuthUser]:::authNode -->|Vault_MapsTo| entityAlias[Vault_EntityAlias]:::entityAliasNode
-    entityAlias -->|Vault_MapsTo| entity[Vault_Entity]:::entityNode
-    entity -->|Vault_LinksPolicy| entityPolicy[Direct Vault_Policy]:::policyNode
-    entity -->|Vault_MemberOf| group[Vault_Group]:::groupNode
-    group -->|Vault_LinksPolicy| groupPolicy[Group Vault_Policy]:::policyNode
+    EA[Vault_EntityAlias]:::entityAliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
+    VE -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
+    VE -->|Vault_MemberOf| VG1[Vault_Group]:::groupNode
+    VG1 -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+    GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG1
+    VG2[Vault_Group]:::groupNode -->|Vault_MemberOf| VG1
+    GA2[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG2
 
-    authGroup[Correlatable Vault_AuthGroup]:::authNode -->|Vault_MapsTo| groupAlias[Vault_GroupAlias]:::groupAliasNode
-    groupAlias -->|Vault_MapsTo| group
-    childGroup[Child Vault_Group]:::groupNode -->|Vault_MemberOf| group
-
-    classDef authNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px

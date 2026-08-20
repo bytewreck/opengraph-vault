@@ -48,13 +48,11 @@ The following matrix summarizes implemented auth methods and their current test 
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: AUTH]:::storeNode
-    store -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
     method -->|Vault_Contains| A[Vault_AuthRole]:::authRoleNode
     method -->|Vault_Contains| B[Vault_AuthUser]:::authUserNode
     method -->|Vault_Contains| C[Vault_AuthGroup]:::authGroupNode
 
-    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
