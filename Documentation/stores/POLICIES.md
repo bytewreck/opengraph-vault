@@ -110,7 +110,7 @@ Policy registry permissions use the generic object-operation edge families. They
 
 ```mermaid
 flowchart LR
-    authority[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Policy Store]:::storeNode
+    authority[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Vault_Store: POLICIES]:::storeNode
     authority -.->|Vault_CreateObject| store
     authority -.->|Vault_ReadObject| policy[Vault_Policy]:::policyNode
     authority -.->|Vault_ManageObject| policy
@@ -123,15 +123,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(target)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (
-    target:Vault_Policy
-    OR (target:Vault_Store AND target.`Store Type` = "Policy")
-  )
+MATCH p = (s)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadObject|Vault_ManageObject]->(d)
+WHERE d:Vault_Policy OR (d:Vault_Store AND d.`Store Type` = "Policy")
 RETURN p
 ```
 
