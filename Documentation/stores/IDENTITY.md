@@ -24,9 +24,11 @@ Mermaid diagrams in this guide use solid arrows for traversable relationships an
 ```mermaid
 flowchart LR
     store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| VE[Vault_Entity]:::entityNode
-    store -->|Vault_Contains| EA[Vault_EntityAlias]:::groupNode
+    store -->|Vault_Contains| EA[Vault_EntityAlias]:::entityAliasNode
+    EA -->|Vault_MapsTo| VE
     store -->|Vault_Contains| VG[Vault_Group]:::groupNode
     store -->|Vault_Contains| GA[Vault_GroupAlias]:::groupAliasNode
+    GA -->|Vault_MapsTo| VG
     store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
     store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
     store -->|Vault_Contains| scim[Vault_ScimClient]:::scimNode
