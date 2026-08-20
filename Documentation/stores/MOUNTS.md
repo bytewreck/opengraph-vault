@@ -88,16 +88,17 @@ Specific mounts carry their display kind first and `Vault_SecretsEngine` as a ba
 
 ### Common Edges
 
+In every edge table in this guide, `Policy` denotes [policy authority](../MODEL.md#declared-and-derived-authority): normally the declaring `Vault_Policy`, or the referenced entity, alias, or group when an Identity template produces an effective rendered edge.
+
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store, secrets engine, or hierarchical resource | Secrets engine or immediate observed child | :white_check_mark: | Places mounts and their observed resources in the namespace hierarchy. |
 | `Vault_References` | Configured secrets-engine resource | Referenced dependency | :x: | Records a non-owning dependency such as issuer-to-key or role-to-connection. |
-| `Vault_ManagedBy` | Transit key | Managed key | :x: | Records that a Transit key delegates cryptographic custody to a managed key. |
+| `Vault_ManagedBy` | Compatible cryptographic object | Managed key | :x: | Records that a Vault cryptographic object delegates operations or custody to an external managed-key registration. |
 | `Vault_ListObjects` | Policy | Secrets engine or collection anchor | :x: | Lists roles, keys, accounts, connections, KV children, or another engine-specific collection. |
 | `Vault_CreateObject` | Policy | Secrets engine, collection anchor, or exact synthetic target | :x: | Creates an object or records authority to create an unobserved exact target. |
 | `Vault_ReadObject` | Policy | Concrete secrets-engine child | :x: | Reads durable configuration on a concrete child. |
 | `Vault_ManageObject` | Policy | Concrete secrets-engine child | :x: | Updates, deletes, rotates, imports, or otherwise administers a concrete child. |
-| `Vault_ControlObject` | Policy or principal | Concrete secrets-engine child | :white_check_mark: | Derives effective control only when a proven security-bearing mutation can take over the concrete object. |
 | `Vault_ReadConfig` | Policy | Secrets-engine mount | :x: | Reads mount, tuning, or backend-wide configuration. |
 | `Vault_ManageConfig` | Policy | Secrets-engine mount | :x: | Changes configuration, tuning, root credentials, or maintenance state. |
 | `Vault_GenerateCredentials` | Policy | Concrete viable secrets role | :white_check_mark: | Obtains dynamic credentials through an endpoint with proven prerequisites. |
@@ -108,7 +109,7 @@ Generic edges retain `Engine Types`, `Object Types`, `Role Types`, `Operations`,
 
 ### Common Properties
 
-The tables in each engine section list stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Supported plugin APIs may return additional version- or plugin-specific fields; VaultHound exports those fields with humanized labels while suppressing or reducing secret values to presence indicators.
+The tables in each engine section list stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Generic object-operation and reference properties are defined by the canonical [cross-cutting properties](../MODEL.md#cross-cutting-properties). Supported plugin APIs may return additional version- or plugin-specific fields; VaultHound exports those fields with humanized labels while suppressing or reducing secret values to presence indicators.
 
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
@@ -117,23 +118,16 @@ The tables in each engine section list stable properties beyond the common contr
 | `Vault_SecretsEngine` | `Allowed Managed Keys` | Lists managed keys the mount is configured to use. |
 | `Vault_SecretsRole`<br>`Vault_DatabaseConnection`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount`<br>`Vault_GcpKmsKey`<br>`Vault_KvDirectory`<br>`Vault_KvFile`<br>`Vault_KvPair`<br>`Vault_LdapLibrarySet`<br>`Vault_LdapServiceAccount`<br>`Vault_PkiIssuer`<br>`Vault_PkiKey`<br>`Vault_TotpKey`<br>`Vault_TransitKey` | `Engine Path` | Identifies the parent mount's API path. |
 | `Vault_SecretsRole`<br>`Vault_DatabaseConnection`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount`<br>`Vault_GcpKmsKey`<br>`Vault_KvDirectory`<br>`Vault_KvFile`<br>`Vault_KvPair`<br>`Vault_LdapLibrarySet`<br>`Vault_LdapServiceAccount`<br>`Vault_PkiIssuer`<br>`Vault_PkiKey`<br>`Vault_TotpKey`<br>`Vault_TransitKey` | `Logical Path` | Identifies the child object's logical path within the mount. |
-| `Vault_References`<br>`Vault_ManagedBy` | `Reference Types` | Classifies the non-owning dependency. |
-| `Vault_References`<br>`Vault_ManagedBy` | `Reference Evidence` | Identifies the configuration field that proves the dependency. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Types` | Lists the credential forms returned by the operation. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Material` | Identifies the secret or token material returned without collecting its value. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Generation Effects` | Describes external objects or credentials created by the operation. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Request Surfaces` | Lists the API surfaces that produce the credential outcome. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Request Methods` | Lists the HTTP methods used by the credential endpoints. |
 | `Vault_GenerateCredentials` | `Modes` | Lists viable generation modes for the target role. |
-| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Backed` | Indicates whether Vault issues the credential under a lease. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Bound` | For AWS and GCP credential edges, indicates whether the returned credential is bound to a Vault lease. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Backed` | For engines with conventional Vault-managed leases, such as Database and Terraform, indicates whether Vault leases the returned credential. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Renewable` | Indicates whether the credential lease can be renewed. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Revocable` | Indicates whether Vault can revoke the issued credential. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Engine Types` | Lists secrets-engine families represented by a merged generic edge. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | Lists the durable child-resource types represented by the edge. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Role Types` | Lists role families represented by the generic operation. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists endpoint operations folded into the generic edge. |
-| `Vault_ReadObject`<br>`Vault_ReadConfig` | `Read Targets` | Identifies the data or configuration returned by the read. |
-| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Config Targets` | Identifies the backend-wide configuration surface. |
 
 ## AWS
 
@@ -214,8 +208,8 @@ This secrets engine does not define any specialized edges.
 | `Vault_AwsStaticRole` | `Rotation Schedule` | Records the cron-style rotation schedule. |
 | `Vault_AwsStaticRole` | `Rotation Window` | Records the allowed schedule execution window. |
 | `Vault_AwsStaticRole` | `Last Vault Rotation` | Records the last time Vault rotated the IAM credential. |
-| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Surface` | Distinguishes AWS `creds` and `sts` endpoints. |
-| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Method` | Records the HTTP method used by the credential endpoint. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Surfaces` | Lists the AWS `creds` and `sts` endpoints represented by the edge. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Methods` | Lists the HTTP methods used by the credential endpoints. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Bound` | Indicates whether Vault leases the returned AWS credential. |
 | `Vault_GenerateCredentials`<br>`Vault_PotentialAccess` | `Supports Custom TTL` | Indicates whether the endpoint accepts a caller-selected TTL. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Effects` | Describes the IAM or STS credential outcome. |
@@ -354,7 +348,7 @@ flowchart LR
     mount -->|Vault_Contains| connection[Vault_DatabaseConnection]:::referenceNode
     mount -->|Vault_Contains| role[Vault_DatabaseRole]:::secretObjectNode
     mount -->|Vault_Contains| static[Vault_DatabaseStaticRole]:::secretObjectNode
-    role -.->|Vault_References: Database Connection| connection
+    role -.->|Vault_References| connection
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
@@ -442,7 +436,7 @@ Dynamic credential generation requires an observed compatible connection and an 
 ```mermaid
 flowchart LR
     policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]:::secretObjectNode
-    role -.->|Vault_References: Database Connection| connection[Vault_DatabaseConnection]:::referenceNode
+    role -.->|Vault_References| connection[Vault_DatabaseConnection]:::referenceNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
@@ -541,13 +535,13 @@ This secrets engine does not define any specialized edges.
 | `Vault_GcpStaticAccount` | `Bindings Visibility` | Records whether account IAM bindings were visible to the collector. |
 | `Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Service Account Email` | Identifies the external or impersonated service account. |
 | `Vault_GcpImpersonatedAccount` | `Impersonated Account Name` | Identifies the impersonated-account configuration. |
-| `Vault_GenerateCredentials` | `Request Surface` | Identifies the roleset, static-account, or impersonated-account endpoint. |
+| `Vault_GenerateCredentials` | `Request Surfaces` | Lists the roleset, static-account, or impersonated-account endpoints represented by the edge. |
 | `Vault_GenerateCredentials` | `Request Methods` | Lists supported HTTP methods for the credential request. |
 | `Vault_GenerateCredentials` | `Resource Types` | Lists GCP object types through which credentials can be generated. |
 | `Vault_GenerateCredentials` | `Credential Types` | Lists token or service-account-key outcomes. |
 | `Vault_GenerateCredentials` | `Generation Effects` | Describes the concrete credential and external account effect. |
 | `Vault_GenerateCredentials` | `Revocation Effects` | Describes how Vault revokes the generated credential. |
-| `Vault_GenerateCredentials` | `Lease Bound` | Indicates whether the generated credential is lease-backed. |
+| `Vault_GenerateCredentials` | `Lease Bound` | Indicates whether the generated credential is bound to a Vault lease. |
 | `Vault_GenerateCredentials` | `Renewable` | Indicates whether the generated credential can be renewed. |
 | `Vault_GenerateCredentials` | `Revocable` | Indicates whether Vault can revoke the credential. |
 | `Vault_GenerateCredentials` | `Endpoint Variants` | Lists endpoint variants that produce the merged outcome. |
@@ -1217,10 +1211,10 @@ Certificate issuance and signing target the concrete resource that constrains th
 flowchart LR
     policy[Vault_Policy]:::policyNode -->|Vault_PkiIssueCertificate| role[Vault_PkiRole]:::secretObjectNode
     policy -->|Vault_PkiSignCertificate| role
-    policy -->|Vault_PkiSignVerbatim: role-qualified| role
-    policy -->|Vault_PkiIssueCertificate: issuer external policy| issuer[Vault_PkiIssuer]:::issuerNode
-    policy -->|Vault_PkiSignCertificate: issuer external policy| issuer
-    policy -->|Vault_PkiSignVerbatim: resolved default or selected issuer| issuer
+    policy -->|Vault_PkiSignVerbatim| role
+    policy -->|Vault_PkiIssueCertificate| issuer[Vault_PkiIssuer]:::issuerNode
+    policy -->|Vault_PkiSignCertificate| issuer
+    policy -->|Vault_PkiSignVerbatim| issuer
     policy -->|Vault_PkiSignIntermediate| issuer
     policy -->|Vault_PkiSignSelfIssued| issuer
 
@@ -1228,6 +1222,8 @@ flowchart LR
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef issuerNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
+
+The role-targeted `Vault_PkiSignVerbatim` path is role-qualified. Issuer-targeted issue and sign paths represent external-policy operations, while issuer-targeted `Vault_PkiSignVerbatim` resolves to the default or explicitly selected issuer. Edge properties preserve the route and issuer evidence.
 
 Equivalent Cypher query:
 
@@ -1437,8 +1433,8 @@ This secrets engine does not define any specialized edges.
 | `Vault_GenerateCredentials` | `Renewable` | Indicates whether the token lease is renewable. |
 | `Vault_GenerateCredentials` | `Returns Same Token Until Rotation` | Indicates managed-token read behavior. |
 | `Vault_GenerateCredentials` | `May Revoke Existing Token On Generation` | Indicates possible replacement of an existing token. |
-| `Vault_GenerateCredentials` | `Request Surface` | Identifies the Terraform credential endpoint. |
-| `Vault_GenerateCredentials` | `Request Method` | Records the endpoint HTTP method. |
+| `Vault_GenerateCredentials` | `Request Surfaces` | Lists the Terraform credential endpoints represented by the edge. |
+| `Vault_GenerateCredentials` | `Request Methods` | Lists the HTTP methods used by the credential endpoints. |
 
 ### Attack Paths
 

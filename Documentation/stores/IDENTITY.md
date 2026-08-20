@@ -72,6 +72,8 @@ The store is the destination for collection-wide list/create and identity config
 
 ### Common Edges
 
+In every edge table in this guide, `Policy` denotes [policy authority](../MODEL.md#declared-and-derived-authority): normally the declaring `Vault_Policy`, or the referenced entity, alias, or group when an Identity template produces an effective rendered edge.
+
 Auth-specific principals do not replace canonical Vault identity. A correlatable auth user or group enters the canonical Identity graph through the matching entity or group alias for the same auth mount accessor and external name. Policies remain linked to the canonical entity or group, never to the alias itself.
 
 ```mermaid
@@ -98,12 +100,25 @@ WHERE (s:Vault_Entity OR s:Vault_EntityAlias OR s:Vault_Group OR s:Vault_GroupAl
 RETURN p
 ```
 
+The table below combines durable Identity relationships with store-wide generic edge families applicable across Identity services. Feature-level Specialized Edges tables list only edge kinds introduced by that feature.
+
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
 | `Vault_MapsTo` | Auth principal or alias | Alias or canonical identity | :white_check_mark: | Correlates an external representation with Vault identity. |
 | `Vault_OnAuthMethod` | Entity or group alias | Auth method | :x: | Records the mount accessor on which the alias exists. |
 | `Vault_MemberOf` | Entity or child group | Group | :white_check_mark: | Carries policy-bearing membership. |
 | `Vault_LinksPolicy` | Entity or group | Policy | :white_check_mark: | Direct or inherited policy assignment, with link type properties. |
+| `Vault_References` | Configured identity object | Referenced identity dependency | :x: | Records a non-owning dependency, such as an outbound OIDC application or provider selecting a signing key. |
+| `Vault_ListObjects` | Policy | Identity Store | :x: | Lists entity, alias, group, OIDC, MFA, or SCIM collections. |
+| `Vault_CreateObject` | Policy | Identity Store or synthetic exact target | :x: | Creates an identity-subsystem object. |
+| `Vault_ReadObject` | Policy | Concrete generic identity object | :x: | Reads durable identity-object configuration through the generic family. |
+| `Vault_ManageObject` | Policy | Concrete identity object | :x: | Updates or deletes ordinary identity-object configuration. |
+| `Vault_ReadCredential` | Policy | Secret-bearing OIDC or MFA object | :white_check_mark: | Reads returned credential material such as a confidential OIDC client secret. |
+| `Vault_ControlObject` | Policy | Concrete entity, group, or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves identity takeover. |
+| `Vault_ReadConfig` | Policy | Identity Store | :x: | Reads subsystem configuration such as OIDC configuration. |
+| `Vault_ManageConfig` | Policy | Identity Store | :x: | Changes subsystem-wide configuration. |
+| `Vault_DenyAccess` | Policy | Matching target | :x: | Preserves an overriding deny rule. |
+| `Vault_PotentialAccess` | Policy or resolved principal | Unresolved target | :x: | Records an unproven identity-control or credential outcome. |
 
 Group membership returned by Vault is modeled; VaultHound does not independently query external directories to prove upstream membership.
 
@@ -260,47 +275,30 @@ RETURN p
 
 Identity administration introduces no additional durable object kind. It targets the Identity `Vault_Store` for collection-wide operations and the concrete core identity, OIDC, MFA, or SCIM nodes catalogued in their respective sections.
 
-### Edges
+### Specialized Edges
+
+Shared object, configuration, reference, deny, potential-access, credential-read, and takeover families are catalogued under [Common Edges](#common-edges). Identity administration adds one identity-specific read edge:
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_ListObjects` | Policy | Identity Store | :x: | Lists entity, alias, group, OIDC, MFA, or SCIM collections. |
-| `Vault_CreateObject` | Policy | Identity Store or synthetic exact target | :x: | Creates an identity-subsystem object. |
 | `Vault_ReadIdentity` | Policy | Concrete object or Identity Store | :x: | Reads non-secret identity data or a store-native identity surface. |
-| `Vault_ReadCredential` | Policy | Secret-bearing OIDC or MFA object | :white_check_mark: | Reads returned credential material such as a confidential OIDC client secret. |
-| `Vault_ReadObject` | Policy | Concrete generic identity object | :x: | Reads durable configuration through the generic family. |
-| `Vault_ManageObject` | Policy | Concrete identity object | :x: | Updates or deletes ordinary identity configuration. |
-| `Vault_ControlObject` | Policy | Concrete entity, group, or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves identity takeover. |
-| `Vault_ReadConfig` | Policy | Identity Store | :x: | Reads subsystem configuration such as OIDC configuration. |
-| `Vault_ManageConfig` | Policy | Identity Store | :x: | Changes subsystem-wide configuration. |
-| `Vault_DenyAccess` | Policy | Matching target | :x: | Preserves an overriding deny rule. |
-| `Vault_PotentialAccess` | Policy or resolved principal | Unresolved target | :x: | Records an unproven identity-control or credential outcome. |
 
 Creating or managing an object is not automatically traversable. `Vault_ControlObject` is derived only when the controlled parameters establish a concrete takeover mechanism, such as changing canonical alias ownership, adding an attacker-controlled entity to a policy-bearing internal group, or replacing unrestricted trust configuration.
 
 ### Properties
 
+Generic object-operation, takeover, and unresolved-outcome properties follow the canonical [cross-cutting properties](../MODEL.md#cross-cutting-properties). The table below retains Identity-specific targets, configuration context, indirect-control evidence, and confirmed credential-exposure context.
+
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | Identifies the identity collection or concrete object kinds represented by the generic edge. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Operations` | Lists the endpoint operations folded into the generic edge. |
 | `Vault_ReadIdentity` | `Identity Targets` | Identifies the entity, group, alias, lookup, or identity-service data that can be read. |
 | `Vault_ReadIdentity` | `Operations` | Lists the authenticated identity-read operations represented by the edge. |
 | `Vault_ReadCredential` | `Identity Targets` | Identifies the secret-bearing OIDC or MFA object read by the policy. |
 | `Vault_ReadCredential` | `Operations` | Lists the authenticated read operations that return credential material. |
 | `Vault_ReadCredential` | `Exposure Confirmed` | Indicates that the authenticated response is proven to return usable credential material. |
-| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Config Targets` | Names the identity-wide configuration surface, such as outbound OIDC or MFA configuration. |
 | `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists the configuration operations represented by the edge. |
-| `Vault_ControlObject` | `Control Methods` | Identifies the concrete identity-takeover mechanism proven by the operation. |
-| `Vault_ControlObject` | `Control Parameters` | Lists the request parameters whose mutation establishes control. |
-| `Vault_ControlObject` | `Impacts` | Describes the security outcomes made possible by controlling the target. |
-| `Vault_ControlObject` | `Assignable Policies` | Lists policies that the operation can assign to the controlled object when known. |
-| `Vault_ControlObject` | `Policy Assignment Parameters` | Identifies request parameters that can alter policy assignment. |
-| `Vault_ControlObject` | `Via Object IDs` | Identifies an intermediate controlled alias or object used to prove takeover. |
-| `Vault_ControlObject` | `Via Object Names` | Names the intermediate controlled alias or object used to prove takeover. |
-| `Vault_PotentialAccess` | `Potential Outcomes` | Describes the identity-control or credential outcome that could become available. |
-| `Vault_PotentialAccess` | `Requirements` | Lists unresolved prerequisites that prevent a traversable edge. |
-| `Vault_PotentialAccess` | `Resolution Status` | Explains why the target or prerequisite could not be proven. |
+
+Canonical configuration-target and `Vault_ControlObject` evidence fields are documented in [Cross-Cutting Properties](../MODEL.md#cross-cutting-properties). Identity-specific indirect takeover evidence uses those shared `Via Object IDs` and `Via Object Names` fields.
 
 ### Attack Paths
 
@@ -365,13 +363,14 @@ This opening diagram is configuration topology only. The composed `Vault_OidcAut
 | `Vault_OidcScope` | Named scope and claims template exposed by a provider. |
 | `Vault_OidcTokenRole` | Named role used to generate Vault identity tokens. |
 
-### Edges
+### Specialized Edges
+
+The common non-owning `Vault_References` relationship is catalogued under [Common Edges](#common-edges); its OIDC-specific evidence remains documented under Properties.
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
 | `Vault_OidcAllowsApplication` | Provider | Application | :x: | Provider configuration allows the client application. |
 | `Vault_OidcSupportsScope` | Provider | Scope | :x: | Provider exposes the scope. |
-| `Vault_References` | Application or provider | OIDC key | :x: | Configuration uses the signing key. |
 | `Vault_OidcAssignedTo` | Entity or group | Assignment | :x: | Principal is selected by the assignment. |
 | `Vault_OidcGrantsAccess` | Assignment | Application | :x: | Assignment grants application eligibility. |
 | `Vault_OidcAuthorize` | Policy | Provider or application target | :x: | ACL permits the authenticated authorization surface. |
@@ -484,7 +483,7 @@ MATCH p = (:Vault_MfaLoginEnforcement)-[:Vault_MfaAppliesTo|Vault_MfaUsesMethod]
 RETURN p
 ```
 
-This opening diagram shows only durable MFA constraints. Policy-derived enrollment and secret-generation evidence is shown under Attack Paths.
+This opening diagram shows only durable MFA constraints. Policy-derived enrollment and secret-generation evidence is shown under Conditional Access.
 
 ### Nodes
 
@@ -493,7 +492,9 @@ This opening diagram shows only durable MFA constraints. Policy-derived enrollme
 | `Vault_MfaMethod` | Configured MFA method, such as TOTP, Duo, Okta, or PingID. |
 | `Vault_MfaLoginEnforcement` | Rule applying one or more MFA methods to selected identities or authentication surfaces. |
 
-### Edges
+### Specialized Edges
+
+Unresolved MFA outcomes use the store-wide `Vault_PotentialAccess` family documented under [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -501,7 +502,6 @@ This opening diagram shows only durable MFA constraints. Policy-derived enrollme
 | `Vault_MfaAppliesTo` | MFA login enforcement | Entity, group, or auth method | :x: | Records the collected identity or login surface governed by the enforcement. |
 | `Vault_MfaSelfEnroll` | Policy | MFA method | :x: | Permits MFA self-enrollment. |
 | `Vault_MfaGenerateSecret` | Policy | MFA method | :x: | Generates enrollment secret material where supported. |
-| `Vault_PotentialAccess` | Policy | Entity or Identity Store | :x: | Records administrative TOTP enrollment material without proving the entity's primary credential. |
 
 MFA methods and enforcements describe login prerequisites. The collector does not perform enrollment or login challenges.
 
@@ -547,7 +547,7 @@ MFA methods and enforcements describe login prerequisites. The collector does no
 | `Vault_PotentialAccess` | `Requirements` | Lists the primary-credential and enrollment-state prerequisites. |
 | `Vault_PotentialAccess` | `Resolution Status` | Explains why administrative enrollment remains conditional. |
 
-### Attack Paths
+### Conditional Access
 
 MFA topology edges and self-enrollment permissions are non-traversable because configuration or enrollment eligibility does not by itself bypass MFA. `identity/mfa/method/totp/admin-generate` resolves `entity_id` parameter constraints to observed entities and emits `Vault_PotentialAccess` with the returned TOTP enrollment secret, the primary-credential prerequisite, and the requirement that no enrollment exists or that it can first be destroyed. An unresolved entity selector remains anchored to the Identity Store. This is deliberately not `Vault_ReadCredential`: a TOTP seed alone is only one factor and does not prove control of the entity's primary login.
 
@@ -589,7 +589,7 @@ MATCH p = (:Vault_ScimClient)-[:Vault_ScimUsesPrincipal|Vault_ScimManages]->(d)
 RETURN p
 ```
 
-This opening diagram shows configured principal selection and client ownership only. Declared protocol rights and principal-effective SCIM access are documented under Attack Paths.
+This opening diagram shows configured principal selection and client ownership only. Declared protocol rights and principal-effective SCIM access are documented under Conditional Access.
 
 ### Nodes
 
@@ -599,7 +599,9 @@ This opening diagram shows configured principal selection and client ownership o
 | `Vault_Entity` | Canonical identity that may act as the SCIM access-grant principal or a managed User resource. |
 | `Vault_Group` | Canonical group that may be managed as a SCIM Group resource. |
 
-### Edges
+### Specialized Edges
+
+Unresolved SCIM outcomes use the store-wide `Vault_PotentialAccess` family documented under [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -608,7 +610,6 @@ This opening diagram shows configured principal selection and client ownership o
 | `Vault_ScimProtocolAccess` | Policy | SCIM client | :x: | Declared ACL access to authenticated SCIM surfaces. |
 | `Vault_ScimReadResources` | Access-grant entity | SCIM client | :x: | Derived effective permission to query, read, list, or discover SCIM resources. |
 | `Vault_ScimProvisionResources` | Access-grant entity | Observed entity or group | :x: | Derived effective permission to create, update, patch, or delete the concrete client-owned resource. |
-| `Vault_PotentialAccess` | Access-grant entity | SCIM client | :x: | Provisioning may create an unobserved resource, or target ownership and resolution are incomplete. |
 
 `Vault_ScimProtocolAccess` preserves the declaring policy's authority but does not prove that the policy belongs to the client's configured access-grant principal. Effective read and provisioning relationships are derived only after that principal resolves to an enabled entity and its effective ACLs are evaluated. Provisioning reaches an observed client-owned resource directly; collection creation and unresolved targets remain potential access anchored to the client.
 
@@ -636,7 +637,7 @@ This opening diagram shows configured principal selection and client ownership o
 | `Vault_PotentialAccess` | `Requirements` | Lists unresolved ownership, selector, or target prerequisites. |
 | `Vault_PotentialAccess` | `Resolution Status` | Explains why concrete resource access could not be proven. |
 
-### Attack Paths
+### Conditional Access
 
 SCIM read, protocol, provisioning, ownership, and principal relationships are currently non-traversable evidence. `Vault_ScimManages` describes configured ownership but is not used as a containment fan-out or attack-path hop. This prevents read-only, collection-level, or unresolved SCIM access from implying control of every entity and group.
 
@@ -688,7 +689,7 @@ The KV read is a concrete example. Template resolution can emit any compatible d
 
 Template resolution introduces no template-specific node kind. It uses an observed `Vault_Entity`, `Vault_EntityAlias`, or `Vault_Group` as the effective source and a concrete node from the destination subsystem as the target.
 
-### Edges
+### Specialized Edges
 
 Template resolution introduces no template-only edge kind. The collector emits the destination subsystem's ordinary operation edge and marks it with template and policy-provenance properties.
 

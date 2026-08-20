@@ -105,7 +105,6 @@ The following nodes define the shared vocabulary used by the store-specific mode
 | --- | --- | --- |
 | `Vault_Server` | `API Address`, `Instance Hash`, `Version`, `Cluster Name`, `Cluster ID`, `Seal Type`, `HA Enabled` | Identifies the collected Vault endpoint and the cluster and availability metadata returned by health and leader APIs. |
 | `Vault_Namespace` | `Namespace ID`, `Parent Namespace ID`, `Path` | Defines the namespace's stable identity, hierarchy, and request prefix. |
-| `Vault_Store` | `Store Type`, `Path` or `Paths`, `Built In`, `Enterprise` | Identifies which namespace-local registry the anchor represents and whether it is built in or Enterprise-only. Store-specific guides document the concrete paths. |
 
 The collector-generated node ID is graph identity rather than a displayed business property. Backend IDs are retained separately where they are useful for correlation, such as `Entity ID`, `Group ID`, or `Managed Key ID`.
 
@@ -149,11 +148,13 @@ Properties such as `Object Types`, `Auth Method Types`, `Engine Types`, `Role Ty
 
 Policy nodes remain the source of truth. A policy-to-object edge represents declared ACL authority after endpoint-aware path matching. VaultHound does not generally duplicate ordinary policy rights as entity-to-object edges.
 
+Store guides use **policy authority** for either a declaring `Vault_Policy` or, when an Identity template is present, the referenced `Vault_Entity`, `Vault_EntityAlias`, or `Vault_Group` from which the rendered effective edge originates. The edge kind and destination semantics remain unchanged; template and policy-provenance properties explain why the effective source differs.
+
 Derived relationships are emitted only where composition adds a materially useful security fact, such as:
 
 - A templated policy resolves for a specific entity, alias, or group reference.
 - A password reset enables control of a concrete UserPass user.
-- Controlling an object and its policy-assignment parameters allows acquisition of a policy.
+- Controlling a policy-bearing entity, group, auth user, or auth role exposes the policies already connected through `Vault_LinksPolicy`.
 - An OIDC assignment and provider configuration prove application authentication.
 
 `Declared`, `Derived`, and `Effective` identify these cases. `Via Policies` and `Policy Origins` retain provenance without changing the logical source of an edge.
@@ -294,39 +295,38 @@ Template-effective edges originate from the identity representation referenced b
 
 `Vault_LinksPolicy` describes configured policy assignment rather than endpoint ACL matching. Its `Policy Link Types` property is documented canonically in the [Policy Store guide](stores/POLICIES.md#common-properties).
 
-### Generic Object Context
+### Cross-Cutting Properties
 
-| Property | Type | Meaning |
-| --- | --- | --- |
-| `Object Types` | string[] | Canonical target families such as Role, Key, Connection, or KV Secret. |
-| `Auth Method Types` | string[] | Authentication backend families represented by a generic edge. |
-| `Engine Types` | string[] | Secrets-engine families represented by a generic edge. |
-| `Role Types` | string[] | Dynamic, static, OTP, CA, token, or other role distinctions. |
-| `Read Targets` | string[] | Information returned by a read operation. |
-| `Config Targets` | string[] | Configuration surfaces affected by a read or manage edge. |
+This table is the canonical contract for the most frequently reused generic properties. Owners are exact schema kinds where the property belongs to a bounded edge family; rows explicitly marked as categories cover properties shared by many endpoint-specific edge kinds. Store guides document a row again only when they define subsystem-specific values, applicability, or evidence for that property. The `Vault_Store` rows define properties shared by every namespace-local store anchor.
 
-### Derivation And Uncertainty
-
-| Property | Type | Meaning |
-| --- | --- | --- |
-| `Potential Only` | boolean | The outcome remains intentionally non-traversable because a prerequisite or target is unresolved. |
-| `Target Observed` | boolean | The destination was returned by Vault rather than inferred. |
-| `Potential Outcomes` | string[] | Security outcomes that could become available after uncertainty is resolved. |
-| `Resolution Status` | string[] | Reasons the collector cannot assert the full outcome. |
-| `Viable Operations` | string[] | Operations proven compatible with the observed target. |
-| `Operation Requirements` | string[] | Operation-qualified requirements such as CAS or target-state conditions. |
-
-### Control Context
-
-| Property | Type | Meaning |
-| --- | --- | --- |
-| `Control Methods` | string[] | Proven takeover mechanism, such as password reset or trust replacement. |
-| `Control Parameters` | string[] | Request parameters whose control makes takeover possible. |
-| `Impacts` | string[] | Resulting offensive capability. |
-| `Assignable Policies` | string[] | Concrete policies assignable through the operation. |
-| `Policy Assignment Parameters` | string[] | Request parameters that carry policy names. |
-| `Via Object IDs` | string[] | Intermediate controlled objects providing indirect-control evidence. |
-| `Via Object Names` | string[] | Human-readable names for intermediate controlled objects. |
+| Node/Edge Type | Property | Type | Meaning |
+| --- | --- | --- | --- |
+| `Vault_Store` | `Store Type` | string | Identifies the namespace-local subsystem registry. |
+| `Vault_Store` | `Built In` | boolean | Indicates whether the registry is an intrinsic namespace subsystem. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | string[] | Identifies the canonical target families represented by a generic object-operation edge. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Operations` | string[] | Lists endpoint actions folded into the generic relationship. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Surfaces` | string[] | Lists API surface families represented by the generic relationship. |
+| Generic auth object and configuration edges (category) | `Auth Method Types` | string[] | Identifies the authentication backend families represented by a merged edge. |
+| Generic secrets-engine object, configuration, credential, and key edges (category) | `Engine Types` | string[] | Identifies the secrets-engine families represented by a merged edge. |
+| Generic role and credential edges (category) | `Role Types` | string[] | Distinguishes dynamic, static, OTP, CA, token, or other role families represented by the edge. |
+| Policy-derived read edges (category) | `Read Targets` | string[] | Identifies the information returned by the represented read operation. |
+| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Config Targets` | string[] | Identifies the backend-wide configuration surfaces affected by the edge. |
+| `Vault_References`<br>`Vault_ManagedBy` | `Reference Types` | string[] | Classifies the non-owning dependency. |
+| `Vault_References`<br>`Vault_ManagedBy` | `Reference Evidence` | string[] | Records configuration evidence that proves the dependency. |
+| Policy-derived access edges (category) | `Potential Only` | boolean | Marks an intentionally non-traversable outcome whose target or prerequisite remains unresolved. |
+| Policy-derived access edges (category) | `Target Observed` | boolean | Indicates whether Vault returned the destination rather than the collector inferring it. |
+| `Vault_PotentialAccess` | `Potential Outcomes` | string[] | Lists security outcomes that could become available after uncertainty is resolved. |
+| `Vault_PotentialAccess` | `Requirements` | string[] | Lists unresolved prerequisites that prevent an asserted outcome. |
+| `Vault_PotentialAccess` | `Resolution Status` | string[] | Explains why the target or prerequisite could not be proven. |
+| Compatibility-aware operation edges (category) | `Viable Operations` | string[] | Lists operations proven compatible with the observed target and its current state. |
+| Compatibility-aware operation edges (category) | `Operation Requirements` | string[] | Lists operation-qualified prerequisites such as CAS, version, or target-state conditions. |
+| `Vault_ControlObject` | `Control Methods` | string[] | Identifies the proven takeover mechanism, such as password reset or trust replacement. |
+| `Vault_ControlObject` | `Control Parameters` | string[] | Lists request parameters whose control makes takeover possible. |
+| `Vault_ControlObject` | `Impacts` | string[] | Describes resulting offensive capabilities. |
+| `Vault_ControlObject` | `Assignable Policies` | string[] | Lists concrete policies assignable through the proven control operation. |
+| `Vault_ControlObject` | `Policy Assignment Parameters` | string[] | Identifies request parameters that carry or alter policy assignments. |
+| `Vault_ControlObject` | `Via Object IDs` | string[] | Identifies intermediate controlled objects used to prove indirect takeover. |
+| `Vault_ControlObject` | `Via Object Names` | string[] | Provides human-readable names for intermediate controlled objects. |
 
 Policy-assignment properties remain evidence on management, control, and potential-access edges; they do not create a direct policy-to-policy relationship.
 

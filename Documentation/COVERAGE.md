@@ -48,7 +48,7 @@ See the [Auth Store guide](stores/AUTH.md) for endpoint, property, and edge beha
 | AWS | Root/lease configuration | Dynamic roles, static roles | Generate IAM/STS credentials; read static credentials. |
 | Azure | Engine configuration | Dynamic roles, static roles | Generate service-principal credentials; read/import static credentials. |
 | Database | Engine configuration | Connections, dynamic roles, static roles | Generate database credentials; read static credentials; reset/reload connections. |
-| GCP | Engine configuration | Rolesets, static accounts, impersonated accounts | Generate OAuth tokens or service-account keys; read static credentials. |
+| GCP | Engine configuration | Rolesets, static accounts, impersonated accounts | Generate OAuth tokens or service-account keys through rolesets, static accounts, or impersonated accounts. |
 | GCP KMS | Engine configuration | KMS key registrations | Encrypt, decrypt, re-encrypt, sign, verify with purpose checks. |
 | Kubernetes | Cluster configuration | Roles | Generate service-account credentials with namespace and binding constraints. |
 | KV | KV v1/v2 configuration | Directories, files, top-level key names | Read secret, manage secret, read/manage metadata, lifecycle and CAS context. |

@@ -9,7 +9,7 @@ The following matrix summarizes implemented auth methods and their current test 
 | Technology | Supported | Tested | Mount Node |
 | --- | :---: | :---: | --- |
 | AliCloud | :white_check_mark: | :x: | `Vault_AuthMethodAliCloud` |
-| AppRole | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodApprole` |
+| AppRole | :white_check_mark: | :x: | `Vault_AuthMethodApprole` |
 | AWS | :white_check_mark: | :x: | `Vault_AuthMethodAws` |
 | Azure | :white_check_mark: | :x: | `Vault_AuthMethodAzure` |
 | Cloud Foundry | :white_check_mark: | :x: | `Vault_AuthMethodCf` |
@@ -18,7 +18,7 @@ The following matrix summarizes implemented auth methods and their current test 
 | JWT/OIDC | :white_check_mark: | :x: | `Vault_AuthMethodJwtOidc` |
 | Kerberos | :white_check_mark: | :x: | `Vault_AuthMethodKerberos` |
 | Kubernetes | :white_check_mark: | :x: | `Vault_AuthMethodKubernetes` |
-| LDAP | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodLdap` |
+| LDAP | :white_check_mark: | :x: | `Vault_AuthMethodLdap` |
 | OCI | :white_check_mark: | :x: | `Vault_AuthMethodOci` |
 | Okta | :white_check_mark: | :x: | `Vault_AuthMethodOkta` |
 | RADIUS | :white_check_mark: | :x: | `Vault_AuthMethodRadius` |
@@ -26,8 +26,8 @@ The following matrix summarizes implemented auth methods and their current test 
 | SCEP | :white_check_mark: | :x: | `Vault_AuthMethodScep` |
 | SPIFFE | :white_check_mark: | :x: | `Vault_AuthMethodSpiffe` |
 | TLS Certificate | :white_check_mark: | :x: | `Vault_AuthMethodTlsCert` |
-| Token | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodToken` |
-| UserPass | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodUserpass` |
+| Token | :white_check_mark: | :x: | `Vault_AuthMethodToken` |
+| UserPass | :white_check_mark: | :x: | `Vault_AuthMethodUserpass` |
 
 ## Glob, Synthetic, And Control Behavior
 
@@ -48,11 +48,13 @@ The following matrix summarizes implemented auth methods and their current test 
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: AUTH]:::storeNode
+    store -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
     method -->|Vault_Contains| A[Vault_AuthRole]:::authRoleNode
     method -->|Vault_Contains| B[Vault_AuthUser]:::authUserNode
     method -->|Vault_Contains| C[Vault_AuthGroup]:::authGroupNode
 
+    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
@@ -63,7 +65,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH root = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
+MATCH root = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
 OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthRole)
 OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthUser)
 OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthGroup)
@@ -83,6 +85,8 @@ Specific mounts carry their specific kind first and `Vault_AuthMethod` second. C
 
 ### Common Edges
 
+In every edge table in this guide, `Policy` or `Vault_Policy` denotes [policy authority](../MODEL.md#declared-and-derived-authority): normally the declaring policy node, or the referenced entity, alias, or group when an Identity template produces an effective rendered edge.
+
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
 | `Vault_ReadConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
@@ -101,17 +105,17 @@ The tables in each method section list only stable properties beyond the common 
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
 | `Vault_AuthMethod` | `Auth Method Types` | Lists the concrete authentication backend types represented by the mount. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Policies` | Lists policies assigned directly to the auth child by its backend configuration. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Policies` | Lists policies encoded into tokens issued after successful authentication through the object. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Bound CIDRs` | Limits use of issued tokens to the listed client network ranges. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token TTL` | Records the initial lifetime requested for issued tokens. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Max TTL` | Records the maximum lifetime permitted for issued tokens. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Explicit Max TTL` | Records the explicit hard lifetime cap applied to issued tokens. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token No Default Policy` | Indicates whether Vault omits the built-in `default` policy from issued tokens. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Num Uses` | Records the maximum number of uses allowed for an issued token. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Period` | Records the renewal period for periodic tokens. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Type` | Identifies the type of token issued by the authentication object. |
-| `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Alias Metadata Keys` | Lists backend fields copied into Identity alias metadata during login. |
+| `Vault_AuthRole` | `Policies` | Lists policies granted by concrete login-role kinds. `Vault_AuthTokenRole` instead constrains delegation through its allowed and disallowed policy properties. |
+| `Vault_AuthRole` | `Token Policies` | Lists policies encoded into tokens issued through concrete login-role kinds. This property is not emitted for `Vault_AuthTokenRole`. |
+| `Vault_AuthUserpassUser` | `Token Policies` | Lists policies encoded into tokens issued after successful UserPass authentication. Other `Vault_AuthUser` kinds expose backend mapping policies in their method-specific property tables. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Bound CIDRs` | Limits use of issued tokens to the listed client network ranges. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token TTL` | Records the initial lifetime requested for issued tokens. This property is not emitted for `Vault_AuthTokenRole`. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Max TTL` | Records the maximum lifetime permitted for issued tokens. This property is not emitted for `Vault_AuthTokenRole`. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Explicit Max TTL` | Records the explicit hard lifetime cap applied to issued tokens. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token No Default Policy` | Indicates whether Vault omits the built-in `default` policy from issued tokens. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Num Uses` | Records the maximum number of uses allowed for an issued token. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Period` | Records the renewal period for periodic tokens. |
+| `Vault_AuthRole`<br>`Vault_AuthUserpassUser` | `Token Type` | Identifies the type of token issued by the authentication object. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
@@ -1665,13 +1669,10 @@ This authentication method does not define any specialized edges.
 | --- | --- | --- |
 | `Vault_AuthUserpassUser` | `Username` | Names the local UserPass account. |
 | `Vault_AuthUserpassUser` | `Alias Metadata Keys` | Lists UserPass fields copied into Identity alias metadata; password material is never collected. |
-| `Vault_ControlObject` | `Control Methods` | Identifies password replacement as the takeover mechanism. |
-| `Vault_ControlObject` | `Control Parameters` | Lists writable request parameters that permit the takeover. |
-| `Vault_ControlObject` | `Impacts` | Lists the authentication or policy outcomes produced by controlling the user. |
-| `Vault_ControlObject` | `Assignable Policies` | Lists observed policies that an unrestricted user update can assign. |
-| `Vault_ControlObject` | `Policy Assignment Parameters` | Lists writable request parameters that control policy assignment. |
 | `Vault_ControlObject` | `Policy Assignment States` | Indicates whether policy selection is unrestricted or value-constrained. |
 | `Vault_ControlObject` | `Unresolved Policy Selectors` | Records policy selectors whose possible targets could not be fully resolved. |
+
+The canonical `Vault_ControlObject` properties are documented in [Cross-Cutting Properties](../MODEL.md#cross-cutting-properties). For UserPass, `Control Methods` identifies password replacement, while policy-assignment fields preserve whether a controlled update can select additional policies.
 
 ### Attack Paths
 
