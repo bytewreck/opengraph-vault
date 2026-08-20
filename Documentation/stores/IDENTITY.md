@@ -23,14 +23,12 @@ Mermaid diagrams in this guide use solid arrows for traversable relationships an
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: IDENTITY]:::storeNode
-    store -->|Vault_Contains| entity[Entities]:::entityNode
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| entity[Entities]:::entityNode
     store -->|Vault_Contains| group[Groups]:::groupNode
     store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
     store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
     store -->|Vault_Contains| scim[Vault_ScimClient]:::scimNode
 
-    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
@@ -42,7 +40,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(n)
+MATCH p = (:Vault_Store)-[:Vault_Contains]->(n)
 WHERE n:Vault_Entity
    OR n:Vault_EntityAlias
    OR n:Vault_Group
