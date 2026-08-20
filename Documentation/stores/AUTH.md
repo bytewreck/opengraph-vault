@@ -178,7 +178,7 @@ RETURN p
 
 The `Vault_LinksPolicy` branches record policies configured directly on auth roles, users, and groups. `Vault_MemberOf` records auth-backend group membership. For correlatable auth users and groups, `Vault_MapsTo` stops at the corresponding `Vault_EntityAlias` or `Vault_GroupAlias`, while `Vault_OnAuthMethod` identifies the auth mount that owns that alias. Canonical alias resolution, Identity group membership, and Identity policy propagation are documented under [Identity Administration](IDENTITY.md#identity-administration). These relationships describe outcomes after successful external authentication; the collector does not assert possession of the external credential.
 
-The canonical definition of `Vault_LinksPolicy.Policy Link Types`, including auth-object and backend-default values, lives in [Policy Store properties](POLICIES.md#common-properties).
+The canonical definition of `Vault_LinksPolicy.Policy Link Types`, including auth-object and backend-default values, lives under [Policy Assignment](POLICIES.md#policy-assignment).
 
 ```mermaid
 flowchart LR

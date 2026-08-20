@@ -289,7 +289,7 @@ Capabilities are endpoint-specific. A policy block containing `create`, `read`, 
 
 Template-effective edges originate from the identity representation referenced by the template. Group inheritance remains provenance and does not automatically make the group the relationship source.
 
-`Vault_LinksPolicy` describes configured policy assignment rather than endpoint ACL matching. Its `Policy Link Types` property is documented canonically in the [Policy Store guide](stores/POLICIES.md#common-properties).
+`Vault_LinksPolicy` describes configured policy assignment rather than endpoint ACL matching. Its `Policy Link Types` property is documented canonically under [Policy Assignment](stores/POLICIES.md#policy-assignment).
 
 ### Cross-Cutting Properties
 

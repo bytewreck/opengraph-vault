@@ -150,7 +150,7 @@ Generic `Vault_ListObjects`, `Vault_CreateObject`, `Vault_ReadObject`, and `Vaul
 | `Vault_ReadIdentity` | `Operations` | Lists the authenticated identity-read operations represented by the edge. |
 | `Vault_ReadIdentity` | `Lookup Targets` | Identifies whether an authenticated lookup returns an entity record, a group record, or both. |
 
-The canonical `Vault_LinksPolicy.Policy Link Types` contract is documented once in [Policy Store common properties](POLICIES.md#common-properties). Identity uses the direct entity, direct group, and inherited group values from that shared contract.
+The canonical `Vault_LinksPolicy.Policy Link Types` contract is documented once under [Policy Assignment](POLICIES.md#policy-assignment). Identity uses the direct assignment values from that shared contract; group inheritance remains structural through `Vault_MemberOf`.
 
 ### Attack Paths
 
