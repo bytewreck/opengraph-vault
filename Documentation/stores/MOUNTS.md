@@ -35,6 +35,21 @@ The following matrix summarizes secrets-engine implementation and test status:
 
 `Identity` is modeled as the separate namespace-local [Identity Store](IDENTITY.md), not as a mount-specific secrets-engine implementation. Other unsupported engines are still emitted when observed as generic `Vault_SecretsEngine` nodes with their existence, type, path, and common mount properties.
 
+## Glob, Synthetic, And Control Behavior
+
+- Engine-specific collection globs expand security outcomes to compatible observed child resources.
+- Exact missing roles, keys, accounts, or objects may create detached synthetic targets.
+- Collection-wide creation remains anchored to the mount and records the object type that may be created.
+- Unknown external prerequisites or unresolved runtime selectors become `Vault_PotentialAccess` rather than traversable outcomes.
+- Unsupported engines retain only their generic mount existence and type; their endpoint paths do not emit generic secret-access edges.
+
+## Limitations
+
+- VaultHound does not invoke credential-generation, signing, decryption, or secret-read endpoints.
+- External cloud, database, directory, and SaaS permissions are not independently validated.
+- Plugin-specific runtime conditions can further restrict an operation after ACL authorization.
+- Synthetic and unresolved resources remain non-traversable until a concrete compatible target is observed.
+
 ## Common Topology
 
 ```mermaid
@@ -49,6 +64,15 @@ flowchart LR
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH hierarchy = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(mount:Vault_SecretsEngine)
+OPTIONAL MATCH children = (mount)-[:Vault_Contains]->(object)
+OPTIONAL MATCH references = (object)-[:Vault_References]->(dependency)
+RETURN hierarchy, children, references
 ```
 
 Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
@@ -81,13 +105,30 @@ Generic edges retain `Engine Types`, `Object Types`, `Role Types`, `Operations`,
 
 The tables in each engine section list stable properties beyond the common contract in [the graph model](../MODEL.md#property-contract). Supported plugin APIs may return additional version- or plugin-specific fields; VaultHound exports those fields with humanized labels while suppressing or reducing secret values to presence indicators.
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| Secrets-engine mount | `KV Version`, `Delegated Auth Accessors`, `Allowed Managed Keys` | Optional engine version and mount-level delegation/managed-key constraints. |
-| Secrets-engine child | `Engine Path`, `Logical Path`, backend-specific identifiers | Connects a durable child to its API and logical request surfaces. |
-| `Vault_References` and `Vault_ManagedBy` | `Reference Types`, `Reference Evidence` | Explains the non-owning dependency represented by the edge. |
-| Credential-generation/read edges | `Credential Types`, `Credential Material`, `Generation Effects`, `Request Surfaces`, `Request Methods`, `Modes`, `Lease Backed`, `Renewable`, `Revocable` | Describes what Vault can return and its lifecycle without invoking the endpoint. |
-| Generic object/config edges | `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Read Targets`, `Config Targets` | Retains engine-specific meaning after CRUD and maintenance edges are folded into generic families. |
+| `Vault_SecretsEngine` | `KV Version` | Identifies the KV protocol version when the mount is a KV backend. |
+| `Vault_SecretsEngine` | `Delegated Auth Accessors` | Lists auth mount accessors delegated by the secrets engine. |
+| `Vault_SecretsEngine` | `Allowed Managed Keys` | Lists managed keys the mount is configured to use. |
+| Secrets-engine child nodes | `Engine Path` | Identifies the parent mount's API path. |
+| Secrets-engine child nodes | `Logical Path` | Identifies the child object's logical path within the mount. |
+| `Vault_References`<br>`Vault_ManagedBy` | `Reference Types` | Classifies the non-owning dependency. |
+| `Vault_References`<br>`Vault_ManagedBy` | `Reference Evidence` | Identifies the configuration field that proves the dependency. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Types` | Lists the credential forms returned by the operation. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Material` | Identifies the secret or token material returned without collecting its value. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Generation Effects` | Describes external objects or credentials created by the operation. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Request Surfaces` | Lists the API surfaces that produce the credential outcome. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Request Methods` | Lists the HTTP methods used by the credential endpoints. |
+| `Vault_GenerateCredentials` | `Modes` | Lists viable generation modes for the target role. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Backed` | Indicates whether Vault issues the credential under a lease. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Renewable` | Indicates whether the credential lease can be renewed. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Revocable` | Indicates whether Vault can revoke the issued credential. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Engine Types` | Lists secrets-engine families represented by a merged generic edge. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | Lists the durable child-resource types represented by the edge. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Role Types` | Lists role families represented by the generic operation. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists endpoint operations folded into the generic edge. |
+| `Vault_ReadObject`<br>`Vault_ReadConfig` | `Read Targets` | Identifies the data or configuration returned by the read. |
+| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Config Targets` | Identifies the backend-wide configuration surface. |
 
 ## AWS
 
@@ -102,6 +143,14 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineAws OR n:Vault_AwsRole OR n:Vault_AwsStaticRole
+RETURN p
 ```
 
 Dynamic-role properties include policy documents and ARNs, role ARNs, IAM groups, tags, permissions boundaries, credential modes, TTLs, and MFA configuration. Traversable generation requires at least one proven viable mode; session-token-only access requiring an MFA code becomes `Vault_PotentialAccess` when that prerequisite is unresolved.
@@ -133,12 +182,50 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineAws` | `Root Auth Mode`, `Can Rotate Root`, `Access Key`, `Secret Key Present`, `IAM Endpoint`, `STS Endpoint`, `Max Retries`, `Region`, `Role ARN`, `Identity Token Audience`, `Lease`, `Lease Max` | Root credential mode, endpoint selection, rotation viability, and lease defaults. |
-| `Vault_AwsRole` | `Role Name`, `Credential Type`, `Credential Types`, `Policy Document`, `Policy ARNs`, `Role ARNs`, `IAM Groups`, `IAM Tags`, `Permissions Boundary ARN`, `MFA Serial Number`, `Modeled Request Surfaces`, `Generation Effects`, `Surface Restriction Visibility`, `Requires Role ARN Selection`, `Role ARN Selection Mode`, `Allowed Role ARNs` | IAM-user/session mode, downstream policy material, role selection, MFA, and modeled credential outcomes. |
-| `Vault_AwsStaticRole` | `Role Name`, `Username`, `Rotation Period`, `Rotation Schedule`, `Rotation Window`, `Last Vault Rotation` | Managed IAM user and rotation state. |
-| AWS credential edges | `Request Surface`, `Request Method`, `Lease Bound`, `Supports Custom TTL`, `Generation Effects`, `Requirements`, `Potential Outcomes`, `Resolution Status` | Identifies `creds` versus `sts`, custom-TTL support, MFA requirements, and why generation is viable or only potential. |
+| `Vault_SecretsEngineAws` | `Root Auth Mode` | Identifies the credential mechanism used by the AWS backend. |
+| `Vault_SecretsEngineAws` | `Can Rotate Root` | Indicates whether Vault can rotate configured AWS root credentials. |
+| `Vault_SecretsEngineAws` | `Access Key` | Records the configured AWS access-key identifier when Vault returns it. |
+| `Vault_SecretsEngineAws` | `Secret Key Present` | Indicates that an AWS secret access key is configured without exporting it. |
+| `Vault_SecretsEngineAws` | `IAM Endpoint` | Stores a custom IAM API endpoint. |
+| `Vault_SecretsEngineAws` | `STS Endpoint` | Stores a custom STS API endpoint. |
+| `Vault_SecretsEngineAws` | `Max Retries` | Records the configured AWS API retry limit. |
+| `Vault_SecretsEngineAws` | `Region` | Identifies the AWS region used by the backend. |
+| `Vault_SecretsEngineAws` | `Role ARN` | Records the IAM role assumed by Vault for backend operations. |
+| `Vault_SecretsEngineAws` | `Identity Token Audience` | Records the audience for workload-identity authentication. |
+| `Vault_SecretsEngineAws` | `Lease` | Records the default AWS credential lease. |
+| `Vault_SecretsEngineAws` | `Lease Max` | Records the maximum AWS credential lease. |
+| `Vault_AwsRole` | `Role Name` | Identifies the AWS role configuration. |
+| `Vault_AwsRole` | `Credential Type` | Records the primary IAM or STS credential mode. |
+| `Vault_AwsRole` | `Credential Types` | Lists all credential modes available through the role. |
+| `Vault_AwsRole` | `Policy Document` | Stores the inline IAM policy applied to generated credentials. |
+| `Vault_AwsRole` | `Policy ARNs` | Lists managed IAM policies applied to generated credentials. |
+| `Vault_AwsRole` | `Role ARNs` | Lists IAM roles that may be assumed. |
+| `Vault_AwsRole` | `IAM Groups` | Lists IAM groups assigned to generated IAM users. |
+| `Vault_AwsRole` | `IAM Tags` | Lists tags assigned to generated IAM users. |
+| `Vault_AwsRole` | `Permissions Boundary ARN` | Records the permissions boundary applied to generated IAM users. |
+| `Vault_AwsRole` | `MFA Serial Number` | Identifies the MFA device required for session-token generation. |
+| `Vault_AwsRole` | `Modeled Request Surfaces` | Lists credential endpoints compatible with the role. |
+| `Vault_AwsRole` | `Generation Effects` | Describes the IAM user or STS credential created by each mode. |
+| `Vault_AwsRole` | `Surface Restriction Visibility` | Records whether endpoint-specific restrictions were visible to collection. |
+| `Vault_AwsRole` | `Requires Role ARN Selection` | Indicates that the caller must select an allowed role ARN. |
+| `Vault_AwsRole` | `Role ARN Selection Mode` | Describes fixed or caller-selected role-ARN behavior. |
+| `Vault_AwsRole` | `Allowed Role ARNs` | Lists role ARNs the caller may select. |
+| `Vault_AwsStaticRole` | `Role Name` | Identifies the static-role configuration. |
+| `Vault_AwsStaticRole` | `Username` | Identifies the managed IAM user. |
+| `Vault_AwsStaticRole` | `Rotation Period` | Records interval-based credential rotation. |
+| `Vault_AwsStaticRole` | `Rotation Schedule` | Records the cron-style rotation schedule. |
+| `Vault_AwsStaticRole` | `Rotation Window` | Records the allowed schedule execution window. |
+| `Vault_AwsStaticRole` | `Last Vault Rotation` | Records the last time Vault rotated the IAM credential. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Surface` | Distinguishes AWS `creds` and `sts` endpoints. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Method` | Records the HTTP method used by the credential endpoint. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Bound` | Indicates whether Vault leases the returned AWS credential. |
+| `Vault_GenerateCredentials`<br>`Vault_PotentialAccess` | `Supports Custom TTL` | Indicates whether the endpoint accepts a caller-selected TTL. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Effects` | Describes the IAM or STS credential outcome. |
+| `Vault_GenerateCredentials`<br>`Vault_PotentialAccess` | `Requirements` | Lists MFA, role-selection, or other prerequisites. |
+| `Vault_PotentialAccess` | `Potential Outcomes` | Describes the credential that could be generated if prerequisites are met. |
+| `Vault_PotentialAccess` | `Resolution Status` | Explains why AWS credential generation was not proven viable. |
 
 ### Attack Paths
 
@@ -150,6 +237,13 @@ flowchart LR
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_AwsRole)
+RETURN p
+```
+
 The destination role records whether Vault returns an IAM user, assumed-role credential, federation token, or session token. The edge is traversable only when at least one configured mode is viable. A session-token-only role that requires an unproven MFA code instead produces `Vault_PotentialAccess`.
 
 ```mermaid
@@ -158,6 +252,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_ReadStaticCredentials]->(:Vault_AwsStaticRole)
+RETURN p
 ```
 
 This yields the managed IAM user's current credential through Vault. Neither path proves the generated principal's downstream AWS permissions; those require correlation with AWS graph data.
@@ -175,6 +276,14 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineAzure OR n:Vault_AzureRole OR n:Vault_AzureStaticRole
+RETURN p
 ```
 
 Roles retain Azure role assignments, groups, application settings, TTL behavior, and generated credential effects. `Vault_AzureImportStaticRole` is a specialized non-traversable administrative operation; ordinary role CRUD uses generic object edges.
@@ -204,12 +313,26 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineAzure` | `Subscription ID`, `Tenant ID`, `Client ID`, `Client Secret Present`, `Environment`, `Root Password TTL` | Azure subscription/tenant identity, credential presence, and root-password behavior. |
-| `Vault_AzureRole` | `Role Name`, `Azure Roles`, `Azure Groups`, `Application Object ID`, `Permanently Delete`, `Generation Mode`, `Generation Effects` | Dynamic role assignments and whether generation creates a service principal or another secret for an existing application. |
-| `Vault_AzureStaticRole` | `Role Name`, `Azure Roles`, `Azure Groups`, `Application Object ID`, `Permanently Delete`, `Service Principal Name`, `Rotation Period`, `Rotation Schedule`; dynamic `metadata_<key>` fields preserve returned metadata | Managed application/service-principal and credential rotation state. |
-| Azure credential/import edges | Common credential properties plus `Operations` for import and rotation | Distinguishes generated credentials, static reads, metadata-only/full import, and rotation workflows. |
+| `Vault_SecretsEngineAzure` | `Subscription ID` | Identifies the Azure subscription used by the backend. |
+| `Vault_SecretsEngineAzure` | `Tenant ID` | Identifies the Azure tenant used by the backend. |
+| `Vault_SecretsEngineAzure` | `Client ID` | Identifies Vault's configured Azure application. |
+| `Vault_SecretsEngineAzure` | `Client Secret Present` | Indicates that a client secret is configured without exporting it. |
+| `Vault_SecretsEngineAzure` | `Environment` | Identifies the Azure cloud environment. |
+| `Vault_SecretsEngineAzure` | `Root Password TTL` | Records the lifetime of root application credentials. |
+| `Vault_AzureRole`<br>`Vault_AzureStaticRole` | `Role Name` | Identifies the Azure role configuration. |
+| `Vault_AzureRole`<br>`Vault_AzureStaticRole` | `Azure Roles` | Lists Azure RBAC assignments applied to the service principal. |
+| `Vault_AzureRole`<br>`Vault_AzureStaticRole` | `Azure Groups` | Lists Azure groups assigned to the service principal. |
+| `Vault_AzureRole`<br>`Vault_AzureStaticRole` | `Application Object ID` | Identifies an existing Azure application used by the role. |
+| `Vault_AzureRole`<br>`Vault_AzureStaticRole` | `Permanently Delete` | Indicates whether Vault permanently removes managed Azure objects. |
+| `Vault_AzureRole` | `Generation Mode` | Describes whether generation creates a service principal or an additional application secret. |
+| `Vault_AzureRole` | `Generation Effects` | Describes the Azure object and credential produced by generation. |
+| `Vault_AzureStaticRole` | `Service Principal Name` | Names the managed Azure service principal. |
+| `Vault_AzureStaticRole` | `Rotation Period` | Records interval-based secret rotation. |
+| `Vault_AzureStaticRole` | `Rotation Schedule` | Records schedule-based secret rotation. |
+| `Vault_AzureStaticRole` | `metadata_<key>` | Preserves non-secret metadata returned for the managed application. |
+| `Vault_AzureImportStaticRole`<br>`Vault_ManageObject` | `Operations` | Distinguishes metadata-only import, full import, rotation, and ordinary administration. |
 
 ### Attack Paths
 
@@ -220,6 +343,14 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(role)
+WHERE role:Vault_AzureRole OR role:Vault_AzureStaticRole
+RETURN p
 ```
 
 The first path obtains a generated Azure service-principal credential constrained by the dynamic role. The second reads the current credential managed through the concrete static role. Importing or managing a static role is not itself traversable because it does not prove that usable credential material is returned.
@@ -240,6 +371,17 @@ flowchart LR
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_References*1..3]->(n)
+WHERE n:Vault_SecretsEngineDatabase
+   OR n:Vault_DatabaseConnection
+   OR n:Vault_DatabaseRole
+   OR n:Vault_DatabaseStaticRole
+RETURN p
 ```
 
 ### Nodes
@@ -269,14 +411,50 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_DatabaseConnection` | `Connection Name`, `Plugin Name`, `Allowed Roles`, `Verify Connection`, `Root Rotation Statements`, `Password Policy`, `Username Template`, credential/private-key presence flags, `Supports Root Rotation`, `Supports Dynamic Roles`, `Supports Static Roles`, `Supported Credential Types`, `Plugin Capability Source` | Plugin connection, role allowlist, credential-presence, and compatibility profile. Additional plugin fields are passed through with humanized labels. |
-| `Vault_DatabaseRole` | `Role Name`, `Role Type`, `Database Name`, `Creation Statements`, `Revocation Statements`, `Rollback Statements`, `Renew Statements`, `Generation Effects`, `Lease Backed` | Dynamic account statements and lease-backed credential behavior. |
-| `Vault_DatabaseStaticRole` | The dynamic-role fields plus `Username`, `Rotation Period`, `Rotation Schedule`, password-presence flags | Existing database account and rotation behavior. |
-| `Vault_References` | `Allowed Roles`, `Allowed Role Match Types`, `Allowed By Connection`, `Matched Allowed Role Patterns`, `Reference Types`, `Reference Evidence` | Proves or disproves that the selected connection permits the role. |
-| Database credential edges | `Request Surfaces`, `Generation Modes`, `Credential Types`, `Credential Material`, `Generation Effects`, `Lease Backed`, `Requirements`, `Resolution Status` | Captures compatible plugin mode and unknown/missing-connection prerequisites. |
-| Database management edges | `Operations`, `Plugin Names` | Identifies connection reset, role rotation, or plugin reload after generic edge folding. |
+| `Vault_DatabaseConnection` | `Connection Name` | Identifies the database connection. |
+| `Vault_DatabaseConnection` | `Plugin Name` | Identifies the database plugin used by the connection. |
+| `Vault_DatabaseConnection` | `Allowed Roles` | Lists dynamic and static roles permitted to use the connection. |
+| `Vault_DatabaseConnection` | `Verify Connection` | Indicates whether Vault verifies connectivity when writing the configuration. |
+| `Vault_DatabaseConnection` | `Root Rotation Statements` | Lists statements used to rotate the database root credential. |
+| `Vault_DatabaseConnection` | `Password Policy` | Names the Vault password policy used for generated passwords. |
+| `Vault_DatabaseConnection` | `Username Template` | Stores the template used for generated database usernames. |
+| `Vault_DatabaseConnection` | Credential and private-key presence flags | Indicate configured secret material without exporting it. |
+| `Vault_DatabaseConnection` | `Supports Root Rotation` | Indicates whether the detected plugin supports root rotation. |
+| `Vault_DatabaseConnection` | `Supports Dynamic Roles` | Indicates whether the detected plugin supports dynamic roles. |
+| `Vault_DatabaseConnection` | `Supports Static Roles` | Indicates whether the detected plugin supports static roles. |
+| `Vault_DatabaseConnection` | `Supported Credential Types` | Lists credential types supported by the detected plugin. |
+| `Vault_DatabaseConnection` | `Plugin Capability Source` | Identifies how plugin compatibility was determined. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Role Name` | Identifies the database role. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Role Type` | Distinguishes dynamic and static roles. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Database Name` | Names the referenced database connection. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Creation Statements` | Lists statements used to create or update the account. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Revocation Statements` | Lists statements used to revoke the account. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Rollback Statements` | Lists statements used to roll back failed creation. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Renew Statements` | Lists statements used to renew the account. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Generation Effects` | Describes the database account and credential outcome. |
+| `Vault_DatabaseRole`<br>`Vault_DatabaseStaticRole` | `Lease Backed` | Indicates whether Vault leases generated credentials. |
+| `Vault_DatabaseStaticRole` | `Username` | Identifies the existing managed database account. |
+| `Vault_DatabaseStaticRole` | `Rotation Period` | Records interval-based password rotation. |
+| `Vault_DatabaseStaticRole` | `Rotation Schedule` | Records schedule-based password rotation. |
+| `Vault_DatabaseStaticRole` | Password-presence flags | Indicate managed password material without exporting it. |
+| `Vault_References` | `Allowed Roles` | Preserves the connection's role allowlist. |
+| `Vault_References` | `Allowed Role Match Types` | Describes exact, glob, or wildcard allowlist matches. |
+| `Vault_References` | `Allowed By Connection` | Indicates whether the connection permits the role. |
+| `Vault_References` | `Matched Allowed Role Patterns` | Lists allowlist patterns that matched the role. |
+| `Vault_References` | `Reference Types` | Classifies the dependency as a database connection. |
+| `Vault_References` | `Reference Evidence` | Identifies the role's configured connection field. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Request Surfaces` | Lists dynamic or static credential endpoints. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Modes` | Lists plugin-supported credential generation modes. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Credential Types` | Lists credential types returned by the plugin. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Material` | Identifies returned username, password, private-key, or certificate material. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials`<br>`Vault_PotentialAccess` | `Generation Effects` | Describes the external database account or credential effect. |
+| `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Lease Backed` | Indicates whether the returned credential is leased. |
+| `Vault_GenerateCredentials`<br>`Vault_PotentialAccess` | `Requirements` | Lists connection, allowlist, and plugin compatibility prerequisites. |
+| `Vault_PotentialAccess` | `Resolution Status` | Explains why database credential generation was not proven viable. |
+| `Vault_ManageObject`<br>`Vault_ManageConfig` | `Operations` | Identifies connection reset, role rotation, or plugin reload. |
+| `Vault_ManageConfig` | `Plugin Names` | Lists plugins affected by a reload operation. |
 
 Dynamic credential generation requires an observed compatible connection and an `allowed_roles` match. Missing or incompatible connection evidence downgrades the result to potential access.
 
@@ -292,6 +470,13 @@ flowchart LR
     classDef referenceNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_DatabaseRole)-[:Vault_References]->(:Vault_DatabaseConnection)
+RETURN p
+```
+
 The attack path terminates at the role; `Vault_References` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
 
 ```mermaid
@@ -300,6 +485,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
+RETURN p
 ```
 
 Static credential reads target the exact managed account and do not depend on dynamic-role connection viability in the same way.
@@ -318,6 +510,17 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineGcp
+   OR n:Vault_GcpRoleset
+   OR n:Vault_GcpStaticAccount
+   OR n:Vault_GcpImpersonatedAccount
+RETURN p
 ```
 
 Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and credential effects. Static and impersonated accounts retain OAuth token or service-account-key surfaces supported by their endpoint. The collector does not independently verify Google Cloud IAM.
@@ -346,13 +549,36 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineGcp` | `Credentials Present`, `Credential Source`, `TTL`, `Max TTL`, `Service Account Email`, `Identity Token Audience` | Static, ambient, or workload-identity credential source and lease configuration. |
-| `Vault_GcpRoleset` | `Roleset Name`, `Account Ownership`, `Project`, `Secret Type`, `Bindings`, `Token Scopes`, `Generation Effects`, `Revocation Effects` | Vault-managed service account and its IAM/token behavior. |
-| `Vault_GcpStaticAccount` | `Static Account Name`, `Account Ownership`, `Bindings Visibility`, `Project`, `Service Account Email`, `Secret Type`, `Bindings`, `Token Scopes`, `Generation Effects`, `Revocation Effects` | Externally managed service account and Vault-managed bindings/credential surfaces. |
-| `Vault_GcpImpersonatedAccount` | `Impersonated Account Name`, `Account Ownership`, `Service Account Email`, `Token Scopes`, `Secret Type`, `Generation Effects`, `Revocation Effects` | Existing service account impersonated for OAuth tokens. |
-| GCP credential edges | `Request Surface`, `Request Methods`, `Resource Types`, `Credential Types`, `Generation Effects`, `Revocation Effects`, `Lease Bound`, `Renewable`, `Revocable`, `Endpoint Variants` | Distinguishes roleset, static-account, and impersonated-account token/key outcomes. |
+| `Vault_SecretsEngineGcp` | `Credentials Present` | Indicates that GCP backend credentials are configured without exporting them. |
+| `Vault_SecretsEngineGcp` | `Credential Source` | Distinguishes static, ambient, and workload-identity credentials. |
+| `Vault_SecretsEngineGcp` | `TTL` | Records the default generated credential lifetime. |
+| `Vault_SecretsEngineGcp` | `Max TTL` | Records the maximum generated credential lifetime. |
+| `Vault_SecretsEngineGcp` | `Service Account Email` | Identifies the service account used by the backend. |
+| `Vault_SecretsEngineGcp` | `Identity Token Audience` | Records the audience used for workload-identity authentication. |
+| `Vault_GcpRoleset` | `Roleset Name` | Identifies the GCP roleset. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Account Ownership` | Distinguishes Vault-created, externally managed, and impersonated service accounts. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount` | `Project` | Identifies the GCP project affected by bindings or generated credentials. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Secret Type` | Distinguishes OAuth access tokens from service-account keys. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount` | `Bindings` | Lists IAM bindings managed through the object. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Token Scopes` | Lists OAuth scopes granted to generated tokens. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Generation Effects` | Describes the token or service-account key returned by generation. |
+| `Vault_GcpRoleset`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Revocation Effects` | Describes external cleanup performed when the credential is revoked. |
+| `Vault_GcpStaticAccount` | `Static Account Name` | Identifies the static-account configuration. |
+| `Vault_GcpStaticAccount` | `Bindings Visibility` | Records whether account IAM bindings were visible to the collector. |
+| `Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount` | `Service Account Email` | Identifies the external or impersonated service account. |
+| `Vault_GcpImpersonatedAccount` | `Impersonated Account Name` | Identifies the impersonated-account configuration. |
+| `Vault_GenerateCredentials` | `Request Surface` | Identifies the roleset, static-account, or impersonated-account endpoint. |
+| `Vault_GenerateCredentials` | `Request Methods` | Lists supported HTTP methods for the credential request. |
+| `Vault_GenerateCredentials` | `Resource Types` | Lists GCP object types through which credentials can be generated. |
+| `Vault_GenerateCredentials` | `Credential Types` | Lists token or service-account-key outcomes. |
+| `Vault_GenerateCredentials` | `Generation Effects` | Describes the concrete credential and external account effect. |
+| `Vault_GenerateCredentials` | `Revocation Effects` | Describes how Vault revokes the generated credential. |
+| `Vault_GenerateCredentials` | `Lease Bound` | Indicates whether the generated credential is lease-backed. |
+| `Vault_GenerateCredentials` | `Renewable` | Indicates whether the generated credential can be renewed. |
+| `Vault_GenerateCredentials` | `Revocable` | Indicates whether Vault can revoke the credential. |
+| `Vault_GenerateCredentials` | `Endpoint Variants` | Lists endpoint variants that produce the merged outcome. |
 
 ### Attack Paths
 
@@ -364,6 +590,16 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(target)
+WHERE target:Vault_GcpRoleset
+   OR target:Vault_GcpStaticAccount
+   OR target:Vault_GcpImpersonatedAccount
+RETURN p
 ```
 
 The edge represents the ability to request a credential from the concrete GCP object. Rolesets support OAuth access tokens or service-account keys according to their configured secret type; static accounts expose OAuth access-token or service-account-key endpoints; impersonated accounts expose OAuth access tokens. The paths prove Vault-side credential acquisition, not the resulting Google Cloud IAM permissions.
@@ -380,6 +616,14 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineGcpKms OR n:Vault_GcpKmsKey
+RETURN p
 ```
 
 ### Nodes
@@ -409,11 +653,23 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineGcpKms` | `Credentials Visibility`, `Credentials Present`, `Credential Source`, `Scopes` | Credential visibility/source and configured Cloud KMS scopes. |
-| `Vault_GcpKmsKey` | `Key Name`, `Crypto Key ID`, `Key Ring`, `Purpose`, `Protection Level`, `Algorithm` | External Cloud KMS key registration and operation compatibility. Additional returned configuration fields are passed through. |
-| GCP KMS operation edges | `Key Purposes`, `Compatibility Status`, `Operations`, `Requirements`, `Resolution Status` | Records whether the observed key purpose permits encrypt, decrypt, sign, re-encrypt, or verify. |
+| `Vault_SecretsEngineGcpKms` | `Credentials Visibility` | Records whether the authenticated configuration read exposes credential details. |
+| `Vault_SecretsEngineGcpKms` | `Credentials Present` | Indicates that GCP credentials are configured without exporting them. |
+| `Vault_SecretsEngineGcpKms` | `Credential Source` | Identifies the static or ambient credential source. |
+| `Vault_SecretsEngineGcpKms` | `Scopes` | Lists Google API scopes configured for the backend. |
+| `Vault_GcpKmsKey` | `Key Name` | Identifies the Vault key registration. |
+| `Vault_GcpKmsKey` | `Crypto Key ID` | Stores the full Google Cloud KMS CryptoKey identifier. |
+| `Vault_GcpKmsKey` | `Key Ring` | Identifies the containing Google Cloud KMS key ring. |
+| `Vault_GcpKmsKey` | `Purpose` | Identifies the Cloud KMS key purpose used for compatibility checks. |
+| `Vault_GcpKmsKey` | `Protection Level` | Identifies software, HSM, or external key protection. |
+| `Vault_GcpKmsKey` | `Algorithm` | Identifies the configured Cloud KMS algorithm. |
+| `Vault_GcpKmsEncrypt`<br>`Vault_GcpKmsDecrypt`<br>`Vault_GcpKmsReencrypt`<br>`Vault_GcpKmsSign`<br>`Vault_GcpKmsVerify`<br>`Vault_PotentialAccess` | `Key Purposes` | Lists key purposes compatible with the requested operation. |
+| `Vault_GcpKmsEncrypt`<br>`Vault_GcpKmsDecrypt`<br>`Vault_GcpKmsReencrypt`<br>`Vault_GcpKmsSign`<br>`Vault_GcpKmsVerify`<br>`Vault_PotentialAccess` | `Compatibility Status` | Records whether the observed key purpose is compatible, blocked, or unknown. |
+| `Vault_GcpKmsEncrypt`<br>`Vault_GcpKmsDecrypt`<br>`Vault_GcpKmsReencrypt`<br>`Vault_GcpKmsSign`<br>`Vault_GcpKmsVerify` | `Operations` | Lists cryptographic operations represented by the edge. |
+| `Vault_PotentialAccess` | `Requirements` | Lists unresolved key-purpose or collection prerequisites. |
+| `Vault_PotentialAccess` | `Resolution Status` | Explains why decrypt or sign authority could not be proven. |
 
 Unknown key purpose produces `Vault_PotentialAccess` rather than a traversable decrypt or sign edge.
 
@@ -426,6 +682,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GcpKmsDecrypt|Vault_GcpKmsSign]->(:Vault_GcpKmsKey)
+RETURN p
 ```
 
 Decrypt represents a plaintext oracle; sign represents use of signing authority. Both require a compatible observed key purpose. Encrypt, re-encrypt, and verify remain non-traversable because they do not reveal plaintext or confer signing authority.
@@ -445,6 +708,14 @@ flowchart LR
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..4]->(n)
+WHERE n:Vault_SecretsEngineKv OR n:Vault_KvDirectory OR n:Vault_KvFile OR n:Vault_KvPair
+RETURN p
 ```
 
 `Vault_KvDirectory` is a logical path prefix, not a mutable Vault object. `Vault_KvFile` is a secret path. `Vault_KvPair` exposes only top-level key names; values are never exported.
@@ -488,13 +759,64 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineKv` | `KV Version`, `CAS Required`, `Max Versions`, `Effective Max Versions`, `Delete Version After` | KV protocol version and engine-wide CAS/retention defaults. |
-| `Vault_KvDirectory` | `Relative Path`, `List Path`, `Metadata Path`, `KV Version` | Logical hierarchy and the v1 or v2 collection endpoint used to enumerate children. |
-| `Vault_KvFile` | `Relative Path`, `Data Path`, `Metadata Path`, `Delete Path`, `Undelete Path`, `Destroy Path`, `KV Version`, `Exists`, `Discovered`, `Field Count`, `Current Version`, `Oldest Version`, `Version Count`, `Active Version Count`, `Deleted Version Count`, `Destroyed Version Count`, `Created Time`, `Updated Time`, `Deletion Time`, `Destroyed`, `Current Version Created By Actor`, `Current Version Created By Operation`, `Current Version Created By Entity ID`, `Current Version Created By Client ID`, `Configured Max Versions`, `Effective Max Versions`, `Configured CAS Required`, `Effective CAS Required`, `Configured Delete Version After`, `Effective Delete Version After`; dynamic `custom_metadata_<key>` values preserve custom metadata | Concrete secret-path state and KV v2 version/CAS/retention metadata without plaintext values. |
-| `Vault_KvPair` | `Key`, `Field Path`, `Value Type`, `Relative Path`, `Data Path`, `KV Version` | Top-level key name and value type only; the value is never exported. |
-| KV access edges | `Surfaces`, `Scopes`, `Viable Operations`, `Operation Requirements`, `CAS Required By Default`, `CAS Requirement Source`, `CAS Required For Operations`, `CAS Optional For Operations`, `Version Selection`, `Metadata Read Targets` | Distinguishes data, metadata, lifecycle, subkeys, exact/subtree scope, operation-state, and CAS conditions. |
+| `Vault_SecretsEngineKv` | `KV Version` | Distinguishes KV v1 from KV v2. |
+| `Vault_SecretsEngineKv` | `CAS Required` | Records the mount-wide KV v2 check-and-set requirement. |
+| `Vault_SecretsEngineKv` | `Max Versions` | Records the mount-wide retained-version limit. |
+| `Vault_SecretsEngineKv` | `Effective Max Versions` | Records the effective retained-version limit after Vault defaults are applied. |
+| `Vault_SecretsEngineKv` | `Delete Version After` | Records the mount-wide automatic deletion duration. |
+| `Vault_KvDirectory` | `Relative Path` | Identifies the directory relative to the KV mount. |
+| `Vault_KvDirectory` | `List Path` | Stores the API path used to enumerate direct children. |
+| `Vault_KvDirectory` | `Metadata Path` | Stores the KV v2 metadata collection path. |
+| `Vault_KvDirectory` | `KV Version` | Identifies the protocol version used to model the directory. |
+| `Vault_KvFile` | `Relative Path` | Identifies the secret path relative to the KV mount. |
+| `Vault_KvFile` | `Data Path` | Stores the API path used to read or write secret data. |
+| `Vault_KvFile` | `Metadata Path` | Stores the KV v2 metadata API path. |
+| `Vault_KvFile` | `Delete Path` | Stores the KV v2 soft-delete endpoint path. |
+| `Vault_KvFile` | `Undelete Path` | Stores the KV v2 version-recovery endpoint path. |
+| `Vault_KvFile` | `Destroy Path` | Stores the KV v2 permanent-destruction endpoint path. |
+| `Vault_KvFile` | `KV Version` | Identifies whether the file belongs to a KV v1 or KV v2 mount. |
+| `Vault_KvFile` | `Exists` | Indicates whether the secret is known to exist. |
+| `Vault_KvFile` | `Discovered` | Indicates that collection observed the secret rather than synthesizing it from policy. |
+| `Vault_KvFile` | `Field Count` | Records the number of top-level key/value fields without collecting values. |
+| `Vault_KvFile` | `Current Version` | Records the current KV v2 version number. |
+| `Vault_KvFile` | `Oldest Version` | Records the oldest retained KV v2 version number. |
+| `Vault_KvFile` | `Version Count` | Records the total number of version records. |
+| `Vault_KvFile` | `Active Version Count` | Records versions that are neither deleted nor destroyed. |
+| `Vault_KvFile` | `Deleted Version Count` | Records soft-deleted versions. |
+| `Vault_KvFile` | `Destroyed Version Count` | Records permanently destroyed versions. |
+| `Vault_KvFile` | `Created Time` | Records the secret's creation time. |
+| `Vault_KvFile` | `Updated Time` | Records its latest observed update time. |
+| `Vault_KvFile` | `Deletion Time` | Records the current version's scheduled or completed deletion time. |
+| `Vault_KvFile` | `Destroyed` | Indicates whether the selected version was permanently destroyed. |
+| `Vault_KvFile` | `Current Version Created By Actor` | Records Vault's actor string for the current version. |
+| `Vault_KvFile` | `Current Version Created By Operation` | Records the operation that created the current version. |
+| `Vault_KvFile` | `Current Version Created By Entity ID` | Identifies the entity that created the current version when available. |
+| `Vault_KvFile` | `Current Version Created By Client ID` | Identifies the client that created the current version when available. |
+| `Vault_KvFile` | `Configured Max Versions` | Records a secret-specific retained-version override. |
+| `Vault_KvFile` | `Effective Max Versions` | Records the effective retained-version limit after key and mount configuration are combined. |
+| `Vault_KvFile` | `Configured CAS Required` | Records a secret-specific check-and-set override. |
+| `Vault_KvFile` | `Effective CAS Required` | Indicates whether writes effectively require check-and-set. |
+| `Vault_KvFile` | `Configured Delete Version After` | Records a secret-specific automatic deletion override. |
+| `Vault_KvFile` | `Effective Delete Version After` | Records the effective automatic deletion duration. |
+| `Vault_KvFile` | `custom_metadata_<key>` | Preserves KV v2 custom metadata without collecting secret values. |
+| `Vault_KvPair` | `Key` | Stores the top-level key name. |
+| `Vault_KvPair` | `Field Path` | Stores the key's path within the secret object. |
+| `Vault_KvPair` | `Value Type` | Records only the value's data type, never its plaintext. |
+| `Vault_KvPair` | `Relative Path` | Identifies the containing secret relative to the mount. |
+| `Vault_KvPair` | `Data Path` | Stores the containing secret's data endpoint path. |
+| `Vault_KvPair` | `KV Version` | Identifies the containing mount's KV protocol version. |
+| `Vault_ListObjects`<br>`Vault_KvReadSecret`<br>`Vault_KvManageSecret`<br>`Vault_KvReadMetadata`<br>`Vault_KvManageMetadata`<br>`Vault_PotentialAccess` | `Surfaces` | Distinguishes data, metadata, lifecycle, and subkeys API surfaces. |
+| `Vault_ListObjects`<br>`Vault_KvReadSecret`<br>`Vault_KvManageSecret`<br>`Vault_KvReadMetadata`<br>`Vault_KvManageMetadata`<br>`Vault_PotentialAccess` | `Scopes` | Distinguishes exact targets from expanded subtree access. |
+| `Vault_KvReadSecret`<br>`Vault_KvManageSecret`<br>`Vault_KvReadMetadata`<br>`Vault_KvManageMetadata` | `Viable Operations` | Lists KV operations that are meaningful for the target kind and surface. |
+| `Vault_KvManageSecret`<br>`Vault_KvManageMetadata`<br>`Vault_PotentialAccess` | `Operation Requirements` | Lists version, CAS, or target-state requirements for the operation. |
+| `Vault_KvManageSecret`<br>`Vault_KvManageMetadata` | `CAS Required By Default` | Indicates whether the effective engine or key configuration requires CAS. |
+| `Vault_KvManageSecret`<br>`Vault_KvManageMetadata` | `CAS Requirement Source` | Identifies whether the CAS requirement came from key metadata or mount configuration. |
+| `Vault_KvManageSecret`<br>`Vault_KvManageMetadata` | `CAS Required For Operations` | Lists write operations that require a CAS value. |
+| `Vault_KvManageSecret`<br>`Vault_KvManageMetadata` | `CAS Optional For Operations` | Lists write operations for which CAS remains optional. |
+| `Vault_KvReadSecret`<br>`Vault_KvManageSecret`<br>`Vault_KvReadMetadata` | `Version Selection` | Describes whether the operation addresses the current or selected versions. |
+| `Vault_KvReadMetadata` | `Metadata Read Targets` | Distinguishes version metadata, custom metadata, and subkeys metadata. |
 
 Only `Vault_KvReadSecret` is traversable. Lifecycle and metadata operations do not reveal secret data. KV v2 mount and per-key metadata contribute effective CAS requirements to write-edge properties.
 
@@ -520,6 +842,13 @@ flowchart LR
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_AuthUser)-[:Vault_MapsTo]->(:Vault_EntityAlias)-[:Vault_MapsTo]->(:Vault_Entity)-[:Vault_MemberOf]->(:Vault_Group)-[:Vault_LinksPolicy]->(:Vault_Policy)-[:Vault_KvReadSecret]->(:Vault_KvFile)-[:Vault_Contains]->(:Vault_KvPair)
+RETURN p
 ```
 
 The file read exposes plaintext at request time. The pair node records only a top-level key name; VaultHound does not store its value.
@@ -550,6 +879,14 @@ flowchart LR
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineKubernetes OR n:Vault_KubernetesRole
+RETURN p
+```
+
 Roles retain service-account name, allowed namespaces, namespace selectors, token TTL, generated role or cluster-role bindings, and request parameters. Generation effects identify namespaced versus cluster-scoped outcomes. Live Kubernetes RBAC is not independently verified.
 
 ### Nodes
@@ -574,11 +911,37 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineKubernetes` | `Kubernetes Host`, `Disable Local CA JWT`, `Kubernetes CA Cert Present` | Target cluster and local-credential/trust behavior. |
-| `Vault_KubernetesRole` | `Role Name`, `Generation Mode`, `Namespace Scope Type`, `Namespace Scope`, `Namespace Scope Combination`, `Generation Effects`, `Request Parameters`, `Binding Types`, `Role Types`, `Cluster Scope Possible`, `Allowed Kubernetes Namespaces`, `Allowed Kubernetes Namespace Selector`, `Service Account Name`, `Kubernetes Role Name`, `Kubernetes Role Type`, `Kubernetes Role Ref Type`, `Generated Role Rules` | Whether Vault uses an existing service account or creates service-account/RBAC objects and where those objects may exist. Additional returned role fields are passed through. |
-| `Vault_GenerateCredentials` | `Generation Effects`, `Modes`, `Request Parameters`, `Binding Types`, `Role Types`, `Cluster Scope Possible`, `Namespace Scope Type`, `Namespace Scope`, `Namespace Scope Combination` | Captures the token and Kubernetes objects generated by the request. |
+| `Vault_SecretsEngineKubernetes` | `Kubernetes Host` | Identifies the target Kubernetes API server. |
+| `Vault_SecretsEngineKubernetes` | `Disable Local CA JWT` | Indicates whether Vault avoids the local service-account JWT and CA. |
+| `Vault_SecretsEngineKubernetes` | `Kubernetes CA Cert Present` | Indicates that a Kubernetes CA certificate is configured without duplicating it. |
+| `Vault_KubernetesRole` | `Role Name` | Identifies the Kubernetes secrets role. |
+| `Vault_KubernetesRole` | `Generation Mode` | Distinguishes existing-service-account tokens from generated service-account/RBAC workflows. |
+| `Vault_KubernetesRole` | `Namespace Scope Type` | Identifies explicit, selector-based, or unrestricted namespace scope. |
+| `Vault_KubernetesRole` | `Namespace Scope` | Lists or describes namespaces allowed by the role. |
+| `Vault_KubernetesRole` | `Namespace Scope Combination` | Describes how explicit namespaces and selectors combine. |
+| `Vault_KubernetesRole` | `Generation Effects` | Describes service-account, token, role, and binding objects created by Vault. |
+| `Vault_KubernetesRole` | `Request Parameters` | Lists caller-controlled parameters accepted by the generation endpoint. |
+| `Vault_KubernetesRole` | `Binding Types` | Lists RoleBinding or ClusterRoleBinding outcomes. |
+| `Vault_KubernetesRole` | `Role Types` | Lists Role or ClusterRole references used by generated bindings. |
+| `Vault_KubernetesRole` | `Cluster Scope Possible` | Indicates whether role configuration can produce cluster-scoped access. |
+| `Vault_KubernetesRole` | `Allowed Kubernetes Namespaces` | Lists explicitly allowed namespaces. |
+| `Vault_KubernetesRole` | `Allowed Kubernetes Namespace Selector` | Stores the label selector used to choose namespaces. |
+| `Vault_KubernetesRole` | `Service Account Name` | Names an existing service account used for token generation. |
+| `Vault_KubernetesRole` | `Kubernetes Role Name` | Names the Role or ClusterRole referenced by generated bindings. |
+| `Vault_KubernetesRole` | `Kubernetes Role Type` | Distinguishes Role from ClusterRole. |
+| `Vault_KubernetesRole` | `Kubernetes Role Ref Type` | Records the role-reference kind emitted into generated bindings. |
+| `Vault_KubernetesRole` | `Generated Role Rules` | Stores RBAC rules used when Vault creates a role. |
+| `Vault_GenerateCredentials` | `Generation Effects` | Describes the generated service-account token and RBAC objects. |
+| `Vault_GenerateCredentials` | `Modes` | Lists viable service-account generation modes. |
+| `Vault_GenerateCredentials` | `Request Parameters` | Lists caller-controlled generation parameters. |
+| `Vault_GenerateCredentials` | `Binding Types` | Lists binding kinds that may be created. |
+| `Vault_GenerateCredentials` | `Role Types` | Lists role-reference kinds used by generated bindings. |
+| `Vault_GenerateCredentials` | `Cluster Scope Possible` | Indicates that generation may produce cluster-scoped access. |
+| `Vault_GenerateCredentials` | `Namespace Scope Type` | Identifies how the target namespace is selected. |
+| `Vault_GenerateCredentials` | `Namespace Scope` | Lists or describes reachable namespaces. |
+| `Vault_GenerateCredentials` | `Namespace Scope Combination` | Describes how namespace constraints combine. |
 
 ### Attack Paths
 
@@ -588,6 +951,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_KubernetesRole)
+RETURN p
 ```
 
 The edge represents generation of a Kubernetes service-account token through the concrete role. Role properties describe namespace selectors and generated namespaced or cluster-scoped bindings. The path does not independently prove the live Kubernetes RBAC attached to the resulting token.
@@ -608,6 +978,18 @@ flowchart LR
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..3]->(n)
+WHERE n:Vault_SecretsEngineLdap
+   OR n:Vault_LdapDynamicRole
+   OR n:Vault_LdapStaticRole
+   OR n:Vault_LdapLibrarySet
+   OR n:Vault_LdapServiceAccount
+RETURN p
 ```
 
 ### Nodes
@@ -641,14 +1023,47 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineLdap` | `Bind DN`, `Bind Password Present`, `URL`, `User DN`, `User Attribute`, `Group DN`, `Group Attribute`, `UPN Domain`, `Start TLS`, `Insecure TLS`, `TLS Min Version`, `TLS Max Version`, `Certificate Present`, `Client TLS Certificate Present`, `Client TLS Key Present` | LDAP connection, bind identity, directory layout, and TLS credential-presence state. Additional returned config fields are passed through. |
-| `Vault_LdapDynamicRole` | `Role Name`, `Has Creation LDIF`, `Has Deletion LDIF`, `Has Rollback LDIF`; other returned fields are humanized | Dynamic account lifecycle statement presence without duplicating large LDIF bodies. |
-| `Vault_LdapStaticRole` | `Role Name`, `DN`, `Username`, `Rotation Period`, `Rotation Schedule`, `Last Vault Rotation`; password fields are omitted | Existing LDAP account and rotation state. |
-| `Vault_LdapLibrarySet` | `Set Name`, `Service Account Names`, `TTL`, `Max TTL` | Checkout pool membership and borrowing lifetime. |
-| `Vault_LdapServiceAccount` | `Service Account Name`, `Set Name`, `Available`, `Borrower Entity ID`, `Borrower Client Token` | Observed account availability and current borrower state. |
-| LDAP library edges | `Library Sets`, `Allocation Modes`, `Hierarchy Prefixes`, `Operations`, availability requirements and resolution status | Identifies checkout/checkin scope and whether a concrete account is currently obtainable. |
+| `Vault_SecretsEngineLdap` | `Bind DN` | Identifies the directory account used by Vault. |
+| `Vault_SecretsEngineLdap` | `Bind Password Present` | Indicates that a bind password is configured without exporting it. |
+| `Vault_SecretsEngineLdap` | `URL` | Stores the LDAP server URL. |
+| `Vault_SecretsEngineLdap` | `User DN` | Stores the base DN used for user searches. |
+| `Vault_SecretsEngineLdap` | `User Attribute` | Identifies the LDAP username attribute. |
+| `Vault_SecretsEngineLdap` | `Group DN` | Stores the base DN used for group searches. |
+| `Vault_SecretsEngineLdap` | `Group Attribute` | Identifies the LDAP group-name attribute. |
+| `Vault_SecretsEngineLdap` | `UPN Domain` | Records the user principal name domain. |
+| `Vault_SecretsEngineLdap` | `Start TLS` | Indicates whether StartTLS is enabled. |
+| `Vault_SecretsEngineLdap` | `Insecure TLS` | Indicates whether TLS verification is disabled. |
+| `Vault_SecretsEngineLdap` | `TLS Min Version` | Records the minimum permitted TLS version. |
+| `Vault_SecretsEngineLdap` | `TLS Max Version` | Records the maximum permitted TLS version. |
+| `Vault_SecretsEngineLdap` | `Certificate Present` | Indicates that a trusted CA certificate is configured. |
+| `Vault_SecretsEngineLdap` | `Client TLS Certificate Present` | Indicates that a client TLS certificate is configured. |
+| `Vault_SecretsEngineLdap` | `Client TLS Key Present` | Indicates that a client TLS private key is configured. |
+| `Vault_LdapDynamicRole`<br>`Vault_LdapStaticRole` | `Role Name` | Identifies the LDAP role. |
+| `Vault_LdapDynamicRole` | `Has Creation LDIF` | Indicates that account-creation LDIF is configured without duplicating it. |
+| `Vault_LdapDynamicRole` | `Has Deletion LDIF` | Indicates that account-deletion LDIF is configured. |
+| `Vault_LdapDynamicRole` | `Has Rollback LDIF` | Indicates that rollback LDIF is configured. |
+| `Vault_LdapStaticRole` | `DN` | Identifies the managed LDAP account's distinguished name. |
+| `Vault_LdapStaticRole` | `Username` | Identifies the managed LDAP username. |
+| `Vault_LdapStaticRole` | `Rotation Period` | Records interval-based password rotation. |
+| `Vault_LdapStaticRole` | `Rotation Schedule` | Records schedule-based password rotation. |
+| `Vault_LdapStaticRole` | `Last Vault Rotation` | Records the last Vault-managed password rotation. |
+| `Vault_LdapLibrarySet` | `Set Name` | Identifies the service-account library. |
+| `Vault_LdapLibrarySet` | `Service Account Names` | Lists accounts configured in the checkout pool. |
+| `Vault_LdapLibrarySet` | `TTL` | Records the default checkout duration. |
+| `Vault_LdapLibrarySet` | `Max TTL` | Records the maximum checkout duration. |
+| `Vault_LdapServiceAccount` | `Service Account Name` | Identifies the concrete account in a library set. |
+| `Vault_LdapServiceAccount` | `Set Name` | Names the containing library set. |
+| `Vault_LdapServiceAccount` | `Available` | Indicates that the account is currently available for checkout. |
+| `Vault_LdapServiceAccount` | `Borrower Entity ID` | Identifies the entity currently borrowing the account. |
+| `Vault_LdapServiceAccount` | `Borrower Client Token` | Records borrower token context returned by Vault without exporting token material. |
+| `Vault_LdapReadLibraryStatus`<br>`Vault_LdapCheckoutServiceAccount`<br>`Vault_LdapCheckinServiceAccount`<br>`Vault_LdapForceCheckinServiceAccount`<br>`Vault_PotentialAccess` | `Library Sets` | Lists library sets matched by the policy path. |
+| `Vault_LdapCheckoutServiceAccount`<br>`Vault_PotentialAccess` | `Allocation Modes` | Distinguishes concrete available-account checkout from unresolved pool access. |
+| `Vault_LdapReadLibraryStatus`<br>`Vault_LdapCheckoutServiceAccount`<br>`Vault_LdapCheckinServiceAccount`<br>`Vault_LdapForceCheckinServiceAccount` | `Hierarchy Prefixes` | Preserves matched library hierarchy prefixes. |
+| `Vault_LdapReadLibraryStatus`<br>`Vault_LdapCheckoutServiceAccount`<br>`Vault_LdapCheckinServiceAccount`<br>`Vault_LdapForceCheckinServiceAccount` | `Operations` | Lists status, checkout, check-in, or forced check-in operations. |
+| `Vault_PotentialAccess` | `Requirements` | Lists unresolved account-availability prerequisites. |
+| `Vault_PotentialAccess` | `Resolution Status` | Explains why checkout could not target a proven available account. |
 
 Unknown account availability becomes potential access. Checkout is not routed through a traversable library container because Vault returns one available account rather than every member.
 
@@ -663,6 +1078,14 @@ flowchart LR
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials|Vault_LdapCheckoutServiceAccount]->(target)
+WHERE target:Vault_LdapDynamicRole OR target:Vault_LdapStaticRole OR target:Vault_LdapServiceAccount
+RETURN p
 ```
 
 Dynamic and static role paths yield LDAP credentials according to their role mode. Checkout targets only an observed account currently marked available. Unknown availability emits `Vault_PotentialAccess`; it does not create a traversable edge to the library set and fan out through containment.
@@ -684,6 +1107,14 @@ flowchart LR
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef issuerNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef pkiKeyNode fill:#A04000,color:#fff,stroke:#6E2C00,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_References*1..3]->(n)
+WHERE n:Vault_SecretsEnginePki OR n:Vault_PkiRole OR n:Vault_PkiIssuer OR n:Vault_PkiKey
+RETURN p
 ```
 
 ### Nodes
@@ -725,17 +1156,114 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEnginePki` | `ACME Enabled`, `ACME Default Policy`, `CMPv2 Enabled`, `CMPv2 Default Policy`, `EST Enabled`, `EST Default Policy`, `SCEP Enabled`, `SCEP Default Policy` | Issuance-protocol enablement and default policy behavior. |
-| `Vault_PkiRole` | `Role Name`, `Issuer`, `Issued Certificates Expire After`, `Max TTL`, `Allow Localhost`, `Allowed Domains`, `Allow Templates In Allowed Domains`, `Allow Bare Domains`, `Allow Subdomains`, `Allow Glob Domains`, `Allow Wildcard Certificates`, `Allow Any Name`, `Enforce Hostnames`, `Allow IP Subject Alternative Names`, `URI Subject Alternative Names (URI SANs)`, `Allow URI SANs Template`, `Other SANs`, `Allowed Serial Numbers`, `Allowed User IDs` | Identity and name constraints corresponding to Vault's PKI role UI and API. |
-| `Vault_PkiRole` | `Server Flag`, `Client Flag`, `Code Signing Flag`, `Email Protection Flag`, `Key Type`, `Key Bits`, `Signature Bits`, `Use PSS`, `Key Usage`, `Extended Key Usage`, `Extended Key Usage OIDs`, `Use CSR Common Name`, `Use CSR Subject Alternative Names` | Certificate purpose, key, signature, usage, and CSR behavior. |
-| `Vault_PkiRole` | `Organizational Units (OU)`, `Organization`, `Country`, `Locality/City`, `Province/State`, `Street Address`, `Postal Code`, `Store In Storage Backend`, `Store Metadata`, `Generate Lease With Certificate`, `Issued Certificate Backdating`, `Require Common Name`, `Policy Identifiers`, `Add Basic Constraints` | Subject defaults, storage, lease, validity, policy, and basic-constraints behavior. |
-| `Vault_PkiIssuer` | `Issuer Ref`, `Common Name`, `Issuer Name`, `Key Usage`, `Is Root`, `Is Default`, `Use PSS`, `Not Valid Before`, `Not Valid After`, `Issuing Certificates`, `CRL Distribution Points`, `OCSP Servers`; remaining non-secret issuer API fields are passed through | Issuer identity, hierarchy role, validity, key usage, and authority-information locations. |
-| `Vault_PkiKey` | `Key Ref`, `Key Type`, `Hardware Backed`, `Managed Key Reference Known`, managed-key name/ID where returned; remaining non-secret key API fields are passed through | Key identity, implementation type, and external managed-key backing. |
-| PKI issuance/signing edges | `Targets`, `Issuance Protocols`, `Protocol Paths`, `Protocol Enabled`, `Path Qualification`, `Issuer References`, `Issuer Selection`, `Policy Services`, `Certificate Targets`, `Certificate Format`, `CSR Format`, `Key Types`, `Key Bits`, `Signature Bits`, `TTL`, `Common Names`, `Alternative Names`, `Requirements`, `Resolution Status` | Preserves the role/issuer, protocol, certificate request, and compatibility context merged into each security outcome. |
-| PKI read/revocation/lifecycle edges | `Read Targets`, `Certificate Targets`, `Certificate Format`, `CRL Format`, `CRL Delta Format`, `Requires Private Key`, `Issuer Actions`, `Creation Methods`, `Generation Types`, `Import Types`, `Root Actions`, `Intermediate Actions`, `ACME Operations` | Distinguishes certificate/issuer/CRL data and root, intermediate, issuer, revocation, and ACME workflows. |
-| PKI reference edges | `Reference Types`, `Reference Evidence`, delegated-authenticator and role-selection fields | Connects issuers to keys and issuance protocols to selected auth methods/roles without implying ownership. |
+| `Vault_SecretsEnginePki` | `ACME Enabled` | Indicates whether ACME issuance is enabled. |
+| `Vault_SecretsEnginePki` | `ACME Default Policy` | Records the default ACME policy behavior. |
+| `Vault_SecretsEnginePki` | `CMPv2 Enabled` | Indicates whether CMPv2 issuance is enabled. |
+| `Vault_SecretsEnginePki` | `CMPv2 Default Policy` | Records the default CMPv2 policy behavior. |
+| `Vault_SecretsEnginePki` | `EST Enabled` | Indicates whether EST issuance is enabled. |
+| `Vault_SecretsEnginePki` | `EST Default Policy` | Records the default EST policy behavior. |
+| `Vault_SecretsEnginePki` | `SCEP Enabled` | Indicates whether SCEP issuance is enabled. |
+| `Vault_SecretsEnginePki` | `SCEP Default Policy` | Records the default SCEP policy behavior. |
+| `Vault_PkiRole` | `Role Name` | Identifies the PKI role. |
+| `Vault_PkiRole` | `Issuer` | Selects the issuer used by the role. |
+| `Vault_PkiRole` | `Issued Certificates Expire After` | Limits absolute expiration of certificates issued by the role. |
+| `Vault_PkiRole` | `Max TTL` | Records the maximum certificate lifetime. |
+| `Vault_PkiRole` | `Allow Localhost` | Allows localhost names in issued certificates. |
+| `Vault_PkiRole` | `Allowed Domains` | Lists DNS domains accepted by the role. |
+| `Vault_PkiRole` | `Allow Templates In Allowed Domains` | Enables identity templates in allowed-domain entries. |
+| `Vault_PkiRole` | `Allow Bare Domains` | Allows certificates for configured domain roots. |
+| `Vault_PkiRole` | `Allow Subdomains` | Allows subdomains of configured domains. |
+| `Vault_PkiRole` | `Allow Glob Domains` | Interprets allowed domains as glob patterns. |
+| `Vault_PkiRole` | `Allow Wildcard Certificates` | Allows wildcard DNS names. |
+| `Vault_PkiRole` | `Allow Any Name` | Disables ordinary name restrictions. |
+| `Vault_PkiRole` | `Enforce Hostnames` | Requires DNS names to satisfy hostname syntax. |
+| `Vault_PkiRole` | `Allow IP Subject Alternative Names` | Allows IP address SANs. |
+| `Vault_PkiRole` | `URI Subject Alternative Names (URI SANs)` | Lists allowed URI SAN patterns. |
+| `Vault_PkiRole` | `Allow URI SANs Template` | Enables identity templates in URI SAN constraints. |
+| `Vault_PkiRole` | `Other SANs` | Lists allowed non-DNS SAN types and values. |
+| `Vault_PkiRole` | `Allowed Serial Numbers` | Lists allowed subject serial-number patterns. |
+| `Vault_PkiRole` | `Allowed User IDs` | Lists allowed subject user IDs. |
+| `Vault_PkiRole` | `Server Flag` | Enables TLS server-auth extended key usage. |
+| `Vault_PkiRole` | `Client Flag` | Enables TLS client-auth extended key usage. |
+| `Vault_PkiRole` | `Code Signing Flag` | Enables code-signing extended key usage. |
+| `Vault_PkiRole` | `Email Protection Flag` | Enables email-protection extended key usage. |
+| `Vault_PkiRole` | `Key Type` | Identifies the certificate public-key type. |
+| `Vault_PkiRole` | `Key Bits` | Records the generated or accepted key size. |
+| `Vault_PkiRole` | `Signature Bits` | Records the RSA signature size. |
+| `Vault_PkiRole` | `Use PSS` | Enables RSA-PSS signatures. |
+| `Vault_PkiRole` | `Key Usage` | Lists X.509 key-usage flags. |
+| `Vault_PkiRole` | `Extended Key Usage` | Lists named extended-key-usage values. |
+| `Vault_PkiRole` | `Extended Key Usage OIDs` | Lists additional extended-key-usage object identifiers. |
+| `Vault_PkiRole` | `Use CSR Common Name` | Uses the CSR common name when signing. |
+| `Vault_PkiRole` | `Use CSR Subject Alternative Names` | Uses SAN values supplied by the CSR. |
+| `Vault_PkiRole` | `Organizational Units (OU)` | Lists default subject organizational units. |
+| `Vault_PkiRole` | `Organization` | Lists default subject organizations. |
+| `Vault_PkiRole` | `Country` | Lists default subject countries. |
+| `Vault_PkiRole` | `Locality/City` | Lists default subject localities. |
+| `Vault_PkiRole` | `Province/State` | Lists default subject states or provinces. |
+| `Vault_PkiRole` | `Street Address` | Lists default subject street addresses. |
+| `Vault_PkiRole` | `Postal Code` | Lists default subject postal codes. |
+| `Vault_PkiRole` | `Store In Storage Backend` | Indicates whether issued certificates are stored. |
+| `Vault_PkiRole` | `Store Metadata` | Indicates whether issuance metadata is stored. |
+| `Vault_PkiRole` | `Generate Lease With Certificate` | Indicates whether issued certificates receive Vault leases. |
+| `Vault_PkiRole` | `Issued Certificate Backdating` | Records certificate not-before backdating. |
+| `Vault_PkiRole` | `Require Common Name` | Requires a common name in issuance requests. |
+| `Vault_PkiRole` | `Policy Identifiers` | Lists certificate-policy object identifiers. |
+| `Vault_PkiRole` | `Add Basic Constraints` | Adds basic-constraints extensions to certificates. |
+| `Vault_PkiIssuer` | `Issuer Ref` | Stores the stable issuer reference. |
+| `Vault_PkiIssuer` | `Common Name` | Stores the issuer certificate common name. |
+| `Vault_PkiIssuer` | `Issuer Name` | Stores the configured issuer name. |
+| `Vault_PkiIssuer` | `Key Usage` | Lists the issuer certificate key-usage flags. |
+| `Vault_PkiIssuer` | `Is Root` | Indicates that the issuer is self-signed as a root CA. |
+| `Vault_PkiIssuer` | `Is Default` | Indicates that the mount selects this issuer by default. |
+| `Vault_PkiIssuer` | `Use PSS` | Indicates RSA-PSS signing by the issuer. |
+| `Vault_PkiIssuer` | `Not Valid Before` | Records the issuer certificate validity start. |
+| `Vault_PkiIssuer` | `Not Valid After` | Records the issuer certificate expiration. |
+| `Vault_PkiIssuer` | `Issuing Certificates` | Lists authority-information-access issuer URLs. |
+| `Vault_PkiIssuer` | `CRL Distribution Points` | Lists CRL distribution URLs. |
+| `Vault_PkiIssuer` | `OCSP Servers` | Lists OCSP responder URLs. |
+| `Vault_PkiKey` | `Key Ref` | Stores the stable PKI key reference. |
+| `Vault_PkiKey` | `Key Type` | Identifies the software, managed, or hardware-backed key type. |
+| `Vault_PkiKey` | `Hardware Backed` | Indicates that private-key operations occur in an external device. |
+| `Vault_PkiKey` | `Managed Key Reference Known` | Indicates whether an external managed-key reference resolved. |
+| `Vault_PkiKey` | Managed-key name and ID fields | Identify the external managed key where Vault returns the reference. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued`<br>`Vault_PotentialAccess` | `Targets` | Identifies role, issuer, or mount-native issuance targets. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PotentialAccess` | `Issuance Protocols` | Lists ACME, CMPv2, EST, SCEP, or native PKI protocols. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PotentialAccess` | `Protocol Paths` | Lists protocol endpoint paths represented by the edge. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PotentialAccess` | `Protocol Enabled` | Indicates whether the selected issuance protocol is enabled. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim` | `Path Qualification` | Distinguishes role-qualified, issuer-qualified, and role-less surfaces. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `Issuer References` | Lists issuer selectors represented by the operation. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim` | `Issuer Selection` | Describes explicit, default, or runtime issuer selection. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate` | `Policy Services` | Identifies external policy services involved in issuance or signing. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `Certificate Targets` | Identifies issued certificate, CSR, or CA-certificate outcomes. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim` | `Certificate Format` | Records requested certificate encoding. |
+| `Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate` | `CSR Format` | Records the expected CSR encoding. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `Key Types` | Lists compatible key types. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `Key Bits` | Records requested key sizes. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `Signature Bits` | Records requested signature sizes. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim`<br>`Vault_PkiSignIntermediate`<br>`Vault_PkiSignSelfIssued` | `TTL` | Records the requested certificate lifetime. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim` | `Common Names` | Lists requested common names when statically known. |
+| `Vault_PkiIssueCertificate`<br>`Vault_PkiSignCertificate`<br>`Vault_PkiSignVerbatim` | `Alternative Names` | Lists requested SAN values when statically known. |
+| `Vault_PotentialAccess` | `Requirements` | Lists unresolved role, issuer, protocol, or compatibility prerequisites. |
+| `Vault_PotentialAccess` | `Resolution Status` | Explains why a concrete issuance target could not be proven. |
+| `Vault_PkiListCertificateInfo`<br>`Vault_ReadObject` | `Read Targets` | Identifies certificate, issuer, key, CRL, or metadata information returned. |
+| `Vault_PkiListCertificateInfo`<br>`Vault_ReadObject` | `Certificate Targets` | Distinguishes certificate records from authority information. |
+| `Vault_PkiListCertificateInfo`<br>`Vault_ReadObject` | `Certificate Format` | Records JSON, PEM, DER, or raw certificate representation. |
+| `Vault_ReadObject` | `CRL Format` | Records the requested full-CRL encoding. |
+| `Vault_ReadObject` | `CRL Delta Format` | Records the requested delta-CRL encoding. |
+| `Vault_PkiRevokeCertificate` | `Requires Private Key` | Distinguishes ordinary revocation from revoke-with-key. |
+| `Vault_ManageObject`<br>`Vault_PkiRevokeIssuer` | `Issuer Actions` | Lists issuer update, revoke, delete, or CRL-combination actions. |
+| `Vault_PkiProvisionIssuer` | `Creation Methods` | Distinguishes issuer generation and import workflows. |
+| `Vault_PkiProvisionIssuer`<br>`Vault_PkiManageRoot` | `Generation Types` | Records generated root or intermediate material types. |
+| `Vault_PkiProvisionIssuer` | `Import Types` | Records imported issuer bundle types. |
+| `Vault_PkiManageRoot`<br>`Vault_PkiDeleteRoot` | `Root Actions` | Lists root generation, rotation, replacement, signing, or deletion actions. |
+| `Vault_PkiManageIntermediate` | `Intermediate Actions` | Lists intermediate generation, cross-sign, and set-signed actions. |
+| `Vault_PkiAcmeCreateEab`<br>`Vault_PkiAcmeManageAccounts` | `ACME Operations` | Lists external-account-binding or account-management actions. |
+| `Vault_References` | `Reference Types` | Classifies issuer-key or delegated-authentication dependencies. |
+| `Vault_References` | `Reference Evidence` | Identifies the configuration that proves each PKI reference. |
+| `Vault_References` | Delegated-authenticator and role-selection fields | Preserve selected auth accessors, auth roles, and protocol context. |
 
 Traversable issuance and signing edges do not terminate at the mount when doing so would imply control of every role, issuer, and key through containment. Role/issuer globs expand to observed compatible children; unresolved mount-native outcomes remain potential or non-traversable.
 
@@ -759,6 +1287,14 @@ flowchart LR
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef issuerNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_PkiIssueCertificate|Vault_PkiSignCertificate|Vault_PkiSignVerbatim|Vault_PkiSignIntermediate|Vault_PkiSignSelfIssued]->(target)
+WHERE target:Vault_PkiRole OR target:Vault_PkiIssuer
+RETURN p
 ```
 
 A role glob such as:
@@ -789,6 +1325,14 @@ flowchart LR
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
 ```
 
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineSsh OR n:Vault_SshRole
+RETURN p
+```
+
 ### Nodes
 
 | Node | Description |
@@ -814,12 +1358,48 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineSsh` | `CA Public Key`, `CA Managed`, `CA Managed Key Name`, `CA Managed Key ID`, `CA Managed Key Reference Known` | Current CA public material and external managed-key backing state. |
-| `Vault_SshRole` | `Role Name`, `Zero Address Enabled`, `Key Type`, `Default User`, `Default User Template`, `Allowed Users`, `Allowed Users Template`, `Allowed Domains`, `Allowed Domains Template`, `Allow Bare Domains`, `Allow Subdomains`, `Allow User Certificates`, `Allow Host Certificates`, `Allow User Key IDs`, `Key ID Format`, `Algorithm Signer`, `Allowed User Key Lengths`, `Allowed Critical Options`, `Allowed Extensions`, `Default Critical Options`, `Default Extensions`, `Default Extensions Template`, `Not Before Duration`, `TTL`, `Max TTL` | OTP/CA role mode, principal and host constraints, signed-certificate options, and validity. Additional returned role fields are passed through. |
-| SSH operation edges | `Role Types`, `Credential Types`, `Credential Material`, `Generation Effects`, `Request Surfaces`, `Request Methods`, `Requirements` | Records OTP, signing, and key-pair compatibility and returned material. |
-| SSH config edges | `Read Targets`, `Config Targets`, `Operations` | Identifies current/snapshot CA public-key reads, CA changes, zero-address updates, and tidy maintenance. |
+| `Vault_SecretsEngineSsh` | `CA Public Key` | Stores the current SSH CA public key. |
+| `Vault_SecretsEngineSsh` | `CA Managed` | Indicates that the SSH CA uses an external managed key. |
+| `Vault_SecretsEngineSsh` | `CA Managed Key Name` | Names the external managed key used by the CA. |
+| `Vault_SecretsEngineSsh` | `CA Managed Key ID` | Identifies the external managed key used by the CA. |
+| `Vault_SecretsEngineSsh` | `CA Managed Key Reference Known` | Indicates whether the managed-key reference resolved to an observed key. |
+| `Vault_SshRole` | `Role Name` | Identifies the SSH role. |
+| `Vault_SshRole` | `Zero Address Enabled` | Indicates that the OTP role is enabled for zero-address lookup. |
+| `Vault_SshRole` | `Key Type` | Distinguishes OTP and CA roles. |
+| `Vault_SshRole` | `Default User` | Records the default SSH principal. |
+| `Vault_SshRole` | `Default User Template` | Indicates whether the default user is templated. |
+| `Vault_SshRole` | `Allowed Users` | Lists SSH principals permitted by the role. |
+| `Vault_SshRole` | `Allowed Users Template` | Indicates whether allowed-user entries are templated. |
+| `Vault_SshRole` | `Allowed Domains` | Lists host domains permitted by the role. |
+| `Vault_SshRole` | `Allowed Domains Template` | Indicates whether allowed-domain entries are templated. |
+| `Vault_SshRole` | `Allow Bare Domains` | Allows certificate issuance for bare configured domains. |
+| `Vault_SshRole` | `Allow Subdomains` | Allows subdomains of configured domains. |
+| `Vault_SshRole` | `Allow User Certificates` | Allows user certificate signing. |
+| `Vault_SshRole` | `Allow Host Certificates` | Allows host certificate signing. |
+| `Vault_SshRole` | `Allow User Key IDs` | Allows callers to supply certificate key IDs. |
+| `Vault_SshRole` | `Key ID Format` | Stores the certificate key-ID template. |
+| `Vault_SshRole` | `Algorithm Signer` | Selects the SSH signing algorithm. |
+| `Vault_SshRole` | `Allowed User Key Lengths` | Lists permitted user public-key lengths. |
+| `Vault_SshRole` | `Allowed Critical Options` | Lists caller-selectable certificate critical options. |
+| `Vault_SshRole` | `Allowed Extensions` | Lists caller-selectable certificate extensions. |
+| `Vault_SshRole` | `Default Critical Options` | Stores critical options added by default. |
+| `Vault_SshRole` | `Default Extensions` | Stores certificate extensions added by default. |
+| `Vault_SshRole` | `Default Extensions Template` | Indicates whether default extensions are templated. |
+| `Vault_SshRole` | `Not Before Duration` | Records certificate validity backdating. |
+| `Vault_SshRole` | `TTL` | Records the default credential or certificate lifetime. |
+| `Vault_SshRole` | `Max TTL` | Records the maximum credential or certificate lifetime. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Role Types` | Lists compatible OTP or CA role modes. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Credential Types` | Identifies OTP, signed certificate, or issued key-pair outcomes. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Credential Material` | Identifies the secret, private key, or certificate returned by Vault. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Generation Effects` | Describes the generated SSH credential outcome. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Request Surfaces` | Lists the `creds`, `sign`, or `issue` endpoint surfaces. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Request Methods` | Lists the HTTP methods used by the operation. |
+| `Vault_SshGenerateOtp`<br>`Vault_SshSignKey`<br>`Vault_SshIssueKeyPair` | `Requirements` | Lists role-mode or request prerequisites. |
+| `Vault_ReadConfig` | `Read Targets` | Distinguishes current and snapshot CA public-key reads. |
+| `Vault_ManageConfig` | `Config Targets` | Identifies CA, zero-address, or tidy configuration. |
+| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists SSH configuration operations represented by the edge. |
 
 CA and zero-address configuration uses generic config edges. CA public keys are mount properties; unauthenticated public-key retrieval is not modeled as ACL authority. Role globs expand security outcomes to compatible observed roles.
 
@@ -833,6 +1413,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_SshGenerateOtp|Vault_SshSignKey|Vault_SshIssueKeyPair]->(:Vault_SshRole)
+RETURN p
 ```
 
 OTP generation returns a usable one-time password. Signing turns an attacker-supplied public key into an SSH certificate. Key-pair issuance returns new private-key material and its certificate. Role-mode compatibility is checked before any of these traversable edges are emitted.
@@ -849,6 +1436,14 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineTerraform OR n:Vault_TerraformRole
+RETURN p
 ```
 
 The mount stores Terraform Cloud address and token configuration. Role and generation properties identify token mode, organization, team or user target, TTL, and generated credential material.
@@ -875,11 +1470,47 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineTerraform` | `Address`, `Base Path`, `Platform Type`, `Custom Address`, `Access Config Visibility`, `Secret Material Visibility` | HCP Terraform or Terraform Enterprise endpoint and the read API's token-visibility boundary. |
-| `Vault_TerraformRole` | `Role Name`, `Organization`, `Team ID`, `User ID`, `Credential Type`, `Target Type`, `Target Identifier`, `Token Lifecycle Mode`, `Single Active Token`, `Dynamic Per Request`, `Rotatable`, `TTL Applies`, `Max TTL Applies`, `Lease Backed`, `Renewable`, `Returns Same Token Until Rotation`, `May Revoke Existing Token On Generation`, `Generation Effects` | Token ownership, target, rotation, lease, and replacement behavior. |
-| Terraform credential edges | `Scope Type`, `Credential Type`, `Target Type`, `Token Lifecycle Mode`, `Single Active Token`, `Dynamic Per Request`, `Rotatable`, `TTL Applies`, `Max TTL Applies`, `Lease Backed`, `Renewable`, `Returns Same Token Until Rotation`, `May Revoke Existing Token On Generation`, `Request Surface`, `Request Method` | Preserves organization/team/user token semantics after generic generation and configuration folding. |
+| `Vault_SecretsEngineTerraform` | `Address` | Stores the configured HCP Terraform or Terraform Enterprise address. |
+| `Vault_SecretsEngineTerraform` | `Base Path` | Stores the API base path. |
+| `Vault_SecretsEngineTerraform` | `Platform Type` | Distinguishes HCP Terraform from Terraform Enterprise. |
+| `Vault_SecretsEngineTerraform` | `Custom Address` | Indicates that a non-default service address is configured. |
+| `Vault_SecretsEngineTerraform` | `Access Config Visibility` | Records which configuration fields were visible to the collector. |
+| `Vault_SecretsEngineTerraform` | `Secret Material Visibility` | Records whether the API exposed configured token material. |
+| `Vault_TerraformRole` | `Role Name` | Identifies the Terraform Cloud role. |
+| `Vault_TerraformRole` | `Organization` | Identifies the target organization. |
+| `Vault_TerraformRole` | `Team ID` | Identifies the target team for team-token generation. |
+| `Vault_TerraformRole` | `User ID` | Identifies the target user for user-token generation. |
+| `Vault_TerraformRole` | `Credential Type` | Identifies the generated API token type. |
+| `Vault_TerraformRole` | `Target Type` | Distinguishes organization, team, and user targets. |
+| `Vault_TerraformRole` | `Target Identifier` | Stores the target organization, team, or user identifier. |
+| `Vault_TerraformRole` | `Token Lifecycle Mode` | Describes dynamic, rotatable, or persistent token behavior. |
+| `Vault_TerraformRole` | `Single Active Token` | Indicates that only one token remains active for the target. |
+| `Vault_TerraformRole` | `Dynamic Per Request` | Indicates that each request generates a new token. |
+| `Vault_TerraformRole` | `Rotatable` | Indicates that Vault can rotate the token. |
+| `Vault_TerraformRole` | `TTL Applies` | Indicates whether the role's TTL constrains the token. |
+| `Vault_TerraformRole` | `Max TTL Applies` | Indicates whether the role's maximum TTL constrains the token. |
+| `Vault_TerraformRole` | `Lease Backed` | Indicates whether Vault leases the token. |
+| `Vault_TerraformRole` | `Renewable` | Indicates whether the token lease can be renewed. |
+| `Vault_TerraformRole` | `Returns Same Token Until Rotation` | Indicates that repeated reads return the currently managed token. |
+| `Vault_TerraformRole` | `May Revoke Existing Token On Generation` | Indicates that generation can replace an existing active token. |
+| `Vault_TerraformRole` | `Generation Effects` | Describes token creation and replacement behavior. |
+| `Vault_GenerateCredentials` | `Scope Type` | Identifies organization, team, or user token scope. |
+| `Vault_GenerateCredentials` | `Credential Type` | Identifies the returned Terraform API token. |
+| `Vault_GenerateCredentials` | `Target Type` | Distinguishes organization, team, and user targets. |
+| `Vault_GenerateCredentials` | `Token Lifecycle Mode` | Describes dynamic or managed token behavior. |
+| `Vault_GenerateCredentials` | `Single Active Token` | Indicates whether generation maintains one active token. |
+| `Vault_GenerateCredentials` | `Dynamic Per Request` | Indicates whether each request creates a new token. |
+| `Vault_GenerateCredentials` | `Rotatable` | Indicates whether Vault can rotate the generated token. |
+| `Vault_GenerateCredentials` | `TTL Applies` | Indicates whether TTL constraints apply. |
+| `Vault_GenerateCredentials` | `Max TTL Applies` | Indicates whether maximum TTL constraints apply. |
+| `Vault_GenerateCredentials` | `Lease Backed` | Indicates whether Vault leases the generated token. |
+| `Vault_GenerateCredentials` | `Renewable` | Indicates whether the token lease is renewable. |
+| `Vault_GenerateCredentials` | `Returns Same Token Until Rotation` | Indicates managed-token read behavior. |
+| `Vault_GenerateCredentials` | `May Revoke Existing Token On Generation` | Indicates possible replacement of an existing token. |
+| `Vault_GenerateCredentials` | `Request Surface` | Identifies the Terraform credential endpoint. |
+| `Vault_GenerateCredentials` | `Request Method` | Records the endpoint HTTP method. |
 
 ### Attack Paths
 
@@ -889,6 +1520,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_GenerateCredentials]->(:Vault_TerraformRole)
+RETURN p
 ```
 
 The path yields a Terraform Cloud organization, team, or user API token according to the role. It proves token generation through Vault, while the resulting Terraform Cloud authorization remains an external-system concern.
@@ -905,6 +1543,14 @@ flowchart LR
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains*1..2]->(n)
+WHERE n:Vault_SecretsEngineTotp OR n:Vault_TotpKey
+RETURN p
 ```
 
 ### Nodes
@@ -930,11 +1576,25 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineTotp` | None beyond common mount properties | TOTP configuration is stored on individual keys. |
-| `Vault_TotpKey` | `Key Name`, `Issuer`, `Account Name`, `Period`, `Algorithm`, `Digits`, `Skew`, `Key Size`, `QR Size`, `Exported` | TOTP identity, algorithm, timing, code length, and seed export state. |
-| TOTP edges | `Key Operations`, `Credential Types`, `Credential Material`, `Generation Effects`, `Request Surfaces`, `Requirements` | Distinguishes code generation, validation, and key lifecycle operations. |
+| `Vault_SecretsEngineTotp` | None | TOTP-specific configuration is stored on individual keys. |
+| `Vault_TotpKey` | `Key Name` | Identifies the TOTP key configuration. |
+| `Vault_TotpKey` | `Issuer` | Records the issuer displayed by authenticator applications. |
+| `Vault_TotpKey` | `Account Name` | Records the account label displayed by authenticator applications. |
+| `Vault_TotpKey` | `Period` | Records the TOTP time-step duration. |
+| `Vault_TotpKey` | `Algorithm` | Identifies the TOTP hash algorithm. |
+| `Vault_TotpKey` | `Digits` | Records the number of digits in generated codes. |
+| `Vault_TotpKey` | `Skew` | Records accepted clock skew. |
+| `Vault_TotpKey` | `Key Size` | Records the seed size. |
+| `Vault_TotpKey` | `QR Size` | Records the generated enrollment QR-code size. |
+| `Vault_TotpKey` | `Exported` | Indicates whether key creation returned enrollment material. |
+| `Vault_TotpGenerateCode`<br>`Vault_TotpValidateCode`<br>`Vault_ManageObject` | `Key Operations` | Distinguishes generation, validation, and key lifecycle operations. |
+| `Vault_TotpGenerateCode` | `Credential Types` | Identifies the returned TOTP code. |
+| `Vault_TotpGenerateCode` | `Credential Material` | Indicates that a usable one-time code is returned. |
+| `Vault_TotpGenerateCode` | `Generation Effects` | Describes current-code generation. |
+| `Vault_TotpGenerateCode`<br>`Vault_TotpValidateCode` | `Request Surfaces` | Identifies the code-generation or validation endpoint. |
+| `Vault_TotpGenerateCode`<br>`Vault_TotpValidateCode` | `Requirements` | Lists key-state and request prerequisites. |
 
 Keys include issuer, account name, period, algorithm, digits, skew, key size, and export state where Vault returns them.
 
@@ -946,6 +1606,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef keyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_TotpGenerateCode]->(:Vault_TotpKey)
+RETURN p
 ```
 
 The edge is traversable because the endpoint returns a currently usable code. `Vault_TotpValidateCode` remains non-traversable because validation accepts a candidate code but does not reveal one.
@@ -964,6 +1631,14 @@ flowchart LR
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Store)-[:Vault_Contains|Vault_ManagedBy*1..3]->(n)
+WHERE n:Vault_SecretsEngineTransit OR n:Vault_TransitKey OR n:Vault_ManagedKey
+RETURN p
 ```
 
 ### Nodes
@@ -999,13 +1674,58 @@ flowchart LR
 
 ### Properties
 
-| Applies to | Non-common properties | Meaning |
+| Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_SecretsEngineTransit` | `Disable Upsert`, `Cache Size` | Whether operation endpoints may create missing keys and the backend cache setting. |
-| `Vault_TransitKey` | `Type`, `Auto-Rotation Period`, `Deletion Allowed`, `Derived`, `Exportable`, `Allow Plaintext Backup`, `Supports Encryption`, `Supports Decryption`, `Supports Signing`, `Supports Derivation`, `Supports HMAC`, `Supports CMAC`, `Imported Key`, `Allow Rotation`, `Latest Version`, `Min Decryption Version`, `Min Encryption Version`, `Min Available Version`, `Convergent Encryption`, `Convergent Version`, `Version Count`, `Managed`, `Managed Key Name`, `Managed Key ID`, `Managed Key Reference Known` | Key algorithm, version floor, supported operations, export/backup/rotation behavior, and managed-key backing. |
-| Transit cryptographic edges | `Key Types`, `Compatibility Status`, `Hash Algorithms`, `Signature Algorithms`, `Marshaling Algorithms`, `Prehashed`, `Context Required`, `Nonce Required`, `Batch Input Supported`, `Signing Targets`, `Verification Targets`, `Requirements` | Records key-type and request compatibility for encrypt, decrypt, sign, verify, HMAC, CMAC, rewrap, and data-key operations. |
-| Transit export edges | `Export Types`, `Export Outcomes`, `Versions`, `Destination Keys`, `Required Destination Key Types`, `Requirements` | Distinguishes raw secret export, public material, and BYOK-wrapped export. |
-| Transit lifecycle edges | `Operations`, `Conditional Key Settings`, `Import Types`, `Backup Formats`, `Restore Modes` | Identifies create/import, rotate, trim, configure, backup, restore, or delete behavior represented by generic object management. |
+| `Vault_SecretsEngineTransit` | `Disable Upsert` | Indicates whether operation endpoints may create missing keys. |
+| `Vault_SecretsEngineTransit` | `Cache Size` | Records the Transit backend cache size. |
+| `Vault_TransitKey` | `Type` | Identifies the key algorithm and primitive family. |
+| `Vault_TransitKey` | `Auto-Rotation Period` | Records the automatic key-version rotation interval. |
+| `Vault_TransitKey` | `Deletion Allowed` | Indicates whether the key may be deleted. |
+| `Vault_TransitKey` | `Derived` | Indicates that operations require a derivation context. |
+| `Vault_TransitKey` | `Exportable` | Indicates whether Vault permits raw key-material export. |
+| `Vault_TransitKey` | `Allow Plaintext Backup` | Indicates whether the key can be backed up in plaintext-wrapped Vault format. |
+| `Vault_TransitKey` | `Supports Encryption` | Indicates compatibility with encryption. |
+| `Vault_TransitKey` | `Supports Decryption` | Indicates compatibility with decryption. |
+| `Vault_TransitKey` | `Supports Signing` | Indicates compatibility with signing. |
+| `Vault_TransitKey` | `Supports Derivation` | Indicates support for context-derived keys. |
+| `Vault_TransitKey` | `Supports HMAC` | Indicates compatibility with HMAC generation and verification. |
+| `Vault_TransitKey` | `Supports CMAC` | Indicates compatibility with CMAC generation and verification. |
+| `Vault_TransitKey` | `Imported Key` | Indicates that key material was imported. |
+| `Vault_TransitKey` | `Allow Rotation` | Indicates whether new key versions may be created. |
+| `Vault_TransitKey` | `Latest Version` | Records the newest key version. |
+| `Vault_TransitKey` | `Min Decryption Version` | Records the oldest version permitted for decryption. |
+| `Vault_TransitKey` | `Min Encryption Version` | Records the minimum version used for encryption. |
+| `Vault_TransitKey` | `Min Available Version` | Records the oldest retained key version. |
+| `Vault_TransitKey` | `Convergent Encryption` | Indicates deterministic encryption support. |
+| `Vault_TransitKey` | `Convergent Version` | Records the convergent-encryption format version. |
+| `Vault_TransitKey` | `Version Count` | Records the number of retained key versions. |
+| `Vault_TransitKey` | `Managed` | Indicates that the Transit key is backed by a managed key. |
+| `Vault_TransitKey` | `Managed Key Name` | Names the backing managed key. |
+| `Vault_TransitKey` | `Managed Key ID` | Identifies the backing managed key. |
+| `Vault_TransitKey` | `Managed Key Reference Known` | Indicates whether the backing managed-key reference resolved. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify`<br>`Vault_PotentialAccess` | `Key Types` | Lists Transit key types compatible with the operation. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify`<br>`Vault_PotentialAccess` | `Compatibility Status` | Records whether the observed key is compatible, blocked, or unresolved. |
+| `Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify` | `Hash Algorithms` | Lists supported or selected digest algorithms. |
+| `Vault_TransitSign`<br>`Vault_TransitVerify` | `Signature Algorithms` | Lists supported or selected signature algorithms. |
+| `Vault_TransitSign`<br>`Vault_TransitVerify` | `Marshaling Algorithms` | Lists signature marshaling formats. |
+| `Vault_TransitSign`<br>`Vault_TransitVerify` | `Prehashed` | Indicates whether the endpoint receives a digest instead of raw input. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify` | `Context Required` | Indicates that the selected derived key requires a context value. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitGenerateDataKey` | `Nonce Required` | Indicates that the request must supply a nonce. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify` | `Batch Input Supported` | Indicates support for batch operation requests. |
+| `Vault_TransitSign` | `Signing Targets` | Distinguishes ordinary payload, digest, and CSR signing. |
+| `Vault_TransitVerify` | `Verification Targets` | Distinguishes signature, HMAC, and CMAC verification. |
+| `Vault_TransitEncrypt`<br>`Vault_TransitDecrypt`<br>`Vault_TransitGenerateDataKey`<br>`Vault_TransitRewrap`<br>`Vault_TransitSign`<br>`Vault_TransitGenerateCmac`<br>`Vault_TransitGenerateHmac`<br>`Vault_TransitVerify`<br>`Vault_PotentialAccess` | `Requirements` | Lists key type, context, exportability, or request prerequisites. |
+| `Vault_TransitExportKey`<br>`Vault_TransitExportByokKey`<br>`Vault_PotentialAccess` | `Export Types` | Distinguishes encryption, signing, HMAC, CMAC, public, and BYOK export types. |
+| `Vault_TransitExportKey`<br>`Vault_TransitExportByokKey`<br>`Vault_PotentialAccess` | `Export Outcomes` | Describes raw secret material, public material, or wrapped key output. |
+| `Vault_TransitExportKey`<br>`Vault_TransitExportByokKey` | `Versions` | Lists key versions selected for export. |
+| `Vault_TransitExportByokKey` | `Destination Keys` | Lists destination wrapping keys supplied for BYOK export. |
+| `Vault_TransitExportByokKey` | `Required Destination Key Types` | Lists acceptable destination wrapping-key types. |
+| `Vault_TransitExportKey`<br>`Vault_TransitExportByokKey`<br>`Vault_PotentialAccess` | `Requirements` | Lists exportability, key-type, version, or destination-key prerequisites. |
+| `Vault_CreateObject`<br>`Vault_ManageObject` | `Operations` | Lists create, import, rotate, trim, configure, backup, restore, or delete actions. |
+| `Vault_CreateObject`<br>`Vault_ManageObject` | `Conditional Key Settings` | Lists key settings that condition lifecycle viability. |
+| `Vault_CreateObject`<br>`Vault_ManageObject` | `Import Types` | Distinguishes ordinary and versioned key import. |
+| `Vault_ManageObject` | `Backup Formats` | Identifies Transit backup representations. |
+| `Vault_ManageObject` | `Restore Modes` | Distinguishes new-key and overwrite restore behavior. |
 
 Key properties include type, versions, derivation, convergent encryption, exportability, plaintext backup, rotation, operation support, and managed-key references. Key-type compatibility and exportability are enforced before traversable edges are emitted. Public key/certificate-chain reads use `Vault_ReadObject`, not secret export.
 
@@ -1021,6 +1741,13 @@ flowchart LR
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_TransitDecrypt|Vault_TransitSign|Vault_TransitGenerateCmac|Vault_TransitGenerateHmac|Vault_TransitExportKey]->(:Vault_TransitKey)
+RETURN p
 ```
 
 Decrypt is a plaintext oracle. Sign, CMAC, and HMAC exercise concrete cryptographic authority. `/sign/:key` records `Signing Targets: Message or Digest`, while `/keys/:key/csr` records `Signing Targets: Certificate Signing Request`; both merge into the same key edge when both surfaces are authorized. Secret export is emitted only when the observed key type supports the requested export and the key is exportable. Public-key reads use `Vault_ReadObject`, while BYOK-wrapped export uses non-traversable `Vault_TransitExportByokKey`.
