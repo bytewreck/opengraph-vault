@@ -22,26 +22,25 @@ The Managed Keys Store represents the namespace-local Enterprise registry at `sy
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MANAGED KEYS]:::storeNode
     store -->|Vault_Contains| managed[Vault_ManagedKey]:::managedKeyNode
-    transit[Vault_TransitKey]:::transitKeyNode -->|Vault_ManagedBy| managed
-    pki[Vault_PkiKey]:::pkiKeyNode -->|Vault_ManagedBy| managed
-    policy[Vault_Policy]:::policyNode -->|Vault_CanUseManagedKey| managed
+    transit[Vault_TransitKey]:::transitKeyNode -.->|Vault_ManagedBy| managed
+    pki[Vault_PkiKey]:::pkiKeyNode -.->|Vault_ManagedBy| managed
 
     classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef managedKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
     classDef transitKeyNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef pkiKeyNode fill:#A04000,color:#fff,stroke:#6E2C00,stroke-width:2px
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
+
+Solid arrows represent traversable relationships; dashed arrows represent non-traversable relationships. Edge labels and descriptions distinguish containment from configured references independently of line style.
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_Contains|Vault_ManagedBy|Vault_CanUseManagedKey*1..2]->(managed:Vault_ManagedKey)
+MATCH p = (s)-[:Vault_Contains|Vault_ManagedBy*1..2]->(managed:Vault_ManagedKey)
 WHERE s:Vault_Namespace
    OR s:Vault_TransitKey
    OR s:Vault_PkiKey
-   OR s:Vault_Policy
 RETURN p
 ```
 
@@ -92,11 +91,11 @@ Provider-returned PKCS#11, AWS KMS, Azure Key Vault, and GCP Cloud KMS fields ar
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Managed Keys Store]:::storeNode
-    policy -->|Vault_CreateObject| store
-    policy -->|Vault_ReadObject| managed[Vault_ManagedKey]:::managedKeyNode
-    policy -->|Vault_ManageObject| managed
-    policy -->|Vault_CanUseManagedKey| managed
+    policy[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Managed Keys Store]:::storeNode
+    policy -.->|Vault_CreateObject| store
+    policy -.->|Vault_ReadObject| managed[Vault_ManagedKey]:::managedKeyNode
+    policy -.->|Vault_ManageObject| managed
+    policy -.->|Vault_CanUseManagedKey| managed
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px

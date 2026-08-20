@@ -28,6 +28,16 @@ flowchart TD
 
 Containment is immediate-parent containment. A role belongs beneath its auth method or secrets engine, an issuer belongs beneath its PKI mount, and a KV pair belongs beneath its KV file. Namespace-to-grandchild shortcuts are not emitted.
 
+## Documentation Conventions
+
+The model and store guides use the following shared conventions:
+
+- The first diagram for a subsystem shows durable structure only, such as containment, membership, canonical identity mapping, and configured references.
+- Policy and principal access relationships belong under `Administration` or `Attack Paths`, not in the initial topology diagram.
+- A solid Mermaid arrow represents a traversable schema edge. A dashed Mermaid arrow represents a non-traversable schema edge.
+- Common cross-store edge families are documented once in this model or the relevant store-wide section. Per-technology edge tables list only edge kinds specialized for that auth method, secrets engine, or identity service.
+- Node and edge property tables identify exact schema kinds as their owners. Cross-cutting applicability categories are documented only when they are explicitly identified as categories rather than schema kinds.
+
 ## The Five Stores
 
 Each namespace receives five `Vault_Store` anchors. Stores are organizational and policy-targeting boundaries, not Vault mounts themselves.
@@ -250,7 +260,9 @@ Subsystem guides list every stable non-common property beside the node or edge t
 | `Creation Time` | string | Creation timestamp where returned. |
 | `Last Update Time` | string | Last-modification timestamp where returned. |
 
-### ACL Evidence
+### Policy-Derived Edge Metadata
+
+Policy-derived edge metadata is a cross-cutting applicability category, not a node kind or edge kind in the schema. These properties can appear on concrete access edges in any subsystem when the relationship was emitted from ACL path matching, identity-template resolution, or derived policy composition. Store guides name the exact schema edge kinds when documenting subsystem-specific additions.
 
 | Property | Type | Meaning |
 | --- | --- | --- |
@@ -261,36 +273,9 @@ Subsystem guides list every stable non-common property beside the node or edge t
 | `Surfaces` | string[] | Backend API surfaces represented by the edge. |
 | `Operations` | string[] | Human-readable actions represented by the edge. |
 | `Requirements` | string[] | Preconditions required for the operation to succeed. |
-
-Capabilities are endpoint-specific. A policy block containing `create`, `read`, `update`, `delete`, `list`, and `sudo` does not cause every emitted edge to carry all six values.
-
-### Generic Object Context
-
-| Property | Type | Meaning |
-| --- | --- | --- |
-| `Object Types` | string[] | Canonical target families such as Role, Key, Connection, or KV Secret. |
-| `Auth Method Types` | string[] | Authentication backend families represented by a generic edge. |
-| `Engine Types` | string[] | Secrets-engine families represented by a generic edge. |
-| `Role Types` | string[] | Dynamic, static, OTP, CA, token, or other role distinctions. |
-| `Read Targets` | string[] | Information returned by a read operation. |
-| `Config Targets` | string[] | Configuration surfaces affected by a read or manage edge. |
-| `Policy Link Types` | string[] | Direct, inherited, role, user, group, or backend-default policy assignment semantics. |
-
-### Derivation And Uncertainty
-
-| Property | Type | Meaning |
-| --- | --- | --- |
-| `Potential Only` | boolean | The outcome remains intentionally non-traversable because a prerequisite or target is unresolved. |
-| `Target Observed` | boolean | The destination was returned by Vault rather than inferred. |
-| `Potential Outcomes` | string[] | Security outcomes that could become available after uncertainty is resolved. |
-| `Resolution Status` | string[] | Reasons the collector cannot assert the full outcome. |
-| `Viable Operations` | string[] | Operations proven compatible with the observed target. |
-| `Operation Requirements` | string[] | Operation-qualified requirements such as CAS or target-state conditions. |
-
-### Identity Templates And Provenance
-
-| Property | Type | Meaning |
-| --- | --- | --- |
+| `Declared` | boolean | The relationship represents authority declared directly by a policy path. |
+| `Derived` | boolean | The relationship was composed from policy authority and additional collected context. |
+| `Effective` | boolean | The collector resolved the relationship to a concrete effective principal and target. |
 | `Templated` | boolean | The policy path contains a Vault identity template. |
 | `Template Entity Fields` | string[] | Entity attributes referenced by the template. |
 | `Template Alias Fields` | string[] | Alias attributes referenced by the template. |
@@ -303,7 +288,33 @@ Capabilities are endpoint-specific. A policy block containing `create`, `read`, 
 | `Inherited From Group IDs` | string[] | Groups through which policy authority was inherited. |
 | `Inherited From Group Names` | string[] | Human-readable names for the inherited group IDs. |
 
+Capabilities are endpoint-specific. A policy block containing `create`, `read`, `update`, `delete`, `list`, and `sudo` does not cause every emitted edge to carry all six values.
+
 Template-effective edges originate from the identity representation referenced by the template. Group inheritance remains provenance and does not automatically make the group the relationship source.
+
+`Vault_LinksPolicy` describes configured policy assignment rather than endpoint ACL matching. Its `Policy Link Types` property is documented canonically in the [Policy Store guide](stores/POLICIES.md#common-properties).
+
+### Generic Object Context
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Object Types` | string[] | Canonical target families such as Role, Key, Connection, or KV Secret. |
+| `Auth Method Types` | string[] | Authentication backend families represented by a generic edge. |
+| `Engine Types` | string[] | Secrets-engine families represented by a generic edge. |
+| `Role Types` | string[] | Dynamic, static, OTP, CA, token, or other role distinctions. |
+| `Read Targets` | string[] | Information returned by a read operation. |
+| `Config Targets` | string[] | Configuration surfaces affected by a read or manage edge. |
+
+### Derivation And Uncertainty
+
+| Property | Type | Meaning |
+| --- | --- | --- |
+| `Potential Only` | boolean | The outcome remains intentionally non-traversable because a prerequisite or target is unresolved. |
+| `Target Observed` | boolean | The destination was returned by Vault rather than inferred. |
+| `Potential Outcomes` | string[] | Security outcomes that could become available after uncertainty is resolved. |
+| `Resolution Status` | string[] | Reasons the collector cannot assert the full outcome. |
+| `Viable Operations` | string[] | Operations proven compatible with the observed target. |
+| `Operation Requirements` | string[] | Operation-qualified requirements such as CAS or target-state conditions. |
 
 ### Control Context
 

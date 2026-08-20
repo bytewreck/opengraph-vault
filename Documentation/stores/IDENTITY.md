@@ -19,6 +19,8 @@ The Identity Store represents Vault's namespace-local identity subsystem under `
 
 ## Common Topology
 
+Mermaid diagrams in this guide use solid arrows for traversable relationships and dashed arrows for non-traversable configuration, constraint, ownership, or evidence relationships.
+
 ```mermaid
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: IDENTITY]:::storeNode
@@ -70,7 +72,7 @@ The store is the destination for collection-wide list/create and identity config
 
 ### Common Edges
 
-Auth-specific principals do not replace canonical Vault identity. Where mount accessor and name correlation are available, they resolve through aliases.
+Auth-specific principals do not replace canonical Vault identity. A correlatable auth user or group enters the canonical Identity graph through the matching entity or group alias for the same auth mount accessor and external name. Policies remain linked to the canonical entity or group, never to the alias itself.
 
 ```mermaid
 flowchart LR
@@ -156,16 +158,83 @@ Group membership returned by Vault is modeled; VaultHound does not independently
 | `Vault_GroupAlias` | `Merged From Canonical IDs` | Lists prior canonical group IDs represented after merging. |
 | `Vault_GroupAlias` | `Creation Time` | Records when Vault created the group alias. |
 | `Vault_GroupAlias` | `Last Update Time` | Records the group alias's most recent update time. |
-| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct entity assignment, group assignment or inheritance, and other configured policy-grant sources. |
+
+The canonical `Vault_LinksPolicy.Policy Link Types` contract is documented once in [Policy Store common properties](POLICIES.md#common-properties). Identity uses the direct entity, direct group, and inherited group values from that shared contract.
+
+### Common Attack Paths
+
+Auth-specific users and groups enter these paths only when `Vault_MapsTo` proves a matching alias. From that point, alias resolution, canonical membership, and policy propagation are Identity responsibilities:
+
+```mermaid
+flowchart LR
+    authUser[Correlatable Vault_AuthUser]:::authNode -->|Vault_MapsTo| entityAlias[Vault_EntityAlias]:::entityAliasNode
+    entityAlias -->|Vault_MapsTo| entity[Vault_Entity]:::entityNode
+    entity -->|Vault_LinksPolicy| entityPolicy[Direct Vault_Policy]:::policyNode
+    entity -->|Vault_MemberOf| group[Vault_Group]:::groupNode
+    group -->|Vault_LinksPolicy| groupPolicy[Group Vault_Policy]:::policyNode
+
+    authGroup[Correlatable Vault_AuthGroup]:::authNode -->|Vault_MapsTo| groupAlias[Vault_GroupAlias]:::groupAliasNode
+    groupAlias -->|Vault_MapsTo| group
+    childGroup[Child Vault_Group]:::groupNode -->|Vault_MemberOf| group
+
+    classDef authNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (source)-[:Vault_MapsTo|Vault_MemberOf|Vault_LinksPolicy*1..]->(:Vault_Policy)
+WHERE source:Vault_AuthUser
+   OR source:Vault_AuthGroup
+   OR source:Vault_EntityAlias
+   OR source:Vault_GroupAlias
+   OR source:Vault_Entity
+   OR source:Vault_Group
+RETURN p
+```
+
+An entity receives directly linked policies and policies inherited through every traversable `Vault_MemberOf` chain. A group can likewise inherit from a parent group. Alias nodes resolve identity but do not carry policy assignments themselves.
+
+Parameter-aware alias rebinding and group-membership changes can turn administrative authority into control over a policy-bearing canonical identity:
+
+```mermaid
+flowchart LR
+    policyA[Controlling Vault_Policy]:::policyNode -->|Vault_ControlObject| identity[Vault_Entity or Vault_Group]:::identityNode
+    identity -->|Vault_LinksPolicy| policyB[Linked Vault_Policy]:::policyNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(identity)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE identity:Vault_Entity OR identity:Vault_Group
+RETURN p
+```
+
+| Control Method | Control Target | Evidence |
+| --- | --- | --- |
+| `Modify Group Membership` | Internal `Vault_Group` | Membership parameters on the group operation. |
+| `Rebind Controlled Entity Alias` | Candidate `Vault_Entity` | Controlled `Vault_EntityAlias` in `Via Object IDs` and `Via Object Names`. |
+| `Rebind Controlled Group Alias` | Candidate `Vault_Group` | Controlled `Vault_GroupAlias` in `Via Object IDs` and `Via Object Names`. |
+
+The takeover edge terminates directly at the canonical entity or group selected by the operation. The controlled alias is preserved as evidence; it is not inserted as an additional attack-path hop.
 
 ## Identity Administration
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Vault_Store: IDENTITY]:::storeNode
-    policy -->|Vault_CreateObject| store
-    policy -->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]:::identityNode
-    policy -->|Vault_ManageObject| object
+    policy[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Vault_Store: IDENTITY]:::storeNode
+    policy -.->|Vault_CreateObject| store
+    policy -.->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]:::identityNode
+    policy -.->|Vault_ManageObject| object
     policy -->|Vault_ControlObject| controlled[Takeover-capable identity target]:::identityNode
     controlled -->|Vault_LinksPolicy| granted[Vault_Policy]:::policyNode
 
@@ -235,54 +304,7 @@ Creating or managing an object is not automatically traversable. `Vault_ControlO
 
 ### Attack Paths
 
-Identity takeover can expose every policy linked to the controlled identity object:
-
-```mermaid
-flowchart LR
-    policyA["Vault_Policy A"]:::policyNode -->|Vault_ControlObject| group[Vault_Group]:::groupNode
-    group -->|Vault_LinksPolicy| policyB["Vault_Policy B"]:::policyNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(:Vault_Group)-[:Vault_LinksPolicy]->(:Vault_Policy)
-RETURN p
-```
-
-This path reaches only policies observed as linked to the controlled group. Policy-assignment parameters remain evidence on the relevant management or control edge and do not create a direct policy-to-policy relationship.
-
-Rebinding an alias under attacker control targets the candidate canonical identity directly:
-
-```mermaid
-flowchart LR
-    policyA["Vault_Policy A"]:::policyNode -->|Vault_ControlObject| identity["Vault_Entity or Vault_Group"]:::identityNode
-    identity -->|Vault_LinksPolicy| policyB["Vault_Policy B"]:::policyNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (:Vault_Policy)-[:Vault_ControlObject]->(identity)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE identity:Vault_Entity OR identity:Vault_Group
-RETURN p
-```
-
-The `Vault_ControlObject` properties distinguish this path from membership takeover:
-
-| Control Method | Control Target | Via Object |
-| --- | --- | --- |
-| `Modify Group Membership` | Internal `Vault_Group` | Membership parameters on the group operation |
-| `Rebind Controlled Entity Alias` | Candidate `Vault_Entity` | Controlled `Vault_EntityAlias` in `Via Object IDs` and `Via Object Names` |
-| `Rebind Controlled Group Alias` | Candidate `Vault_Group` | Controlled `Vault_GroupAlias` in `Via Object IDs` and `Via Object Names` |
-
-No additional alias hop follows `Vault_ControlObject`: the collector derives control over the canonical entity or group selected by the alias rebinding operation.
+Canonical alias resolution, membership inheritance, and the resulting alias- or group-takeover paths are documented under [Common Attack Paths](#common-attack-paths). Policy-assignment parameters remain evidence on the relevant management or control edge and do not create a direct policy-to-policy relationship.
 
 ```mermaid
 flowchart LR
@@ -308,12 +330,11 @@ The outbound OIDC model is distinct from the JWT/OIDC authentication method. Her
 
 ```mermaid
 flowchart LR
-    provider[Vault_OidcProvider]:::oidcProviderNode -->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]:::oidcApplicationNode
-    provider -->|Vault_OidcSupportsScope| scope[Vault_OidcScope]:::oidcScopeNode
-    app -->|Vault_References| key[Vault_OidcKey]:::oidcKeyNode
-    principal[Vault_Entity or Vault_Group]:::identityNode -->|Vault_OidcAssignedTo| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
-    assignment -->|Vault_OidcGrantsAccess| app
-    entity[Vault_Entity]:::entityNode -->|Vault_OidcAuthenticateTo| app
+    provider[Vault_OidcProvider]:::oidcProviderNode -.->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]:::oidcApplicationNode
+    provider -.->|Vault_OidcSupportsScope| scope[Vault_OidcScope]:::oidcScopeNode
+    app -.->|Vault_References| key[Vault_OidcKey]:::oidcKeyNode
+    principal[Vault_Entity or Vault_Group]:::identityNode -.->|Vault_OidcAssignedTo| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
+    assignment -.->|Vault_OidcGrantsAccess| app
 
     classDef oidcProviderNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
     classDef oidcApplicationNode fill:#1ABC9C,color:#111,stroke:#117864,stroke-width:2px
@@ -321,16 +342,17 @@ flowchart LR
     classDef oidcKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
     classDef oidcAssignmentNode fill:#2980B9,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_OidcAllowsApplication|Vault_OidcSupportsScope|Vault_References|Vault_OidcAssignedTo|Vault_OidcGrantsAccess|Vault_OidcAuthenticateTo*1..3]->(d)
+MATCH p = (s)-[:Vault_OidcAllowsApplication|Vault_OidcSupportsScope|Vault_References|Vault_OidcAssignedTo|Vault_OidcGrantsAccess*1..3]->(d)
 WHERE s:Vault_OidcProvider OR s:Vault_OidcApplication OR s:Vault_Entity OR s:Vault_Group
 RETURN p
 ```
+
+This opening diagram is configuration topology only. The composed `Vault_OidcAuthenticateTo` relationship and policy-authorized token generation are documented in the Attack Paths subsection below.
 
 ### Nodes
 
@@ -447,26 +469,22 @@ The path represents the ability to mint a Vault identity token through an observ
 
 ```mermaid
 flowchart LR
-    enforcement -->|Vault_MfaAppliesTo| target[Entity, group, or auth method]:::identityNode
-    enforcement[Vault_MfaLoginEnforcement]:::mfaEnforcementNode -->|Vault_MfaUsesMethod| method[Vault_MfaMethod]:::mfaMethodNode
-    policy[Vault_Policy]:::policyNode -->|Vault_MfaSelfEnroll| method
-    policy -->|Vault_MfaGenerateSecret| method
-    policy -->|Vault_PotentialAccess| entity[Vault_Entity]:::entityNode
+    enforcement[Vault_MfaLoginEnforcement]:::mfaEnforcementNode -.->|Vault_MfaAppliesTo| target[Entity, group, or auth method]:::identityNode
+    enforcement -.->|Vault_MfaUsesMethod| method[Vault_MfaMethod]:::mfaMethodNode
 
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef mfaEnforcementNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef mfaMethodNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_MfaAppliesTo|Vault_MfaUsesMethod|Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_PotentialAccess*1..2]->(d)
-WHERE s:Vault_MfaLoginEnforcement OR s:Vault_Policy
+MATCH p = (:Vault_MfaLoginEnforcement)-[:Vault_MfaAppliesTo|Vault_MfaUsesMethod]->(d)
 RETURN p
 ```
+
+This opening diagram shows only durable MFA constraints. Policy-derived enrollment and secret-generation evidence is shown under Attack Paths.
 
 ### Nodes
 
@@ -533,30 +551,45 @@ MFA methods and enforcements describe login prerequisites. The collector does no
 
 MFA topology edges and self-enrollment permissions are non-traversable because configuration or enrollment eligibility does not by itself bypass MFA. `identity/mfa/method/totp/admin-generate` resolves `entity_id` parameter constraints to observed entities and emits `Vault_PotentialAccess` with the returned TOTP enrollment secret, the primary-credential prerequisite, and the requirement that no enrollment exists or that it can first be destroyed. An unresolved entity selector remains anchored to the Identity Store. This is deliberately not `Vault_ReadCredential`: a TOTP seed alone is only one factor and does not prove control of the entity's primary login.
 
+```mermaid
+flowchart LR
+    policy[Vault_Policy]:::policyNode -.->|Vault_MfaSelfEnroll| method[Vault_MfaMethod]:::mfaMethodNode
+    policy -.->|Vault_MfaGenerateSecret| method
+    policy -.->|Vault_PotentialAccess| entity[Vault_Entity or Identity Store]:::identityNode
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef mfaMethodNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (:Vault_Policy)-[:Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_PotentialAccess]->(d)
+WHERE d:Vault_MfaMethod OR d:Vault_Entity OR d:Vault_Store
+RETURN p
+```
+
 ## SCIM
 
 ```mermaid
 flowchart LR
     client[Vault_ScimClient]:::scimNode -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]:::entityNode
     client -.->|Vault_ScimManages| resource["Client-owned Vault_Entity or Vault_Group"]:::identityNode
-    policy[Vault_Policy]:::policyNode -.->|Vault_ScimProtocolAccess| client
-    principal -.->|Vault_ScimReadResources| client
-    principal -.->|Vault_ScimProvisionResources| resource
-    principal -.->|Vault_PotentialAccess| client
 
     classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_ScimUsesPrincipal|Vault_ScimManages|Vault_ScimProtocolAccess|Vault_ScimReadResources|Vault_ScimProvisionResources|Vault_PotentialAccess*1..2]->(d)
-WHERE s:Vault_ScimClient OR s:Vault_Policy OR s:Vault_Entity
+MATCH p = (:Vault_ScimClient)-[:Vault_ScimUsesPrincipal|Vault_ScimManages]->(d)
 RETURN p
 ```
+
+This opening diagram shows configured principal selection and client ownership only. Declared protocol rights and principal-effective SCIM access are documented under Attack Paths.
 
 ### Nodes
 
@@ -607,6 +640,27 @@ RETURN p
 
 SCIM read, protocol, provisioning, ownership, and principal relationships are currently non-traversable evidence. `Vault_ScimManages` describes configured ownership but is not used as a containment fan-out or attack-path hop. This prevents read-only, collection-level, or unresolved SCIM access from implying control of every entity and group.
 
+```mermaid
+flowchart LR
+    policy[Vault_Policy]:::policyNode -.->|Vault_ScimProtocolAccess| client[Vault_ScimClient]:::scimNode
+    principal[Access-grant Vault_Entity]:::entityNode -.->|Vault_ScimReadResources| client
+    principal -.->|Vault_ScimProvisionResources| resource["Observed client-owned Vault_Entity or Vault_Group"]:::identityNode
+    principal -.->|Vault_PotentialAccess| client
+
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (s)-[:Vault_ScimProtocolAccess|Vault_ScimReadResources|Vault_ScimProvisionResources|Vault_PotentialAccess]->(d)
+WHERE s:Vault_Policy OR s:Vault_Entity
+RETURN p
+```
+
 ## Template Policies
 
 Identity templates can reference entity fields, an entity alias on a specific accessor, or an identity group by ID. The rendered effective edge originates from the referenced identity representation:
@@ -648,17 +702,9 @@ Policy inheritance from a group remains provenance on the edge. It does not make
 
 ### Properties
 
-Rendered template relationships use the destination subsystem's normal edge kind and properties. They additionally carry the common template provenance documented in [MODEL.md](../MODEL.md#identity-templates-and-provenance). There is no separate template-only relationship family.
+Rendered template relationships use the destination subsystem's exact operation edge kind and its ordinary properties; for example, a rendered KV read remains `Vault_KvReadSecret`. There is no template-only relationship kind to own a separate property table.
 
-| Node/Edge Type | Property | Description |
-| --- | --- | --- |
-| Template-resolved access edges | `Templated` | Indicates that an Identity template was rendered to produce the effective edge. |
-| Template-resolved access edges | `Template Entity Fields` | Lists entity, alias, or group fields referenced by the template. |
-| Template-resolved access edges | `Resolved For Entity IDs` | Lists canonical entities whose context was used during rendering. |
-| Template-resolved access edges | `Resolved Source Types` | Identifies whether the effective source is an entity, entity alias, or group. |
-| Template-resolved access edges | `Matched Policy Paths` | Preserves the original unrendered HCL template paths. |
-| Template-resolved access edges | `Matched Paths` | Lists concrete paths produced after template rendering. |
-| Template-resolved access edges | `Via Policies` | Lists policies that contributed the effective templated permission. |
+The cross-cutting `Templated`, `Template Entity Fields`, `Resolved For Entity IDs`, `Resolved Source Types`, `Matched Policy Paths`, `Matched Paths`, and `Via Policies` metadata is documented by the shared [Policy-Derived Edge Metadata](../MODEL.md#policy-derived-edge-metadata) contract. Destination-store catalogues document properties specific to each concrete edge kind.
 
 ### Attack Paths
 

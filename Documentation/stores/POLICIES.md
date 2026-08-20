@@ -19,18 +19,18 @@ The Policy Store contains namespace-local policy documents and anchors policy-re
 
 ## Common Topology
 
+In schema topology diagrams, solid arrows represent traversable relationships and dashed arrows represent non-traversable relationships. Processing-flow diagrams are explicitly identified and do not use this graph-edge convention.
+
 ```mermaid
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: POLICIES]:::storeNode
     store -->|Vault_Contains| policy[Vault_Policy]:::policyNode
     identity[Entity, group, or auth object]:::identityNode -->|Vault_LinksPolicy| policy
-    policy -->|Vault_KvReadSecret| target[Vault_KvFile]:::objectNode
 
     classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef objectNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
 ```
 
 Equivalent Cypher query:
@@ -38,11 +38,10 @@ Equivalent Cypher query:
 ```cypher
 MATCH registry = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(policy:Vault_Policy)
 OPTIONAL MATCH grants = (principal)-[:Vault_LinksPolicy]->(policy)
-OPTIONAL MATCH outcomes = (policy)-[:Vault_KvReadSecret]->(:Vault_KvFile)
-RETURN registry, grants, outcomes
+RETURN registry, grants
 ```
 
-`Vault_KvReadSecret` is a concrete representative outcome in the common topology. The destination subsystem catalogues document the other policy-derived access edge kinds.
+The common topology stops at the policy authority boundary. Concrete outcomes declared by a policy are documented under [Attack Paths](#attack-paths) and in the destination subsystem catalogue.
 
 ### Common Nodes
 
@@ -90,7 +89,7 @@ RETURN p
 | `Vault_Contains` | Policy Store | Policy | :white_check_mark: | Observed policy belongs to this namespace registry. |
 | `Vault_LinksPolicy` | Identity or auth configuration object | Policy | :white_check_mark: | Object directly receives or grants the policy. |
 
-`Policy Link Types` distinguishes direct entity assignment, group inheritance, auth-role grant, auth-user grant, auth-group grant, and backend defaults. The edge describes configured policy acquisition; it is not merely a textual reference.
+The edge describes configured policy acquisition rather than a textual reference. Its assignment semantics are defined once in [Common Properties](#common-properties).
 
 ### Common Properties
 
@@ -116,10 +115,10 @@ The collector stores parsed ACL rules internally for edge resolution. Raw secret
 
 ```mermaid
 flowchart LR
-    admin[Vault_Policy]:::policyNode -->|Vault_ListObjects| store[Policy Store]:::storeNode
-    admin -->|Vault_CreateObject| store
-    admin -->|Vault_ReadObject| target[Vault_Policy]:::policyNode
-    admin -->|Vault_ManageObject| target
+    admin[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Policy Store]:::storeNode
+    admin -.->|Vault_CreateObject| store
+    admin -.->|Vault_ReadObject| target[Vault_Policy]:::policyNode
+    admin -.->|Vault_ManageObject| target
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -152,7 +151,6 @@ Ordinary policy management is non-traversable. Merely being able to modify a pol
 
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
-| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct identity assignment, group assignment or inheritance, auth role/user/group grants, and backend defaults. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | Identifies the policy object family affected by the generic edge. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Policy Types` | Lists ACL, RGP, or EGP registry types represented by the edge. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Operations` | Lists the concrete policy-registry actions authorized by the edge. |
@@ -230,6 +228,8 @@ For each path block, VaultHound:
 5. Emits only operation-relevant capabilities on the resulting edge.
 6. Applies deny precedence and endpoint-specific sudo requirements.
 
+The following diagram is a collector processing flow, not a graph topology; its arrows show processing order rather than relationship traversability.
+
 ```mermaid
 flowchart LR
     document[Vault_Policy]:::policyNode --> block[HCL path block]:::processNode
@@ -263,19 +263,9 @@ The collector does not treat all capabilities as interchangeable. `read` on KV d
 
 ## Policy Evidence Properties
 
-| Node/Edge Type | Property | Description |
-| --- | --- | --- |
-| Policy-derived access edge | `Capabilities` | Lists only the Vault capabilities needed for the exported operation. |
-| Policy-derived access edge | `Matched Paths` | Lists concrete or template-rendered request paths. |
-| Policy-derived access edge | `Matched Policy Paths` | Lists the original HCL paths before template rendering. |
-| Policy-derived access edge | `Scopes` | Identifies exact, pattern, collection, subtree, mount, or similar scope. |
-| Policy-derived access edge | `Surfaces` | Identifies endpoint families such as KV metadata or PKI issue. |
-| Policy-derived access edge | `Operations` | Lists the human-readable actions represented by the relationship. |
-| Policy-derived access edge | `Requirements` | Lists known runtime or endpoint prerequisites. |
-| Derived principal access edge | `Via Policies` | Lists policies contributing to a derived effective relationship. |
-| Derived principal access edge | `Policy Origins` | Identifies direct, group-inherited, auth-role, or other provenance. |
+Policy-derived relationship kinds use the shared [Policy-Derived Edge Metadata](../MODEL.md#policy-derived-edge-metadata) contract for `Capabilities`, `Matched Paths`, `Matched Policy Paths`, `Scopes`, `Surfaces`, `Operations`, `Requirements`, template-resolution fields, and provenance such as `Via Policies` and `Policy Origins`.
 
-Properties that merge evidence from multiple matching path blocks are arrays. The raw policy remains available on the policy node, so access edges keep the context needed to understand the represented operation rather than repeating the entire policy.
+Those contracts apply to the concrete schema relationship kind being emitted, such as `Vault_KvReadSecret`, `Vault_GenerateCredentials`, or `Vault_ControlObject`; “policy-derived access edge” is not itself a node or edge kind. Properties that merge evidence from multiple matching path blocks are arrays. The raw policy remains available on the policy node, so access edges keep the context needed to understand the represented operation rather than repeating the entire policy.
 
 ## Deny, Sudo, And Parameters
 

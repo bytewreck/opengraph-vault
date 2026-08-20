@@ -114,7 +114,6 @@ The tables in each method section list only stable properties beyond the common 
 | `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Period` | Records the renewal period for periodic tokens. |
 | `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Token Type` | Identifies the type of token issued by the authentication object. |
 | `Vault_AuthRole`<br>`Vault_AuthUser`<br>`Vault_AuthGroup` | `Alias Metadata Keys` | Lists backend fields copied into Identity alias metadata during login. |
-| `Vault_LinksPolicy` | `Policy Link Types` | Distinguishes direct assignments, authentication grants, auth-method defaults, and unregistered-user defaults. |
 
 Collection globs expand read and manage rights to compatible observed children. Collection-wide creation remains anchored to the auth method and is non-traversable. Exact missing children may be emitted as detached synthetic nodes.
 
@@ -148,28 +147,21 @@ RETURN p
 
 These links describe the policy outcome after successful external authentication. They do not prove possession of GitHub, LDAP, Okta, RADIUS, or Kerberos credentials.
 
-Auth configuration participates in attack paths in three ways:
+Auth configuration enters policy and Identity paths in three ways:
 
 ```mermaid
 flowchart LR
     AU[Vault_AuthUser]:::authUserNode -->|Vault_MapsTo| EA[Vault_EntityAlias]:::entityAliasNode
-    EA -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
     AU -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
     AR[Vault_AuthRole]:::authRoleNode -->|Vault_LinksPolicy| P1
     AG[Vault_AuthGroup]:::authGroupNode -->|Vault_MapsTo| GA[Vault_GroupAlias]:::groupAliasNode
-    VE -->|Vault_MemberOf| VG[Vault_Group]:::groupNode
-    GA -->|Vault_MapsTo| VG
     AG -->|Vault_LinksPolicy| P1
-    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
-    VG -->|Vault_LinksPolicy| P2
     AU -->|Vault_MemberOf| AG
 
     classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
     classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
     classDef authGroupNode fill:#5499C7,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
     classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
@@ -177,12 +169,15 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_MemberOf|Vault_MapsTo|Vault_LinksPolicy*1..]->(d:Vault_Policy)
-WHERE (s:Vault_AuthUser OR s:Vault_AuthGroup OR s:Vault_AuthRole OR s:Vault_Entity)
+MATCH p = (s)-[:Vault_MemberOf|Vault_MapsTo|Vault_LinksPolicy]->(d)
+WHERE (s:Vault_AuthUser OR s:Vault_AuthGroup OR s:Vault_AuthRole)
+  AND (d:Vault_AuthGroup OR d:Vault_EntityAlias OR d:Vault_GroupAlias OR d:Vault_Policy)
 RETURN p
 ```
 
-The direct branch records policies configured on the auth principal. The identity-resolution branch records additional policies reached through canonical Vault Identity. Both describe policy outcomes if the represented external authentication succeeds; the collector does not assert possession of the external credential.
+The `Vault_LinksPolicy` branches record policies configured directly on auth roles, users, and groups. `Vault_MemberOf` records auth-backend group membership. For correlatable auth users and groups, `Vault_MapsTo` stops at the corresponding `Vault_EntityAlias` or `Vault_GroupAlias`; canonical alias resolution, Identity group membership, and Identity policy propagation are documented in [Identity Store topology](IDENTITY.md#common-topology) and [Identity attack paths](IDENTITY.md#common-attack-paths). These relationships describe outcomes after successful external authentication; the collector does not assert possession of the external credential.
+
+The canonical definition of `Vault_LinksPolicy.Policy Link Types`, including auth-object and backend-default values, lives in [Policy Store properties](POLICIES.md#common-properties).
 
 ```mermaid
 flowchart LR
@@ -239,7 +234,7 @@ Configuration uses `Vault_ReadConfig` and `Vault_ManageConfig`; role CRUD uses g
 | `Vault_AuthMethodAliCloud` | AliCloud authentication mount and backend configuration. |
 | `Vault_AuthAliCloudRole` | RAM role and principal constraints used to authorize AliCloud login. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -284,7 +279,7 @@ RETURN mount, roles
 | `Vault_AuthMethodApprole` | AppRole authentication mount and backend configuration. |
 | `Vault_AuthApproleRole` | AppRole login configuration, RoleID behavior, SecretID constraints, and granted policies. |
 
-### Edges
+### Specialized Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -369,7 +364,7 @@ RETURN mount, roles
 | `Vault_AuthMethodAws` | AWS authentication mount and IAM/STS verification configuration. |
 | `Vault_AuthAwsRole` | IAM or EC2 login selector, constraints, and token-policy outcome. |
 
-### Edges
+### Specialized Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -453,7 +448,7 @@ Mount-wide tenant, environment, resource, and identity credential settings use g
 | `Vault_AuthMethodAzure` | Azure authentication mount and tenant/resource verification configuration. |
 | `Vault_AuthAzureRole` | Azure identity, group, subscription, resource, and service-principal login constraints. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -529,7 +524,7 @@ Unrestricted replacement of `identity_ca_certificates` derives `Vault_ControlObj
 | `Vault_AuthMethodCf` | Cloud Foundry authentication mount and trusted platform configuration. |
 | `Vault_AuthCfRole` | Organization, space, application, and certificate constraints for Cloud Foundry login. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -593,7 +588,7 @@ The collector models Vault's binding configuration but does not independently pr
 | `Vault_AuthMethodGcp` | GCP authentication mount and identity-verification configuration. |
 | `Vault_AuthGcpRole` | IAM or GCE login role with service-account, project, zone, and instance constraints. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -678,7 +673,7 @@ User and team CRUD uses generic object edges. External organization membership i
 | `Vault_AuthGithubUser` | GitHub user-to-policy mapping known to Vault. |
 | `Vault_AuthGithubTeam` | GitHub team-to-policy mapping known to Vault. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -702,7 +697,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-GitHub users and teams follow the common auth-user and auth-group policy-link and identity-correlation paths. These paths expose both policies configured on the GitHub mapping and policies accumulated through canonical Vault Identity. They do not prove control of the GitHub account or membership in the external organization.
+GitHub users and teams use the common auth-native policy links and, when correlatable, enter Identity through `Vault_MapsTo` edges to entity or group aliases. Canonical resolution beyond those aliases is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). These relationships do not prove control of the GitHub account or membership in the external organization.
 
 ## JWT/OIDC
 
@@ -735,7 +730,7 @@ Mount properties include discovery, verification keys, bound issuer, algorithms,
 | `Vault_AuthMethodJwtOidc` | JWT/OIDC authentication mount and token-verification trust configuration. |
 | `Vault_AuthJwtOidcRole` | JWT or OIDC login role with claim, audience, redirect, and policy mappings. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -823,7 +818,7 @@ SPN, keytab, LDAP, case behavior, and token configuration use method properties 
 | `Vault_AuthMethodKerberos` | Kerberos authentication mount and SPN, keytab, and LDAP configuration. |
 | `Vault_AuthKerberosGroup` | Kerberos or LDAP group-to-policy mapping known to Vault. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -861,7 +856,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-Kerberos groups follow the common auth-group policy-link and identity-correlation paths. Group-alias correlation is emitted only when the method is configured to add group aliases. These paths expose direct group policies and canonical Vault group policies, but do not prove Kerberos credential possession or external directory membership.
+Kerberos groups use the common auth-group policy links and can enter Identity through a group alias only when the method is configured to add group aliases. Canonical group resolution and policy propagation are documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). These relationships do not prove Kerberos credential possession or external directory membership.
 
 ## Kubernetes
 
@@ -894,7 +889,7 @@ The mount records Kubernetes host, CA, token reviewer, issuer validation, and se
 | `Vault_AuthMethodKubernetes` | Kubernetes authentication mount and token-review trust configuration. |
 | `Vault_AuthKubernetesRole` | Service-account, namespace, audience, and token-policy login constraints. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -968,7 +963,7 @@ Configuration includes URLs, bind DN behavior, user/group search, nested groups,
 | `Vault_AuthLdapUser` | LDAP user-to-policy mapping known to Vault. |
 | `Vault_AuthLdapGroup` | LDAP group-to-policy mapping known to Vault. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1019,7 +1014,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-LDAP users and groups follow the common auth-user and auth-group policy-link and identity-correlation paths. `Vault_MemberOf` additionally exposes policies inherited from collected LDAP group mappings. LDAP auth-group records are not correlated to Vault Group Aliases by the collector, and these paths do not assert live LDAP credentials or complete directory membership.
+LDAP users and groups use the common auth-native policy links, and `Vault_MemberOf` exposes policies inherited from collected LDAP group mappings. Correlatable LDAP users can enter Identity through entity aliases; LDAP auth-group records are not correlated to Vault group aliases by the collector. Canonical alias resolution is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). These relationships do not assert live LDAP credentials or complete directory membership.
 
 ## OCI
 
@@ -1052,7 +1047,7 @@ VaultHound preserves the configured OCI selectors but does not independently res
 | `Vault_AuthMethodOci` | OCI authentication mount and signed-request verification configuration. |
 | `Vault_AuthOciRole` | OCI group, dynamic-group, tenancy, and compartment login constraints. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1110,7 +1105,7 @@ Okta's API token is a write-only configuration input and is not returned by the 
 | `Vault_AuthOktaUser` | Okta user-to-policy mapping known to Vault. |
 | `Vault_AuthOktaGroup` | Okta group-to-policy mapping known to Vault. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1135,7 +1130,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-Okta users and groups follow the common auth-user and auth-group policy-link and identity-correlation paths. These paths expose policies configured on the Okta mapping and policies accumulated through canonical Vault Identity. External Okta authentication and live group membership are not independently proven. Alias correlation records matching Vault Identity aliases without claiming that Vault returned the configured Okta API token.
+Okta users and groups use the common auth-native policy links and, when correlatable, enter Identity through entity or group aliases. Canonical resolution beyond those aliases is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). External Okta authentication and live group membership are not independently proven. Alias correlation records matching Vault Identity aliases without claiming that Vault returned the configured Okta API token.
 
 ## RADIUS
 
@@ -1168,7 +1163,7 @@ Server, port, shared-secret-related configuration, NAS settings, and token behav
 | `Vault_AuthMethodRadius` | RADIUS authentication mount and server/NAS configuration. |
 | `Vault_AuthRadiusUser` | RADIUS username-to-policy mapping known to Vault. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1193,7 +1188,7 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-RADIUS users follow the common auth-user policy-link and identity-correlation paths. These paths expose policies configured on the RADIUS user and policies accumulated through canonical Vault Identity. No policy-to-login path is emitted because the RADIUS password exchange is external and unauthenticated from Vault's ACL perspective.
+RADIUS users use the common auth-native policy links and, when correlatable, enter Identity through entity aliases. Canonical resolution beyond those aliases is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). No policy-to-login path is emitted because the RADIUS password exchange is external and unauthenticated from Vault's ACL perspective.
 
 ## SAML
 
@@ -1228,7 +1223,7 @@ Configuration includes IdP metadata or certificate trust, entity IDs, SSO URLs, 
 | `Vault_AuthMethodSaml` | SAML authentication mount and identity-provider trust configuration. |
 | `Vault_AuthSamlRole` | SAML subject, attribute, group, and policy constraints. |
 
-### Edges
+### Specialized Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -1303,7 +1298,7 @@ Challenge, validation, authentication type, role compatibility, and token policy
 | `Vault_AuthMethodScep` | SCEP authentication mount and enrollment-challenge configuration. |
 | `Vault_AuthScepRole` | SCEP enrollment authentication and token-policy constraints. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1368,7 +1363,7 @@ RETURN mount, roles, matches
 | `Vault_AuthMethodSpiffe` | SPIFFE authentication mount and bundle/trust-domain configuration. |
 | `Vault_AuthSpiffeRole` | JWT or X.509 SVID workload selectors and token-policy constraints. |
 
-### Edges
+### Specialized Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -1424,7 +1419,7 @@ RETURN mount, roles, matches
 
 ### Attack Paths
 
-SPIFFE aliases can resolve into canonical identity through `Vault_MapsTo`, but `Vault_AuthSpiffeMayMatchRole` is not an attack-path hop. It records compatibility only; a valid workload credential is an unresolved external prerequisite.
+SPIFFE aliases can enter the canonical Identity topology described in [Identity Store attack paths](IDENTITY.md#common-attack-paths), but `Vault_AuthSpiffeMayMatchRole` is not an attack-path hop. It records compatibility only; a valid workload credential is an unresolved external prerequisite.
 
 ## TLS Certificate
 
@@ -1461,7 +1456,7 @@ Roles include trusted certificate material, names, DNS/email/URI constraints, or
 | `Vault_AuthTlsCertRole` | Trusted certificate role and subject, SAN, extension, or OCSP constraints. |
 | `Vault_AuthTlsCertCrl` | Certificate revocation list configured for TLS certificate authentication. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1538,7 +1533,7 @@ RETURN mount, roles
 | `Vault_AuthMethodToken` | Built-in token authentication and token-management endpoint family. |
 | `Vault_AuthTokenRole` | Named token-creation constraints, allowed policies, aliases, TTLs, and token behavior. |
 
-### Edges
+### Specialized Edges
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -1619,22 +1614,19 @@ RETURN p
 ```mermaid
 flowchart LR
     P1[Vault_Policy]:::policyNode -->|Vault_AuthTokenCreatePrivilegedToken| EA[Vault_EntityAlias]:::entityAliasNode
-    EA -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
-    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_EntityAlias)-[:Vault_MapsTo]->(:Vault_Entity)-[:Vault_LinksPolicy]->(:Vault_Policy)
+MATCH p = (:Vault_Policy)-[:Vault_AuthTokenCreatePrivilegedToken]->(:Vault_EntityAlias)
 RETURN p
 ```
 
-The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies. `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
+The role target is used when an observed role delegates policies beyond the caller's baseline. The Policy Store target represents sudo-authorized bare `/create` or `/create-orphan` issuance with namespace-wide policy selection. The entity-alias target is used when an observed `allowed_entity_aliases` selection resolves to an entity with additional effective policies; the canonical continuation from that alias is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). `Vault_AuthTokenCreateRestrictedToken` remains non-traversable because it cannot normally grant more than the caller's policy subset. Token lookup, renewal, revocation, and accessor listing are also non-traversable.
 
 ## UserPass
 
@@ -1667,7 +1659,7 @@ Password, policy, and token-setting updates are generic object management. An un
 | `Vault_AuthMethodUserpass` | UserPass authentication mount and backend configuration. |
 | `Vault_AuthUserpassUser` | Local username, password state, token settings, and policy grants. |
 
-### Edges
+### Specialized Edges
 
 This authentication method does not define any specialized edges.
 
@@ -1687,4 +1679,4 @@ This authentication method does not define any specialized edges.
 
 ### Attack Paths
 
-UserPass uses the common object-takeover-to-policy and auth-user identity-correlation paths when a policy can set an attacker-controlled password for the concrete user. Traversal can reach policies already configured on the UserPass user directly and additional policies through the user's observed identity mapping. Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.
+UserPass uses the common object-takeover-to-policy path when a policy can set an attacker-controlled password for the concrete user. The user retains its auth-native policy links and, when correlatable, enters Identity through an entity alias; canonical resolution beyond that alias is documented in [Identity Store attack paths](IDENTITY.md#common-attack-paths). Possible assignment of other policies remains edge evidence rather than a synthetic shortcut.

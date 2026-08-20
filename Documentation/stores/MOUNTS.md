@@ -52,6 +52,8 @@ The following matrix summarizes secrets-engine implementation and test status:
 
 ## Common Topology
 
+Across this guide, solid Mermaid arrows represent traversable edges and dashed arrows represent non-traversable edges. Line style describes traversability only; ownership and dependency semantics come from the edge kind and its description.
+
 ```mermaid
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MOUNTS]:::storeNode
@@ -75,7 +77,7 @@ OPTIONAL MATCH references = (object)-[:Vault_References]->(dependency)
 RETURN hierarchy, children, references
 ```
 
-Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead. Dashed relationships represent non-owning dependencies rather than traversable containment.
+Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead.
 
 ### Common Nodes
 
@@ -90,14 +92,17 @@ Specific mounts carry their display kind first and `Vault_SecretsEngine` as a ba
 | --- | --- | --- | :---: | --- |
 | `Vault_Contains` | Mount Store, secrets engine, or hierarchical resource | Secrets engine or immediate observed child | :white_check_mark: | Places mounts and their observed resources in the namespace hierarchy. |
 | `Vault_References` | Configured secrets-engine resource | Referenced dependency | :x: | Records a non-owning dependency such as issuer-to-key or role-to-connection. |
+| `Vault_ManagedBy` | Transit key | Managed key | :x: | Records that a Transit key delegates cryptographic custody to a managed key. |
 | `Vault_ListObjects` | Policy | Secrets engine or collection anchor | :x: | Lists roles, keys, accounts, connections, KV children, or another engine-specific collection. |
 | `Vault_CreateObject` | Policy | Secrets engine, collection anchor, or exact synthetic target | :x: | Creates an object or records authority to create an unobserved exact target. |
 | `Vault_ReadObject` | Policy | Concrete secrets-engine child | :x: | Reads durable configuration on a concrete child. |
 | `Vault_ManageObject` | Policy | Concrete secrets-engine child | :x: | Updates, deletes, rotates, imports, or otherwise administers a concrete child. |
+| `Vault_ControlObject` | Policy or principal | Concrete secrets-engine child | :white_check_mark: | Derives effective control only when a proven security-bearing mutation can take over the concrete object. |
 | `Vault_ReadConfig` | Policy | Secrets-engine mount | :x: | Reads mount, tuning, or backend-wide configuration. |
 | `Vault_ManageConfig` | Policy | Secrets-engine mount | :x: | Changes configuration, tuning, root credentials, or maintenance state. |
 | `Vault_GenerateCredentials` | Policy | Concrete viable secrets role | :white_check_mark: | Obtains dynamic credentials through an endpoint with proven prerequisites. |
 | `Vault_ReadStaticCredentials` | Policy | Concrete static role or account | :white_check_mark: | Reads a managed static credential. |
+| `Vault_PotentialAccess` | Policy or template-resolved principal | Synthetic or unresolved target | :x: | Records an otherwise security-relevant operation whose target, compatibility, or external prerequisite is not proven. |
 
 Generic edges retain `Engine Types`, `Object Types`, `Role Types`, `Operations`, `Credential Types`, `Read Targets`, `Config Targets`, request surfaces, and prerequisites.
 
@@ -110,8 +115,8 @@ The tables in each engine section list stable properties beyond the common contr
 | `Vault_SecretsEngine` | `KV Version` | Identifies the KV protocol version when the mount is a KV backend. |
 | `Vault_SecretsEngine` | `Delegated Auth Accessors` | Lists auth mount accessors delegated by the secrets engine. |
 | `Vault_SecretsEngine` | `Allowed Managed Keys` | Lists managed keys the mount is configured to use. |
-| Secrets-engine child nodes | `Engine Path` | Identifies the parent mount's API path. |
-| Secrets-engine child nodes | `Logical Path` | Identifies the child object's logical path within the mount. |
+| `Vault_SecretsRole`<br>`Vault_DatabaseConnection`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount`<br>`Vault_GcpKmsKey`<br>`Vault_KvDirectory`<br>`Vault_KvFile`<br>`Vault_KvPair`<br>`Vault_LdapLibrarySet`<br>`Vault_LdapServiceAccount`<br>`Vault_PkiIssuer`<br>`Vault_PkiKey`<br>`Vault_TotpKey`<br>`Vault_TransitKey` | `Engine Path` | Identifies the parent mount's API path. |
+| `Vault_SecretsRole`<br>`Vault_DatabaseConnection`<br>`Vault_GcpStaticAccount`<br>`Vault_GcpImpersonatedAccount`<br>`Vault_GcpKmsKey`<br>`Vault_KvDirectory`<br>`Vault_KvFile`<br>`Vault_KvPair`<br>`Vault_LdapLibrarySet`<br>`Vault_LdapServiceAccount`<br>`Vault_PkiIssuer`<br>`Vault_PkiKey`<br>`Vault_TotpKey`<br>`Vault_TransitKey` | `Logical Path` | Identifies the child object's logical path within the mount. |
 | `Vault_References`<br>`Vault_ManagedBy` | `Reference Types` | Classifies the non-owning dependency. |
 | `Vault_References`<br>`Vault_ManagedBy` | `Reference Evidence` | Identifies the configuration field that proves the dependency. |
 | `Vault_GenerateCredentials`<br>`Vault_ReadStaticCredentials` | `Credential Types` | Lists the credential forms returned by the operation. |
@@ -165,20 +170,11 @@ Root credentials, lease settings, root rotation, and mount tuning use generic co
 | `Vault_AwsRole` | Dynamic IAM or STS credential-generation role. |
 | `Vault_AwsStaticRole` | Existing IAM user whose credential rotation is managed by Vault. |
 
-### Edges
+### Specialized Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or AWS mount | AWS mount, dynamic role, or static role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | AWS mount | :x: | Reads root, lease, or mount configuration. |
-| `Vault_ManageConfig` | Policy | AWS mount | :x: | Changes root credentials, lease settings, tuning, or performs root rotation. |
-| `Vault_ListObjects` | Policy | AWS mount | :x: | Lists dynamic or static roles. |
-| `Vault_CreateObject` | Policy | AWS mount or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | AWS role or static role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | AWS role or static role | :x: | Updates, deletes, or rotates a concrete role. |
-| `Vault_GenerateCredentials` | Policy | AWS role | :white_check_mark: | Generates credentials through at least one proven viable dynamic mode. |
-| `Vault_ReadStaticCredentials` | Policy | AWS static role | :white_check_mark: | Returns the IAM user's credential managed by Vault. |
-| `Vault_PotentialAccess` | Policy | AWS role | :x: | Records generation with unresolved MFA or another external prerequisite. |
+Common containment, configuration, object-lifecycle, credential, and potential-access behavior is documented in [Common Edges](#common-edges).
+
+This secrets engine does not define any specialized edges.
 
 ### Properties
 
@@ -296,20 +292,13 @@ Roles retain Azure role assignments, groups, application settings, TTL behavior,
 | `Vault_AzureRole` | Dynamic Azure service-principal credential-generation role. |
 | `Vault_AzureStaticRole` | Existing Azure application whose credential is managed by Vault. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, object-lifecycle, and credential behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or Azure mount | Azure mount, dynamic role, or static role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Azure mount | :x: | Reads root, lease, or mount configuration. |
-| `Vault_ManageConfig` | Policy | Azure mount | :x: | Changes Azure backend configuration, tuning, or root credentials. |
-| `Vault_ListObjects` | Policy | Azure mount | :x: | Lists dynamic or static roles. |
-| `Vault_CreateObject` | Policy | Azure mount or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Azure role or static role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | Azure role or static role | :x: | Updates, deletes, or rotates a concrete role. |
 | `Vault_AzureImportStaticRole` | Policy | Azure static role or mount | :x: | Imports an existing application credential into Vault management. |
-| `Vault_GenerateCredentials` | Policy | Azure role | :white_check_mark: | Generates a service-principal credential through a dynamic role. |
-| `Vault_ReadStaticCredentials` | Policy | Azure static role | :white_check_mark: | Returns the credential managed through a concrete static role. |
 
 ### Properties
 
@@ -393,21 +382,11 @@ RETURN p
 | `Vault_DatabaseRole` | Dynamic database credential-generation role and creation/revocation statements. |
 | `Vault_DatabaseStaticRole` | Existing database account managed and rotated by Vault. |
 
-### Edges
+### Specialized Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or Database mount | Database mount, connection, dynamic role, or static role | :white_check_mark: | Places the mount and observed database resources in the namespace hierarchy. |
-| `Vault_References` | Database role or static role | Database connection | :x: | Records the assigned connection and allowed-role viability evidence. |
-| `Vault_ReadConfig` | Policy | Database mount | :x: | Reads mount or backend-wide configuration. |
-| `Vault_ManageConfig` | Policy | Database mount | :x: | Changes backend configuration or reloads a plugin process; properties identify the operation and plugin. |
-| `Vault_ListObjects` | Policy | Database mount | :x: | Lists connections, dynamic roles, or static roles. |
-| `Vault_CreateObject` | Policy | Database mount or synthetic resource | :x: | Creates a connection or role, or records authority to create an unobserved resource. |
-| `Vault_ReadObject` | Policy | Database connection or role | :x: | Reads a concrete connection, dynamic role, or static role. |
-| `Vault_ManageObject` | Policy | Database connection or role | :x: | Updates, deletes, rotates, or resets a concrete resource; `Operations` identifies connection reset. |
-| `Vault_GenerateCredentials` | Policy | Database role | :white_check_mark: | Generates a dynamic credential from a compatible, permitted connection. |
-| `Vault_ReadStaticCredentials` | Policy | Database static role | :white_check_mark: | Returns the current managed static credential. |
-| `Vault_PotentialAccess` | Policy | Database role | :x: | Records credential generation when connection compatibility or permission is unresolved. |
+Common containment, reference, configuration, object-lifecycle, credential, and potential-access behavior is documented in [Common Edges](#common-edges).
+
+This secrets engine does not define any specialized edges.
 
 ### Properties
 
@@ -534,18 +513,11 @@ Rolesets retain secret type, project, IAM bindings, token scopes, rotation, and 
 | `Vault_GcpStaticAccount` | Existing GCP service account managed through static-account endpoints. |
 | `Vault_GcpImpersonatedAccount` | Account configuration that produces credentials through service-account impersonation. |
 
-### Edges
+### Specialized Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or GCP mount | GCP mount, roleset, static account, or impersonated account | :white_check_mark: | Places the mount and observed account resources in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | GCP mount | :x: | Reads mount or GCP backend configuration. |
-| `Vault_ManageConfig` | Policy | GCP mount | :x: | Changes GCP backend configuration, tuning, or root credentials. |
-| `Vault_ListObjects` | Policy | GCP mount | :x: | Lists rolesets, static accounts, or impersonated accounts. |
-| `Vault_CreateObject` | Policy | GCP mount or synthetic resource | :x: | Creates an account resource or records authority to create one. |
-| `Vault_ReadObject` | Policy | GCP roleset or account | :x: | Reads a concrete GCP resource. |
-| `Vault_ManageObject` | Policy | GCP roleset or account | :x: | Updates, deletes, or rotates a concrete GCP resource. |
-| `Vault_GenerateCredentials` | Policy | GCP roleset, static account, or impersonated account | :white_check_mark: | Requests an OAuth token or service-account key supported by the concrete object. |
+Common containment, configuration, object-lifecycle, and credential behavior is documented in [Common Edges](#common-edges).
+
+This secrets engine does not define any specialized edges.
 
 ### Properties
 
@@ -633,23 +605,17 @@ RETURN p
 | `Vault_SecretsEngineGcpKms` | GCP KMS secrets-engine mount and provider configuration. |
 | `Vault_GcpKmsKey` | Registered Cloud KMS key and its cryptographic purpose and compatibility. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, object-lifecycle, and potential-access behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or GCP KMS mount | GCP KMS mount or key | :white_check_mark: | Places the mount and observed key registrations in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | GCP KMS mount | :x: | Reads mount or backend configuration. |
-| `Vault_ManageConfig` | Policy | GCP KMS mount | :x: | Changes backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | GCP KMS mount | :x: | Lists registered keys. |
-| `Vault_CreateObject` | Policy | GCP KMS mount or synthetic key | :x: | Registers a key or records authority to register an unobserved key. |
-| `Vault_ReadObject` | Policy | GCP KMS key | :x: | Reads a concrete key registration. |
-| `Vault_ManageObject` | Policy | GCP KMS key | :x: | Updates or deletes a concrete key registration. |
 | `Vault_GcpKmsEncrypt` | Policy | GCP KMS key | :x: | Encrypts plaintext with a compatible key. |
 | `Vault_GcpKmsDecrypt` | Policy | GCP KMS key | :white_check_mark: | Recovers plaintext with a compatible observed key purpose. |
 | `Vault_GcpKmsReencrypt` | Policy | GCP KMS key | :x: | Re-encrypts ciphertext. |
 | `Vault_GcpKmsSign` | Policy | GCP KMS key | :white_check_mark: | Produces a signature with a compatible signing key. |
 | `Vault_GcpKmsVerify` | Policy | GCP KMS key | :x: | Verifies a signature or MAC. |
-| `Vault_PotentialAccess` | Policy | GCP KMS key | :x: | Records decrypt or sign authority when key-purpose compatibility is unknown. |
 
 ### Properties
 
@@ -720,7 +686,7 @@ RETURN p
 
 `Vault_KvDirectory` is a logical path prefix, not a mutable Vault object. `Vault_KvFile` is a secret path. `Vault_KvPair` exposes only top-level key names; values are never exported.
 
-### KV v1 And v2
+KV v1 and v2 expose the following API surfaces:
 
 | Surface | Purpose | Exported edges |
 | --- | --- | --- |
@@ -742,20 +708,16 @@ RETURN p
 | `Vault_KvFile` | Observed or exact synthetic secret object without plaintext values. |
 | `Vault_KvPair` | Top-level key name contained by a collected KV file; the value is not collected. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, object-lifecycle, listing, and potential-access behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store, KV mount, directory, or file | KV mount, directory, file, or pair | :white_check_mark: | Builds the observed KV path and key-name hierarchy. |
-| `Vault_ReadConfig` | Policy | KV mount | :x: | Reads KV v2 engine configuration. |
-| `Vault_ManageConfig` | Policy | KV mount | :x: | Changes CAS, version retention, or delete-after configuration. |
-| `Vault_ListObjects` | Policy or template-resolved principal | KV mount or directory | :x: | Lists compatible observed children through KV v1 or v2 metadata paths. |
-| `Vault_CreateObject` | Policy | KV mount, directory, or synthetic file | :x: | Records authority to create a secret at an exact or collection path. |
 | `Vault_KvReadSecret` | Policy or template-resolved principal | KV file | :white_check_mark: | Returns secret plaintext from KV v1 or KV v2 data. |
 | `Vault_KvManageSecret` | Policy or template-resolved principal | KV file | :x: | Creates, updates, patches, deletes, undeletes, or destroys secret data or versions. |
 | `Vault_KvReadMetadata` | Policy or template-resolved principal | KV file | :x: | Reads version/custom metadata or the subkeys view and selected-version metadata. |
 | `Vault_KvManageMetadata` | Policy or template-resolved principal | KV file | :x: | Creates, updates, patches, or deletes KV v2 metadata. |
-| `Vault_PotentialAccess` | Policy or template-resolved principal | Synthetic or unresolved KV target | :x: | Records a matching path whose concrete target or prerequisite is not proven. |
 
 ### Properties
 
@@ -896,18 +858,11 @@ Roles retain service-account name, allowed namespaces, namespace selectors, toke
 | `Vault_SecretsEngineKubernetes` | Kubernetes secrets-engine mount and cluster/service-account configuration. |
 | `Vault_KubernetesRole` | Service-account credential-generation and generated RBAC binding constraints. |
 
-### Edges
+### Specialized Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or Kubernetes mount | Kubernetes mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Kubernetes mount | :x: | Reads cluster and backend configuration. |
-| `Vault_ManageConfig` | Policy | Kubernetes mount | :x: | Changes cluster credentials, backend configuration, or mount tuning. |
-| `Vault_ListObjects` | Policy | Kubernetes mount | :x: | Lists Kubernetes secrets roles. |
-| `Vault_CreateObject` | Policy | Kubernetes mount or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Kubernetes role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | Kubernetes role | :x: | Updates or deletes a concrete role. |
-| `Vault_GenerateCredentials` | Policy | Kubernetes role | :white_check_mark: | Generates a service-account token through the concrete role. |
+Common containment, configuration, object-lifecycle, and credential behavior is documented in [Common Edges](#common-edges).
+
+This secrets engine does not define any specialized edges.
 
 ### Properties
 
@@ -1002,24 +957,16 @@ RETURN p
 | `Vault_LdapLibrarySet` | Checkout pool containing managed LDAP service accounts. |
 | `Vault_LdapServiceAccount` | Concrete service account observed in a library set. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, object-lifecycle, credential, and potential-access behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store, LDAP mount, or library | LDAP mount, role, library, or service account | :white_check_mark: | Places the mount and observed LDAP resources in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | LDAP mount | :x: | Reads LDAP connection, lease, password, or migration configuration. |
-| `Vault_ManageConfig` | Policy | LDAP mount | :x: | Changes backend configuration, rotates root credentials, or manages migration state. |
-| `Vault_ListObjects` | Policy | LDAP mount or library | :x: | Lists roles, libraries, or library accounts. |
-| `Vault_CreateObject` | Policy | LDAP mount or synthetic resource | :x: | Creates a role or library resource. |
-| `Vault_ReadObject` | Policy | LDAP role, library, or service account | :x: | Reads a concrete LDAP resource. |
-| `Vault_ManageObject` | Policy | LDAP role, library, or service account | :x: | Updates, deletes, rotates, or administers a concrete resource. |
-| `Vault_GenerateCredentials` | Policy | LDAP dynamic role | :white_check_mark: | Generates a dynamic LDAP credential. |
-| `Vault_ReadStaticCredentials` | Policy | LDAP static role | :white_check_mark: | Returns the managed static LDAP credential. |
 | `Vault_LdapReadLibraryStatus` | Policy | LDAP library or service account | :x: | Reads account availability and checkout state. |
 | `Vault_LdapCheckoutServiceAccount` | Policy | Available LDAP service account | :white_check_mark: | Checks out one observed currently available account. |
 | `Vault_LdapCheckinServiceAccount` | Policy | LDAP service account | :x: | Returns a checked-out account. |
 | `Vault_LdapForceCheckinServiceAccount` | Policy | LDAP service account | :x: | Administratively forces an account check-in. |
-| `Vault_PotentialAccess` | Policy | LDAP library or service account | :x: | Records checkout when account availability is unknown. |
 
 ### Properties
 
@@ -1126,18 +1073,12 @@ RETURN p
 | `Vault_PkiIssuer` | Root, intermediate, or other issuer registered in the mount. |
 | `Vault_PkiKey` | Software, hardware-backed, or managed-key-backed PKI key. |
 
-### Edges
+### Specialized Edges
+
+Common containment, reference, configuration, object-lifecycle, and potential-access behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or PKI mount | PKI mount, role, issuer, or key | :white_check_mark: | Places the mount and observed PKI resources in the namespace hierarchy. |
-| `Vault_References` | PKI issuer or protocol configuration | PKI key or auth dependency | :x: | Records non-owning key and delegated-authentication references. |
-| `Vault_ReadConfig` | Policy | PKI mount | :x: | Reads PKI backend, issuance-protocol, or tidy-status configuration. |
-| `Vault_ManageConfig` | Policy | PKI mount | :x: | Changes PKI backend, issuance-protocol, CRL, or tidy configuration. |
-| `Vault_ListObjects` | Policy | PKI mount | :x: | Lists roles, issuers, keys, or authenticated certificate information collections. |
-| `Vault_CreateObject` | Policy | PKI mount or synthetic resource | :x: | Creates a role, issuer workflow, key, or other supported PKI object. |
-| `Vault_ReadObject` | Policy | PKI role, issuer, or key | :x: | Reads a concrete durable PKI object. |
-| `Vault_ManageObject` | Policy | PKI role, issuer, or key | :x: | Updates, deletes, imports, rotates, or otherwise administers a concrete object. |
 | `Vault_PkiListCertificateInfo` | Policy | PKI mount | :x: | Lists authenticated certificate information collections. |
 | `Vault_PkiIssueCertificate` | Policy | PKI role or issuer | :white_check_mark: | Issues a certificate through a role or issuer-scoped external-policy endpoint. |
 | `Vault_PkiSignCertificate` | Policy | PKI role or issuer | :white_check_mark: | Signs a CSR through a role or issuer-scoped external-policy endpoint. |
@@ -1152,7 +1093,6 @@ RETURN p
 | `Vault_PkiManageIntermediate` | Policy | PKI mount | :x: | Performs an intermediate CA lifecycle workflow. |
 | `Vault_PkiAcmeCreateEab` | Policy | PKI mount or protocol context | :x: | Creates ACME external-account-binding material. |
 | `Vault_PkiAcmeManageAccounts` | Policy | PKI mount | :x: | Manages ACME account records. |
-| `Vault_PotentialAccess` | Policy | PKI mount or unresolved resource | :x: | Records issuance or signing whose concrete compatible target cannot be proven. |
 
 ### Properties
 
@@ -1340,17 +1280,12 @@ RETURN p
 | `Vault_SecretsEngineSsh` | SSH secrets-engine mount and CA/zero-address configuration. |
 | `Vault_SshRole` | OTP or CA role for credential generation, signing, or key-pair issuance. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, and object-lifecycle behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or SSH mount | SSH mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | SSH mount | :x: | Reads authenticated CA, zero-address, or mount configuration. |
-| `Vault_ManageConfig` | Policy | SSH mount | :x: | Changes CA, zero-address, tidy, or mount configuration. |
-| `Vault_ListObjects` | Policy | SSH mount | :x: | Lists SSH roles. |
-| `Vault_CreateObject` | Policy | SSH mount or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | SSH role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | SSH role | :x: | Updates or deletes a concrete role. |
 | `Vault_SshGenerateOtp` | Policy | OTP-compatible SSH role | :white_check_mark: | Generates an SSH one-time password. |
 | `Vault_SshSignKey` | Policy | CA-compatible SSH role | :white_check_mark: | Signs a supplied SSH public key. |
 | `Vault_SshIssueKeyPair` | Policy | CA-compatible SSH role | :white_check_mark: | Issues a new SSH key pair and certificate. |
@@ -1455,18 +1390,11 @@ The mount stores Terraform Cloud address and token configuration. Role and gener
 | `Vault_SecretsEngineTerraform` | Terraform Cloud secrets-engine mount and API configuration. |
 | `Vault_TerraformRole` | Organization, team, or user token-generation and lifecycle configuration. |
 
-### Edges
+### Specialized Edges
 
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or Terraform Cloud mount | Terraform Cloud mount or role | :white_check_mark: | Places the mount and observed roles in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | Terraform Cloud mount | :x: | Reads backend address, token, or mount configuration. |
-| `Vault_ManageConfig` | Policy | Terraform Cloud mount | :x: | Changes backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | Terraform Cloud mount | :x: | Lists Terraform Cloud roles. |
-| `Vault_CreateObject` | Policy | Terraform Cloud mount or synthetic role | :x: | Creates a role or records authority to create an unobserved role. |
-| `Vault_ReadObject` | Policy | Terraform Cloud role | :x: | Reads a concrete role. |
-| `Vault_ManageObject` | Policy | Terraform Cloud role | :x: | Updates or deletes a concrete role. |
-| `Vault_GenerateCredentials` | Policy | Terraform Cloud role | :white_check_mark: | Generates an organization, team, or user API token. |
+Common containment, configuration, object-lifecycle, and credential behavior is documented in [Common Edges](#common-edges).
+
+This secrets engine does not define any specialized edges.
 
 ### Properties
 
@@ -1560,17 +1488,12 @@ RETURN p
 | `Vault_SecretsEngineTotp` | TOTP secrets-engine mount and backend configuration. |
 | `Vault_TotpKey` | Named TOTP key configuration without collected secret seed material. |
 
-### Edges
+### Specialized Edges
+
+Common containment, configuration, and object-lifecycle behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or TOTP mount | TOTP mount or key | :white_check_mark: | Places the mount and observed key configurations in the namespace hierarchy. |
-| `Vault_ReadConfig` | Policy | TOTP mount | :x: | Reads mount or backend configuration. |
-| `Vault_ManageConfig` | Policy | TOTP mount | :x: | Changes backend configuration or mount tuning. |
-| `Vault_ListObjects` | Policy | TOTP mount | :x: | Lists TOTP key configurations. |
-| `Vault_CreateObject` | Policy | TOTP mount or synthetic key | :x: | Creates a key configuration or records authority to create one. |
-| `Vault_ReadObject` | Policy | TOTP key | :x: | Reads a concrete key configuration without exporting its seed. |
-| `Vault_ManageObject` | Policy | TOTP key | :x: | Updates or deletes a concrete key configuration. |
 | `Vault_TotpGenerateCode` | Policy | TOTP key | :white_check_mark: | Returns a current usable TOTP code. |
 | `Vault_TotpValidateCode` | Policy | TOTP key | :x: | Validates a submitted code without yielding credential material. |
 
@@ -1648,18 +1571,12 @@ RETURN p
 | `Vault_SecretsEngineTransit` | Transit secrets-engine mount and key-configuration defaults. |
 | `Vault_TransitKey` | Named cryptographic key with type, version, export, derivation, and operation support. |
 
-### Edges
+### Specialized Edges
+
+Common containment, managed-key reference, configuration, object-lifecycle, and potential-access behavior is documented in [Common Edges](#common-edges).
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_Contains` | Mount Store or Transit mount | Transit mount or key | :white_check_mark: | Places the mount and observed Transit keys in the namespace hierarchy. |
-| `Vault_ManagedBy` | Transit key | Managed key | :x: | Records an external managed key backing the Transit key. |
-| `Vault_ReadConfig` | Policy | Transit mount | :x: | Reads cache or mount configuration. |
-| `Vault_ManageConfig` | Policy | Transit mount | :x: | Changes cache, maintenance, or mount configuration. |
-| `Vault_ListObjects` | Policy | Transit mount | :x: | Lists Transit keys. |
-| `Vault_CreateObject` | Policy | Transit mount or synthetic key | :x: | Creates a key or records authority to create an unobserved key. |
-| `Vault_ReadObject` | Policy | Transit key | :x: | Reads key configuration, public material, or certificate-chain information. |
-| `Vault_ManageObject` | Policy | Transit key | :x: | Updates, rotates, imports, restores, backs up, or deletes a concrete key. |
 | `Vault_TransitEncrypt` | Policy | Transit key | :x: | Encrypts plaintext. |
 | `Vault_TransitDecrypt` | Policy | Transit key | :white_check_mark: | Recovers plaintext. |
 | `Vault_TransitGenerateDataKey` | Policy | Transit key | :x: | Generates a data key; returned mode remains operation context. |
@@ -1670,7 +1587,6 @@ RETURN p
 | `Vault_TransitVerify` | Policy | Transit key | :x: | Verifies signatures, HMACs, or CMACs. |
 | `Vault_TransitExportKey` | Policy | Transit key | :white_check_mark: | Exports compatible secret key material when the observed key is exportable. |
 | `Vault_TransitExportByokKey` | Policy | Transit key | :x: | Returns BYOK-wrapped material rather than raw secret key material. |
-| `Vault_PotentialAccess` | Policy | Synthetic or unresolved Transit key | :x: | Records an operation whose concrete key or compatibility is unproven. |
 
 ### Properties
 
