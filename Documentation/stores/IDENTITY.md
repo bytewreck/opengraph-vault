@@ -74,14 +74,17 @@ Auth-specific principals do not replace canonical Vault identity. Where mount ac
 
 ```mermaid
 flowchart LR
-    EA[Vault_EntityAlias]:::aliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
+    EA[Vault_EntityAlias]:::entityAliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
     EA -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
-    GA[Vault_GroupAlias]:::aliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+    GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
     GA -->|Vault_LinksPolicy| P1
+    VG -->|Vault_LinksPolicy| P2
 
-    classDef aliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
 
