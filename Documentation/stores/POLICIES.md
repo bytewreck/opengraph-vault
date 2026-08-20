@@ -17,7 +17,7 @@ The Policy Store contains namespace-local policy documents and anchors policy-re
 - Control groups, wrapping, runtime request parameters, and plugin-side validation can add conditions.
 - Policy mutation remains non-traversable; VaultHound does not derive a generic policy-takeover edge from `Vault_ManageObject`.
 
-## Common Topology
+## Store Topology
 
 In schema topology diagrams, solid arrows represent traversable relationships and dashed arrows represent non-traversable relationships. Processing-flow diagrams are explicitly identified and do not use this graph-edge convention.
 
@@ -34,11 +34,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH registry = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(policy:Vault_Policy)
-RETURN registry
+MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains*1..]->(n)
+WHERE store.`Store Type` = "Policy"
+RETURN p
 ```
 
-The common topology stops at the policy authority boundary. Concrete outcomes declared by a policy are documented under [Attack Paths](#attack-paths) and in the destination subsystem catalogue.
+The store topology stops at the policy authority boundary. Concrete outcomes declared by a policy are documented under [Attack Paths](#attack-paths) and in the destination subsystem catalogue.
 
 ### Common Nodes
 
@@ -54,31 +55,16 @@ In every edge table in this guide, `Policy` denotes [policy authority](../MODEL.
 
 ```mermaid
 flowchart LR
-    store[Policy Store]:::storeNode -->|Vault_Contains| policy[Vault_Policy]:::policyNode
-    entity[Vault_Entity]:::entityNode -->|Vault_LinksPolicy| policy
-    group[Vault_Group]:::groupNode -->|Vault_LinksPolicy| policy
-    role[Auth role, user, or group]:::authObjectNode -->|Vault_LinksPolicy| policy
-    method[Auth method default]:::authMethodNode -->|Vault_LinksPolicy| policy
+    object[Object]:::objectNode -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
 
-    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef objectNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
-    classDef authObjectNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
-    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_Contains|Vault_LinksPolicy]->(:Vault_Policy)
-WHERE s:Vault_Store
-   OR s:Vault_Entity
-   OR s:Vault_Group
-   OR s:Vault_AuthMethod
-   OR s:Vault_AuthRole
-   OR s:Vault_AuthUser
-   OR s:Vault_AuthGroup
+MATCH p = (n)-[:Vault_LinksPolicy]->(:Vault_Policy)
 RETURN p
 ```
 

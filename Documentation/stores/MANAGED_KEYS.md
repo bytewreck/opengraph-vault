@@ -16,7 +16,7 @@ The Managed Keys Store represents the namespace-local Enterprise registry at `sy
 - A managed-key registration does not imply exportability or control of the external key.
 - Traversable cryptographic outcomes are modeled on compatible consuming objects rather than the registration itself.
 
-## Common Topology
+## Store Topology
 
 ```mermaid
 flowchart LR

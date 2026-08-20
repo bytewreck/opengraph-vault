@@ -67,7 +67,7 @@ This keeps unsupported existence visible without inventing attack paths.
 
 Cloud, database, LDAP, Kubernetes, and Terraform properties describe what Vault is configured to request or return. They do not prove downstream IAM, RBAC, directory, or network state. Hybrid graph edges should be added only when another collector resolves the external principal or resource unambiguously.
 
-## Common Topology
+## Store Topology
 
 Across this guide, solid Mermaid arrows represent traversable edges and dashed arrows represent non-traversable edges. Line style describes traversability only; ownership and dependency semantics come from the edge kind and its description.
 
@@ -76,7 +76,7 @@ flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MOUNTS]:::storeNode
     store -->|Vault_Contains| mount[Vault_SecretsEngine]:::mountNode
     mount -->|Vault_Contains| O1[Vault_SecretsRole]:::secretObjectNode
-    mount -->|Vault_Contains| O2[Observed child resource]:::secretObjectNode
+    mount -->|Vault_Contains| O2[Child resources]:::secretObjectNode
     O2 -.->|Vault_References| dependency[Referenced resource]:::referenceNode
 
     classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
