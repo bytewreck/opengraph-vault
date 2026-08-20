@@ -145,12 +145,12 @@ flowchart LR
     AU -->|Vault_LinksPolicy| P1[Vault_Policy]
     AR[Vault_AuthRole] -->|Vault_LinksPolicy| P1
     AG[Vault_AuthGroup] -->|Vault_MapsTo| GA[Vault_GroupAlias]
-    GA -->|Vault_MapsTo| VG[Vault_Group]
+    VE -->|Vault_MemberOf| VG[Vault_Group]
+    GA -->|Vault_MapsTo| VG
     AG -->|Vault_LinksPolicy| P1
     VE -->|Vault_LinksPolicy| P2[Vault_Policy]
     VG -->|Vault_LinksPolicy| P2
     AU -->|Vault_MemberOf| AG
-    VE -->|Vault_MemberOf| VG
 ```
 
 Equivalent Cypher query:
