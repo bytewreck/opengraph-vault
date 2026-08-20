@@ -9,8 +9,8 @@ Mermaid diagrams in this guide use solid arrows for traversable relationships an
 ```mermaid
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: IDENTITY]:::storeNode
-    store -->|Vault_Contains| administration[Identity Administration resources]:::entityNode
-    store -->|Vault_Contains| oidc[Outbound OIDC resources]:::oidcNode
+    store -->|Vault_Contains| administration[Identity resources]:::entityNode
+    store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
     store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
     store -->|Vault_Contains| scim[SCIM clients]:::scimNode
 
@@ -29,19 +29,6 @@ Equivalent Cypher query:
 ```cypher
 MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains]->(n)
 WHERE store.`Store Type` = "Identity"
-  AND (n:Vault_Entity
-   OR n:Vault_EntityAlias
-   OR n:Vault_Group
-   OR n:Vault_GroupAlias
-   OR n:Vault_OidcApplication
-   OR n:Vault_OidcKey
-   OR n:Vault_OidcAssignment
-   OR n:Vault_OidcProvider
-   OR n:Vault_OidcScope
-   OR n:Vault_OidcTokenRole
-   OR n:Vault_MfaMethod
-   OR n:Vault_MfaLoginEnforcement
-   OR n:Vault_ScimClient)
 RETURN p
 ```
 

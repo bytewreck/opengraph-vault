@@ -63,11 +63,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH root = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
-OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthRole)
-OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthUser)
-OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthGroup)
-RETURN root, roles, users, groups
+MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains*1..]->(n)
+WHERE store.`Store Type` = "Authentication"
+RETURN p
 ```
 
 Specific mounts carry their specific kind first and `Vault_AuthMethod` second. Child records use `Vault_AuthRole`, `Vault_AuthUser`, or `Vault_AuthGroup` as a base kind where applicable. Per-method layout diagrams are structural: policy grants, identity correlation, administrative access, and security outcomes appear in the relevant tables, prose, and attack-path sections instead. Only concrete auth users and groups supported by the collector's alias-correlation logic use `Vault_MapsTo`; auth roles are login selectors rather than identity representations.

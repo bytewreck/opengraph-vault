@@ -75,8 +75,9 @@ Across this guide, solid Mermaid arrows represent traversable edges and dashed a
 flowchart LR
     namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: MOUNTS]:::storeNode
     store -->|Vault_Contains| mount[Vault_SecretsEngine]:::mountNode
-    mount -->|Vault_Contains| object[Observed child resource]:::secretObjectNode
-    object -.->|Vault_References| dependency[Referenced resource]:::referenceNode
+    mount -->|Vault_Contains| O1[Vault_SecretsRole]:::secretObjectNode
+    mount -->|Vault_Contains| O2[Observed child resource]:::secretObjectNode
+    O2 -.->|Vault_References| dependency[Referenced resource]:::referenceNode
 
     classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -88,10 +89,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH hierarchy = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(mount:Vault_SecretsEngine)
-OPTIONAL MATCH children = (mount)-[:Vault_Contains]->(object)
-OPTIONAL MATCH references = (object)-[:Vault_References]->(dependency)
-RETURN hierarchy, children, references
+MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains|Vault_References*1..]->(n)
+WHERE store.`Store Type` = "Secrets Engines"
+RETURN p
 ```
 
 Specific mounts carry their display kind first and `Vault_SecretsEngine` as a base kind. Role-like child nodes carry `Vault_SecretsRole` where useful for cross-engine queries. Per-engine layout diagrams are structural: policy access and security outcomes appear in the edge descriptions and attack-path sections instead.
