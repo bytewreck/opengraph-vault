@@ -63,7 +63,6 @@ The store is the destination for collection-wide list/create and identity config
 
 | Type | Meaning |
 | --- | --- |
-| `Vault_Store` | Namespace-local Identity Store and collection-wide administration anchor. |
 | `Vault_Entity` | Canonical identity with direct policies, effective groups, metadata, aliases, creation time, and update time. |
 | `Vault_EntityAlias` | Auth-mount-specific external name that resolves to a canonical entity. |
 | `Vault_Group` | Internal or external group with policies, member entities, child groups, aliases, and metadata. |
@@ -75,17 +74,18 @@ Auth-specific principals do not replace canonical Vault identity. Where mount ac
 
 ```mermaid
 flowchart LR
-    principal[Vault_AuthUser or Vault_AuthGroup]:::authObjectNode -->|Vault_MapsTo| alias[Entity or Group Alias]:::aliasNode
-    alias -->|Vault_MapsTo| identity[Vault_Entity or Vault_Group]:::identityNode
-    alias -->|Vault_OnAuthMethod| method[Vault_AuthMethod]:::authMethodNode
+    EA[Vault_EntityAlias]:::aliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
+    EA -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
+    GA[Vault_GroupAlias]:::aliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
+    GA -->|Vault_LinksPolicy| P1
+<!-- 
+VG[Vault_Group]:::groupNode
+
     entity[Vault_Entity]:::entityNode -->|Vault_MemberOf| group[Vault_Group]:::groupNode
     child[Vault_Group]:::groupNode -->|Vault_MemberOf| parent[Vault_Group]:::groupNode
-    identity -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
+    identity -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode -->
 
-    classDef authObjectNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
     classDef aliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
