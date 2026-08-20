@@ -150,6 +150,7 @@ flowchart LR
     VE -->|Vault_LinksPolicy| P2[Vault_Policy]
     VG -->|Vault_LinksPolicy| P2
     AU -->|Vault_MemberOf| AG
+    VE -->|Vault_MemberOf| VG
 ```
 
 Equivalent Cypher query:
@@ -372,10 +373,8 @@ RETURN mount, roles
 | `Vault_AuthAwsRole` | `Allow Instance Migration` | Indicates whether a previously authenticated EC2 instance may migrate and authenticate again. |
 | `Vault_AuthAwsRole` | `Resolve AWS Unique IDs` | Indicates whether Vault resolves configured IAM ARNs to immutable AWS unique IDs. |
 | `Vault_AuthAwsRole` | `Alias Metadata Keys` | Lists AWS fields copied into Identity alias metadata. |
-| `Vault_ReadConfig` | `Config Surfaces` | Lists AWS auth configuration collections that the policy can read. |
-| `Vault_ManageConfig` | `Config Surfaces` | Lists AWS auth configuration collections that the policy can manage. |
-| `Vault_ReadConfig` | `Surface Entry Type` | Identifies the access-list or role-tag deny-list entry family that the policy can inspect. |
-| `Vault_ManageConfig` | `Surface Entry Type` | Identifies the access-list or role-tag deny-list entry family that the policy can modify. |
+| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Config Surfaces` | Lists the AWS auth configuration collections covered by the edge. |
+| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Surface Entry Type` | Identifies the access-list or role-tag deny-list entry family affected by the edge. |
 | `Vault_ManageConfig` | `Tidy Scope` | Identifies whether the policy can configure or run an AWS auth tidy operation. |
 | `Vault_ManageConfig` | `Tidy Surfaces` | Lists the AWS auth tidy endpoints represented by the edge. |
 
@@ -1452,50 +1451,22 @@ RETURN mount, roles
 | `Vault_AuthTokenRole` | `Orphan` | Indicates whether created tokens omit a parent-token relationship. |
 | `Vault_AuthTokenRole` | `Renewable` | Indicates whether tokens created through the role may be renewed. |
 | `Vault_AuthTokenRole` | `Path Suffix` | Records the suffix appended to generated token paths. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Authorization Modes` | Lists the caller-restricted token creation modes authorized by the matched endpoints. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Authorization Modes` | Lists the privilege-expanding token creation modes authorized by the matched endpoints. |
-| `Vault_PotentialAccess` | `Authorization Modes` | Lists unresolved token-role creation modes that may permit privileged issuance. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Lineages` | Identifies whether the restricted token is orphaned or parented. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Lineages` | Identifies whether the privileged token is orphaned or parented. |
-| `Vault_PotentialAccess` | `Token Lineages` | Identifies the lineage of a potentially issuable token. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Role Names` | Lists token roles through which restricted issuance is authorized. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Role Names` | Lists token roles through which privilege-expanding issuance is authorized. |
-| `Vault_PotentialAccess` | `Role Names` | Lists token roles associated with unresolved issuance targets. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Allowed Policies` | Lists exact policies exposed by the constraining token role. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Allowed Policies` | Lists exact policies the privileged issuance path may select. |
-| `Vault_PotentialAccess` | `Allowed Policies` | Lists exact role policies whose privilege outcome could not be fully resolved. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Allowed Policy Globs` | Lists policy-name patterns exposed by the constraining token role. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Allowed Policy Globs` | Lists policy-name patterns the privileged issuance path may select. |
-| `Vault_PotentialAccess` | `Allowed Policy Globs` | Lists unresolved policy-name patterns associated with potential token issuance. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Allowed Entity Aliases` | Lists entity aliases exposed by the constraining token role. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Allowed Entity Aliases` | Lists entity aliases the privileged issuance path may bind to a token. |
-| `Vault_PotentialAccess` | `Allowed Entity Aliases` | Lists unresolved entity-alias selectors associated with potential token issuance. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Authorization Modes` | Lists the token creation modes authorized or potentially authorized by the matched endpoints. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Lineages` | Identifies whether the issued or potentially issuable token is orphaned or parented. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Role Names` | Lists token roles through which issuance is authorized or potentially authorized. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Allowed Policies` | Lists exact policies exposed by the token role. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Allowed Policy Globs` | Lists policy-name patterns exposed by the token role. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Allowed Entity Aliases` | Lists entity aliases exposed by the token role. |
 | `Vault_AuthTokenCreatePrivilegedToken` | `Policy Selection Scopes` | Describes the namespace-wide policy selection granted by sudo-authorized bare token creation. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Restriction Bases` | Lists the constraints used to classify issuance as restricted. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Restriction Bases` | Lists token-role policy constraints through which a provable privilege expansion occurs. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Can Expand Privileges` | Is `false` when issuance is confined to the caller's effective policy baseline. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Can Expand Privileges` | Is `true` when issuance can provably exceed the caller's effective policy baseline. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Bound CIDRs` | Lists network ranges to which the generated restricted token is bound. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Bound CIDRs` | Lists network ranges to which the generated privileged token is bound. |
-| `Vault_PotentialAccess` | `Token Bound CIDRs` | Lists network restrictions that would apply to the potentially issuable token. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Type` | Identifies the type of restricted token produced by the issuance path. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Type` | Identifies the type of privileged token produced by the issuance path. |
-| `Vault_PotentialAccess` | `Token Type` | Identifies the type of token associated with the unresolved issuance path. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Num Uses` | Records the maximum uses permitted for the generated restricted token. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Num Uses` | Records the maximum uses permitted for the generated privileged token. |
-| `Vault_PotentialAccess` | `Token Num Uses` | Records the use limit that would apply to the potentially issuable token. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Period` | Records the renewal period applied to a generated restricted periodic token. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Period` | Records the renewal period applied to a generated privileged periodic token. |
-| `Vault_PotentialAccess` | `Token Period` | Records the renewal period that would apply to the potentially issuable token. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token Explicit Max TTL` | Records the hard lifetime cap applied to the generated restricted token. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token Explicit Max TTL` | Records the hard lifetime cap applied to the generated privileged token. |
-| `Vault_PotentialAccess` | `Token Explicit Max TTL` | Records the hard lifetime cap that would apply to the potentially issuable token. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Token No Default Policy` | Indicates whether the restricted token omits Vault's built-in `default` policy. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Token No Default Policy` | Indicates whether the privileged token omits Vault's built-in `default` policy. |
-| `Vault_PotentialAccess` | `Token No Default Policy` | Indicates whether the potentially issuable token would omit Vault's built-in `default` policy. |
-| `Vault_AuthTokenCreateRestrictedToken` | `Requirements` | Lists token-role constraints that must hold for restricted issuance. |
-| `Vault_AuthTokenCreatePrivilegedToken` | `Requirements` | Lists token-role or sudo requirements that must hold for privileged issuance. |
-| `Vault_PotentialAccess` | `Requirements` | Lists token-role constraints that apply to the unresolved issuance path. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken` | `Restriction Bases` | Lists the constraints used to classify issuance or determine its privilege-expansion basis. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken` | `Can Expand Privileges` | Indicates whether the issued token can provably exceed the caller's effective policy baseline. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Bound CIDRs` | Lists network ranges that constrain the issued or potentially issuable token. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Type` | Identifies the type of token produced or potentially produced by the issuance path. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Num Uses` | Records the maximum uses permitted for the issued or potentially issuable token. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Period` | Records the renewal period applied to the issued or potentially issuable periodic token. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token Explicit Max TTL` | Records the hard lifetime cap applied to the issued or potentially issuable token. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Token No Default Policy` | Indicates whether the issued or potentially issuable token omits Vault's built-in `default` policy. |
+| `Vault_AuthTokenCreateRestrictedToken`<br>`Vault_AuthTokenCreatePrivilegedToken`<br>`Vault_PotentialAccess` | `Requirements` | Lists token-role or sudo constraints that must hold for issuance. |
 | `Vault_AuthTokenReadToken` | `Requirements` | Lists the capability required for each represented token lookup operation. |
 | `Vault_AuthTokenManageToken` | `Requirements` | Lists sudo requirements for renewal or revocation operations that require elevated authorization. |
 
