@@ -78,12 +78,6 @@ flowchart LR
     EA -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
     GA[Vault_GroupAlias]:::aliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
     GA -->|Vault_LinksPolicy| P1
-<!-- 
-VG[Vault_Group]:::groupNode
-
-    entity[Vault_Entity]:::entityNode -->|Vault_MemberOf| group[Vault_Group]:::groupNode
-    child[Vault_Group]:::groupNode -->|Vault_MemberOf| parent[Vault_Group]:::groupNode
-    identity -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode -->
 
     classDef aliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
