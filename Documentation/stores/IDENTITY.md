@@ -1,53 +1,35 @@
 # Identity Store
 
-The Identity Store represents Vault's namespace-local identity subsystem under `identity/`. It contains canonical identities, external identity mappings, outbound OIDC resources, MFA configuration, and Enterprise SCIM clients.
+The Identity Store represents Vault's namespace-local identity subsystem under `identity/`. Unlike the Auth and Mount stores, it is not a catalogue of interchangeable backends. It is one store containing four distinct technologies: canonical identity administration, outbound OIDC, MFA, and Enterprise SCIM.
 
-## Glob, Synthetic, And Control Behavior
-
-- Collection globs expand read and manage rights to compatible observed identity objects.
-- Exact missing object names may create detached synthetic targets without asserting that the object exists.
-- Collection-wide creation remains anchored to the Identity Store with object-type and creation evidence.
-- `Vault_ControlObject` is emitted only when parameter-aware mutation proves a concrete identity or trust takeover.
-- Templated paths derive effective principal-to-target edges only after their referenced identity fields resolve.
-
-## Limitations
-
-- VaultHound does not authenticate as collected entities or validate external identity-provider credentials.
-- External directory membership is represented only where Vault returns aliases or mappings that prove it.
-- Runtime MFA challenges, control groups, and token state can impose conditions not visible from static ACLs.
-- SCIM provisioning is conditional on the configured access-grant principal and collected client ownership.
-
-## Common Topology
+## Store Topology
 
 Mermaid diagrams in this guide use solid arrows for traversable relationships and dashed arrows for non-traversable configuration, constraint, ownership, or evidence relationships.
 
 ```mermaid
 flowchart LR
-    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| VE[Vault_Entity]:::entityNode
-    store -->|Vault_Contains| EA[Vault_EntityAlias]:::entityAliasNode
-    EA -->|Vault_MapsTo| VE
-    store -->|Vault_Contains| VG[Vault_Group]:::groupNode
-    store -->|Vault_Contains| GA[Vault_GroupAlias]:::groupAliasNode
-    GA -->|Vault_MapsTo| VG
-    store -->|Vault_Contains| oidc[OIDC resources]:::oidcNode
+    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: IDENTITY]:::storeNode
+    store -->|Vault_Contains| administration[Identity Administration resources]:::entityNode
+    store -->|Vault_Contains| oidc[Outbound OIDC resources]:::oidcNode
     store -->|Vault_Contains| mfa[MFA resources]:::mfaNode
-    store -->|Vault_Contains| scim[Vault_ScimClient]:::scimNode
+    store -->|Vault_Contains| scim[SCIM clients]:::scimNode
 
+    classDef namespaceNode fill:#34495E,color:#fff,stroke:#1B2631,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px 
-    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
-    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef oidcNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
     classDef mfaNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
     classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
 ```
 
+The four resource boxes are conceptual groupings, not additional node kinds. The query below expands them to the concrete nodes collected for each technology.
+
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Store)-[:Vault_Contains]->(n)
-WHERE n:Vault_Entity
+MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains]->(n)
+WHERE store.`Store Type` = "Identity"
+  AND (n:Vault_Entity
    OR n:Vault_EntityAlias
    OR n:Vault_Group
    OR n:Vault_GroupAlias
@@ -59,13 +41,65 @@ WHERE n:Vault_Entity
    OR n:Vault_OidcTokenRole
    OR n:Vault_MfaMethod
    OR n:Vault_MfaLoginEnforcement
-   OR n:Vault_ScimClient
+   OR n:Vault_ScimClient)
 RETURN p
 ```
 
-The store is the destination for collection-wide list/create and identity configuration rights. Exact reads and management rights target concrete identity objects.
+The Identity `Vault_Store` is the shared namespace anchor. `Vault_Contains` connects it to observed top-level resources from each technology, while relationships between those resources are documented in the technology that owns them. Collection-wide list, create, and configuration authority terminates at the store; exact read and management authority terminates at a concrete object whenever one can be resolved.
 
-### Common Nodes
+Generic store machinery is defined once in the graph model: [base structural edges](../MODEL.md#base-structural-edges), [base access edges](../MODEL.md#base-access-edges), and [policy-derived edge metadata](../MODEL.md#policy-derived-edge-metadata). The technology sections below list only node and edge kinds introduced specifically for that technology. They may still use generic edges such as `Vault_Contains`, `Vault_References`, `Vault_ListObjects`, `Vault_CreateObject`, `Vault_ReadObject`, `Vault_ManageObject`, `Vault_ReadConfig`, `Vault_ManageConfig`, `Vault_ReadCredential`, `Vault_ControlObject`, `Vault_DenyAccess`, and `Vault_PotentialAccess` in topology or attack-path examples.
+
+## Store-Wide Behavior
+
+- Collection globs expand read and manage rights to compatible observed identity objects.
+- Exact missing object names may create detached synthetic targets without asserting that the object exists.
+- Collection-wide creation remains anchored to the Identity Store with object-type and creation evidence.
+- `Vault_ControlObject` is emitted only when parameter-aware mutation proves a concrete identity or trust takeover.
+- Templated paths derive effective principal-to-target edges only after their referenced identity fields resolve.
+
+### Limitations
+
+- VaultHound does not authenticate as collected entities or validate external identity-provider credentials.
+- External directory membership is represented only where Vault returns aliases or mappings that prove it.
+- Runtime MFA challenges, control groups, and token state can impose conditions not visible from static ACLs.
+- SCIM provisioning is conditional on the configured access-grant principal and collected client ownership.
+
+## Identity Administration
+
+Canonical identity administration owns Vault entities, aliases, and groups. Auth-specific users and groups enter this subsystem only when `Vault_MapsTo` proves a matching alias on the same auth mount accessor and external name.
+
+### Topology
+
+```mermaid
+flowchart LR
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| VE[Vault_Entity]:::entityNode
+    store -->|Vault_Contains| EA[Vault_EntityAlias]:::entityAliasNode
+    EA -->|Vault_MapsTo| VE
+    store -->|Vault_Contains| VG[Vault_Group]:::groupNode
+    store -->|Vault_Contains| GA[Vault_GroupAlias]:::groupAliasNode
+    GA -->|Vault_MapsTo| VG
+    VE -->|Vault_MemberOf| VG
+    EA -.->|Vault_OnAuthMethod| auth[Vault_AuthMethod]:::authNode
+    GA -.->|Vault_OnAuthMethod| auth
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
+    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
+    classDef authNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (s)-[:Vault_Contains|Vault_MapsTo|Vault_MemberOf|Vault_OnAuthMethod*1..2]->(d)
+WHERE (s:Vault_Store OR s:Vault_Entity OR s:Vault_EntityAlias OR s:Vault_Group OR s:Vault_GroupAlias)
+  AND (d:Vault_Entity OR d:Vault_EntityAlias OR d:Vault_Group OR d:Vault_GroupAlias OR d:Vault_AuthMethod)
+RETURN p
+```
+
+### Specialized Nodes
 
 | Type | Meaning |
 | --- | --- |
@@ -74,59 +108,22 @@ The store is the destination for collection-wide list/create and identity config
 | `Vault_Group` | Internal or external group with policies, member entities, child groups, aliases, and metadata. |
 | `Vault_GroupAlias` | External group name on an auth mount that resolves to a canonical group. |
 
-### Common Edges
+### Specialized Edges
 
-In every edge table in this guide, `Policy` denotes [policy authority](../MODEL.md#declared-and-derived-authority): normally the declaring `Vault_Policy`, or the referenced entity, alias, or group when an Identity template produces an effective rendered edge.
-
-Auth-specific principals do not replace canonical Vault identity. A correlatable auth user or group enters the canonical Identity graph through the matching entity or group alias for the same auth mount accessor and external name. Policies remain linked to the canonical entity or group, never to the alias itself.
-
-```mermaid
-flowchart LR
-    EA[Vault_EntityAlias]:::entityAliasNode -->|Vault_MapsTo| VE[Vault_Entity]:::entityNode
-    VE -->|Vault_LinksPolicy| P[Vault_Policy]:::policyNode
-    GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG[Vault_Group]:::groupNode
-    VG -->|Vault_LinksPolicy| P
-    VE -->|Vault_MemberOf| VG
-  
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
-    classDef groupAliasNode fill:#6FCF97,color:#111,stroke:#239B56,stroke-width:2px
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (s)-[:Vault_MapsTo|Vault_MemberOf|Vault_LinksPolicy*1..]->(d)
-WHERE (s:Vault_Entity OR s:Vault_EntityAlias OR s:Vault_Group OR s:Vault_GroupAlias)
-  AND (d:Vault_Entity OR d:Vault_EntityAlias OR d:Vault_Group OR d:Vault_GroupAlias OR d:Vault_Policy)
-RETURN p
-```
-
-The table below combines durable Identity relationships with store-wide generic edge families applicable across Identity services. Feature-level Specialized Edges tables list only edge kinds introduced by that feature.
+In every access-control example in this guide, `Policy` denotes [policy authority](../MODEL.md#declared-and-derived-authority): normally the declaring `Vault_Policy`, or the referenced entity, alias, or group when an Identity template produces an effective rendered edge.
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
 | `Vault_MapsTo` | Auth principal or alias | Alias or canonical identity | :white_check_mark: | Correlates an external representation with Vault identity. |
 | `Vault_OnAuthMethod` | Entity or group alias | Auth method | :x: | Records the mount accessor on which the alias exists. |
 | `Vault_MemberOf` | Entity or child group | Group | :white_check_mark: | Carries policy-bearing membership. |
-| `Vault_LinksPolicy` | Entity or group | Policy | :white_check_mark: | Direct or inherited policy assignment, with link type properties. |
-| `Vault_References` | Configured identity object | Referenced identity dependency | :x: | Records a non-owning dependency, such as an outbound OIDC application or provider selecting a signing key. |
-| `Vault_ListObjects` | Policy | Identity Store | :x: | Lists entity, alias, group, OIDC, MFA, or SCIM collections. |
-| `Vault_CreateObject` | Policy | Identity Store or synthetic exact target | :x: | Creates an identity-subsystem object. |
-| `Vault_ReadObject` | Policy | Concrete generic identity object | :x: | Reads durable identity-object configuration through the generic family. |
-| `Vault_ManageObject` | Policy | Concrete identity object | :x: | Updates or deletes ordinary identity-object configuration. |
-| `Vault_ReadCredential` | Policy | Secret-bearing OIDC or MFA object | :white_check_mark: | Reads returned credential material such as a confidential OIDC client secret. |
-| `Vault_ControlObject` | Policy | Concrete entity, group, or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves identity takeover. |
-| `Vault_ReadConfig` | Policy | Identity Store | :x: | Reads subsystem configuration such as OIDC configuration. |
-| `Vault_ManageConfig` | Policy | Identity Store | :x: | Changes subsystem-wide configuration. |
-| `Vault_DenyAccess` | Policy | Matching target | :x: | Preserves an overriding deny rule. |
-| `Vault_PotentialAccess` | Policy or resolved principal | Unresolved target | :x: | Records an unproven identity-control or credential outcome. |
+| `Vault_ReadIdentity` | Policy | Concrete identity object or Identity Store | :x: | Reads non-secret identity records, lookup results, or store-native identity surfaces. |
 
 Group membership returned by Vault is modeled; VaultHound does not independently query external directories to prove upstream membership.
 
-### Common Properties
+Generic `Vault_ListObjects`, `Vault_CreateObject`, `Vault_ReadObject`, and `Vault_ManageObject` edges represent ordinary administration but are not repeated here. Likewise, `Vault_ControlObject` appears only when an otherwise generic mutation proves concrete control, such as rebinding an alias or changing membership in a policy-bearing group.
+
+### Properties
 
 | Node/Edge Type | Property | Description |
 | --- | --- | --- |
@@ -141,8 +138,6 @@ Group membership returned by Vault is modeled; VaultHound does not independently
 | `Vault_Entity` | `Effective Group IDs` | Lists all groups affecting the entity after hierarchy expansion. |
 | `Vault_Entity` | `Inherited Group IDs` | Lists effective groups reached through nested group membership. |
 | `Vault_Entity` | `Merged Entity IDs` | Lists canonical entities merged into this entity. |
-| `Vault_Entity` | `SCIM Client ID` | Identifies the SCIM client that owns the entity when SCIM-managed. |
-| `Vault_Entity` | `SCIM Managed` | Indicates whether the entity is managed through SCIM. |
 | `Vault_Entity` | `Creation Time` | Records when Vault created the entity. |
 | `Vault_Entity` | `Last Update Time` | Records the entity's most recent update time. |
 | `Vault_EntityAlias` | `Entity Alias ID` | Records Vault's stable identifier for the entity alias. |
@@ -163,8 +158,6 @@ Group membership returned by Vault is modeled; VaultHound does not independently
 | `Vault_Group` | `Member Group IDs` | Lists child groups directly included in the group. |
 | `Vault_Group` | `Parent Group IDs` | Lists groups that contain this group. |
 | `Vault_Group` | `Modify Index` | Records Vault's modification index for the group. |
-| `Vault_Group` | `SCIM Client ID` | Identifies the SCIM client that owns the group when SCIM-managed. |
-| `Vault_Group` | `SCIM Managed` | Indicates whether the group is managed through SCIM. |
 | `Vault_Group` | `Creation Time` | Records when Vault created the group. |
 | `Vault_Group` | `Last Update Time` | Records the group's most recent update time. |
 | `Vault_GroupAlias` | `Group Alias ID` | Records Vault's stable identifier for the group alias. |
@@ -177,10 +170,13 @@ Group membership returned by Vault is modeled; VaultHound does not independently
 | `Vault_GroupAlias` | `Merged From Canonical IDs` | Lists prior canonical group IDs represented after merging. |
 | `Vault_GroupAlias` | `Creation Time` | Records when Vault created the group alias. |
 | `Vault_GroupAlias` | `Last Update Time` | Records the group alias's most recent update time. |
+| `Vault_ReadIdentity` | `Identity Targets` | Identifies the entity, group, alias, lookup, or identity-service data returned by the read. |
+| `Vault_ReadIdentity` | `Operations` | Lists the authenticated identity-read operations represented by the edge. |
+| `Vault_ReadIdentity` | `Lookup Targets` | Identifies whether an authenticated lookup returns an entity record, a group record, or both. |
 
 The canonical `Vault_LinksPolicy.Policy Link Types` contract is documented once in [Policy Store common properties](POLICIES.md#common-properties). Identity uses the direct entity, direct group, and inherited group values from that shared contract.
 
-### Common Attack Paths
+### Attack Paths
 
 Auth-specific users and groups enter these paths only when `Vault_MapsTo` proves a matching alias. From that point, alias resolution, canonical membership, and policy propagation are Identity responsibilities:
 
@@ -247,135 +243,58 @@ RETURN p
 
 The takeover edge terminates directly at the canonical entity or group selected by the operation. The controlled alias is preserved as evidence; it is not inserted as an additional attack-path hop.
 
-## Identity Administration
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy]:::policyNode -.->|Vault_ListObjects| store[Vault_Store: IDENTITY]:::storeNode
-    policy -.->|Vault_CreateObject| store
-    policy -.->|Vault_ReadIdentity| object[Entity, alias, group, or identity service]:::identityNode
-    policy -.->|Vault_ManageObject| object
-    policy -->|Vault_ControlObject| controlled[Takeover-capable identity target]:::identityNode
-    controlled -->|Vault_LinksPolicy| granted[Vault_Policy]:::policyNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
-    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (authority)-[:Vault_ListObjects|Vault_CreateObject|Vault_ReadIdentity|Vault_ManageObject|Vault_ControlObject|Vault_LinksPolicy*1..2]->(d)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (d:Vault_Store
-    OR d:Vault_Entity
-    OR d:Vault_EntityAlias
-    OR d:Vault_Group
-    OR d:Vault_GroupAlias
-    OR d:Vault_Policy)
-RETURN p
-```
-
-### Nodes
-
-Identity administration introduces no additional durable object kind. It targets the Identity `Vault_Store` for collection-wide operations and the concrete core identity, OIDC, MFA, or SCIM nodes catalogued in their respective sections.
-
-### Specialized Edges
-
-Shared object, configuration, reference, deny, potential-access, credential-read, and takeover families are catalogued under [Common Edges](#common-edges). Identity administration adds one identity-specific read edge:
-
-| Edge | Source | Destination | Traversable | Meaning |
-| --- | --- | --- | :---: | --- |
-| `Vault_ReadIdentity` | Policy | Concrete object or Identity Store | :x: | Reads non-secret identity data or a store-native identity surface. |
-
-Creating or managing an object is not automatically traversable. `Vault_ControlObject` is derived only when the controlled parameters establish a concrete takeover mechanism, such as changing canonical alias ownership, adding an attacker-controlled entity to a policy-bearing internal group, or replacing unrestricted trust configuration.
-
-### Properties
-
-Generic object-operation, takeover, and unresolved-outcome properties follow the canonical [cross-cutting properties](../MODEL.md#cross-cutting-properties). The table below retains Identity-specific targets, configuration context, indirect-control evidence, and confirmed credential-exposure context.
-
-| Node/Edge Type | Property | Description |
-| --- | --- | --- |
-| `Vault_ReadIdentity` | `Identity Targets` | Identifies the entity, group, alias, lookup, or identity-service data that can be read. |
-| `Vault_ReadIdentity` | `Operations` | Lists the authenticated identity-read operations represented by the edge. |
-| `Vault_ReadIdentity` | `Lookup Targets` | Identifies whether an authenticated lookup returns an entity record, a group record, or both. |
-| `Vault_ReadCredential` | `Identity Targets` | Identifies the secret-bearing OIDC or MFA object read by the policy. |
-| `Vault_ReadCredential` | `Operations` | Lists the authenticated read operations that return credential material. |
-| `Vault_ReadCredential` | `Exposure Confirmed` | Indicates that the authenticated response is proven to return usable credential material. |
-| `Vault_ReadCredential` | `Returned Fields` | Lists the credential-bearing response fields, such as an OIDC client secret, Duo integration secret, or Okta API token. |
-| `Vault_ReadIdentity`<br>`Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadCredential`<br>`Vault_PotentialAccess` | `Object References` | Preserves identity object IDs, names, method types, or request selectors when the referenced target is patterned or unresolved. |
-| `Vault_ReadObject`<br>`Vault_ManageObject`<br>`Vault_ReadCredential`<br>`Vault_OidcAuthorize` | `Pattern Covers Unobserved Targets` | Indicates that a policy pattern was expanded to observed objects but can also address matching objects absent from the collected graph. |
-| `Vault_ManageObject` | `Immutable Fields` | Lists fields Vault does not permit the represented update to change, including an OIDC application's key and client type or a SCIM client's alias mount accessor. |
-| `Vault_ReadConfig`<br>`Vault_ManageConfig` | `Operations` | Lists the configuration operations represented by the edge. |
-
-Canonical configuration-target and `Vault_ControlObject` evidence fields are documented in [Cross-Cutting Properties](../MODEL.md#cross-cutting-properties). Identity-specific indirect takeover evidence uses those shared `Via Object IDs` and `Via Object Names` fields.
-
-### Attack Paths
-
-Canonical alias resolution, membership inheritance, and the resulting alias- or group-takeover paths are documented under [Common Attack Paths](#common-attack-paths). Policy-assignment parameters remain evidence on the relevant management or control edge and do not create a direct policy-to-policy relationship.
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_ReadCredential| credential["Vault_OidcApplication or Vault_MfaMethod"]:::credentialNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef credentialNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (authority)-[:Vault_ReadCredential]->(credential)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (credential:Vault_OidcApplication OR credential:Vault_MfaMethod)
-RETURN p
-```
-
-This path is emitted only when the authenticated read returns usable secret material, such as a confidential OIDC client secret or an enrollment/integration credential. Ordinary identity reads remain non-traversable.
-
 ## Outbound OIDC
 
 The outbound OIDC model is distinct from the JWT/OIDC authentication method. Here Vault is the identity provider and applications consume Vault-issued identity tokens.
 
+### Topology
+
 ```mermaid
 flowchart LR
-    provider[Vault_OidcProvider]:::oidcProviderNode -.->|Vault_OidcAllowsApplication| app[Vault_OidcApplication]:::oidcApplicationNode
-    provider -.->|Vault_OidcSupportsScope| scope[Vault_OidcScope]:::oidcScopeNode
-    app -.->|Vault_References| key[Vault_OidcKey]:::oidcKeyNode
-    principal[Vault_Entity or Vault_Group]:::identityNode -.->|Vault_OidcAssignedTo| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| provider[Vault_OidcProvider]:::oidcProviderNode
+    store -->|Vault_Contains| app[Vault_OidcApplication]:::oidcApplicationNode
+    store -->|Vault_Contains| scope[Vault_OidcScope]:::oidcScopeNode
+    store -->|Vault_Contains| key[Vault_OidcKey]:::oidcKeyNode
+    store -->|Vault_Contains| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
+    store -->|Vault_Contains| role[Vault_OidcTokenRole]:::oidcTokenRoleNode
+    provider -.->|Vault_OidcAllowsApplication| app
+    provider -.->|Vault_OidcSupportsScope| scope
+    app -.->|Vault_References| key
+    role -.->|Vault_References| key
+    principal[Vault_Entity or Vault_Group]:::identityNode -.->|Vault_OidcAssignedTo| assignment
     assignment -.->|Vault_OidcGrantsAccess| app
 
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef oidcProviderNode fill:#16A085,color:#fff,stroke:#0E6655,stroke-width:2px
     classDef oidcApplicationNode fill:#1ABC9C,color:#111,stroke:#117864,stroke-width:2px
     classDef oidcScopeNode fill:#17A589,color:#fff,stroke:#0E6655,stroke-width:2px
     classDef oidcKeyNode fill:#B9770E,color:#fff,stroke:#7E5109,stroke-width:2px
     classDef oidcAssignmentNode fill:#2980B9,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef oidcTokenRoleNode fill:#148F77,color:#fff,stroke:#0B5345,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
 ```
 
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_OidcAllowsApplication|Vault_OidcSupportsScope|Vault_References|Vault_OidcAssignedTo|Vault_OidcGrantsAccess*1..3]->(d)
-WHERE s:Vault_OidcProvider OR s:Vault_OidcApplication OR s:Vault_Entity OR s:Vault_Group
+MATCH p = (s)-[:Vault_Contains|Vault_OidcAllowsApplication|Vault_OidcSupportsScope|Vault_References|Vault_OidcAssignedTo|Vault_OidcGrantsAccess*1..3]->(d)
+WHERE s:Vault_Store
+   OR s:Vault_OidcProvider
+   OR s:Vault_OidcApplication
+   OR s:Vault_OidcTokenRole
+   OR s:Vault_Entity
+   OR s:Vault_Group
 RETURN p
 ```
 
 This opening diagram is configuration topology only. The composed `Vault_OidcAuthenticateTo` relationship and policy-authorized token generation are documented in the Attack Paths subsection below.
 
-### Nodes
+### Specialized Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_OidcApplication` | Outbound OIDC client application configured to trust Vault as its identity provider. |
-| `Vault_OidcKey` | Signing key used by an outbound OIDC application, provider, or token role. |
+| `Vault_OidcKey` | Signing key used by an outbound OIDC application or identity-token role. |
 | `Vault_OidcAssignment` | Assignment selecting entities or groups eligible to access applications. |
 | `Vault_OidcProvider` | Provider configuration through which Vault exposes OIDC authorization and token endpoints. |
 | `Vault_OidcScope` | Named scope and claims template exposed by a provider. |
@@ -383,7 +302,7 @@ This opening diagram is configuration topology only. The composed `Vault_OidcAut
 
 ### Specialized Edges
 
-The common non-owning `Vault_References` relationship is catalogued under [Common Edges](#common-edges); its OIDC-specific evidence remains documented under Properties.
+OIDC signing-key dependencies use the generic non-traversable `Vault_References` relationship documented in the [base structural edges](../MODEL.md#base-structural-edges). It is shown in the topology but is not repeated in this specialized edge catalogue.
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -393,7 +312,7 @@ The common non-owning `Vault_References` relationship is catalogued under [Commo
 | `Vault_OidcGrantsAccess` | Assignment | Application | :x: | Assignment grants application eligibility. |
 | `Vault_OidcAuthorize` | Policy | Observed OIDC provider or Identity Store | :x: | ACL permits an authenticated OIDC provider authorization endpoint. Exact paths and non-template patterns with observed matches target those providers. When no concrete provider can be selected, unresolved patterned authority is anchored to the Identity Store. This edge never targets applications. |
 | `Vault_OidcAuthenticateTo` | Entity | Application | :white_check_mark: | Assignment and provider constraints compose into proven application access. |
-| `Vault_GenerateIdentityToken` | Policy | OIDC token role | :white_check_mark: | Policy can invoke a concrete identity-token signing role. |
+| `Vault_OidcGenerateIdentityToken` | Policy | OIDC token role | :white_check_mark: | Policy can invoke a concrete identity-token signing role. |
 
 The direct authentication edge is derived from collected configuration; the intermediate assignment and provider edges remain visible as non-traversable evidence. `Vault_OidcAuthorize` records ACL authority over provider authorization endpoints only. Application eligibility and proven application authentication remain represented by `Vault_OidcGrantsAccess` and `Vault_OidcAuthenticateTo`, respectively.
 
@@ -442,11 +361,15 @@ The direct authentication edge is derived from collected configuration; the inte
 | `Vault_OidcAuthenticateTo` | `ACL Basis` | Explains the ACL evidence used to derive application access. |
 | `Vault_OidcAuthorize` | `Provider Names` | Lists observed providers matched by the authorization path. Exact and expanded-pattern edges to a provider contain that provider; an Identity Store fallback may contain every observed provider matched by the unresolved pattern. |
 | `Vault_OidcAuthorize` | `Provider References` | Preserves the provider segment written in a patterned authorization path, such as `+`, `*`, or a template expression. The fully global `*` policy path has no provider reference. |
-| `Vault_GenerateIdentityToken`<br>`Vault_PotentialAccess` | `Key Eligibility` | Records whether each resolved signing key permits the token role's client ID. |
-| `Vault_GenerateIdentityToken`<br>`Vault_PotentialAccess` | `Signing Key Names` | Lists signing keys considered for identity-token generation. |
-| `Vault_GenerateIdentityToken` | `Eligible Role Names` | Lists observed token roles whose signing-key constraints are satisfied. |
+| `Vault_ReadCredential` | `Credential Types` | Identifies a returned confidential OIDC client secret. |
+| `Vault_ReadCredential` | `Credential Uses` | Records that the returned secret can authenticate the OIDC application. |
+| `Vault_ReadCredential` | `Returned Fields` | Lists the credential-bearing application fields returned by Vault. |
+| `Vault_ReadCredential` | `Exposure Confirmed` | Indicates that the collected application is confidential and Vault returned a populated client secret. |
+| `Vault_OidcGenerateIdentityToken`<br>`Vault_PotentialAccess` | `Key Eligibility` | Records whether each resolved signing key permits the token role's client ID. |
+| `Vault_OidcGenerateIdentityToken`<br>`Vault_PotentialAccess` | `Signing Key Names` | Lists signing keys considered for identity-token generation. |
+| `Vault_OidcGenerateIdentityToken` | `Eligible Role Names` | Lists observed token roles whose signing-key constraints are satisfied. |
 | `Vault_PotentialAccess` | `Unresolved Role Names` | Lists token roles whose signing-key prerequisite could not be resolved. |
-| `Vault_GenerateIdentityToken`<br>`Vault_PotentialAccess` | `Blocked Role Names` | Lists observed roles rejected by signing-key client restrictions. |
+| `Vault_OidcGenerateIdentityToken`<br>`Vault_PotentialAccess` | `Blocked Role Names` | Lists observed roles rejected by signing-key client restrictions. |
 
 ### Attack Paths
 
@@ -469,7 +392,7 @@ This derived edge requires an applicable assignment, an allowing provider, and c
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_GenerateIdentityToken| role[Vault_OidcTokenRole]:::oidcTokenRoleNode
+    policy[Vault_Policy]:::policyNode -->|Vault_OidcGenerateIdentityToken| role[Vault_OidcTokenRole]:::oidcTokenRoleNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef oidcTokenRoleNode fill:#148F77,color:#fff,stroke:#0B5345,stroke-width:2px
@@ -478,7 +401,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateIdentityToken]->(:Vault_OidcTokenRole)
+MATCH p = (authority)-[:Vault_OidcGenerateIdentityToken]->(:Vault_OidcTokenRole)
 WHERE authority:Vault_Policy
    OR authority:Vault_Entity
    OR authority:Vault_EntityAlias
@@ -488,13 +411,43 @@ RETURN p
 
 The path represents the ability to mint a Vault identity token through an observed signing role. If the role's signing-key allowlist is empty or incompatible, no attack edge is emitted; an unresolved signing key produces `Vault_PotentialAccess`.
 
-## MFA
+Reading a confidential application can expose its client secret directly:
 
 ```mermaid
 flowchart LR
-    enforcement[Vault_MfaLoginEnforcement]:::mfaEnforcementNode -.->|Vault_MfaAppliesTo| target[Entity, group, or auth method]:::identityNode
-    enforcement -.->|Vault_MfaUsesMethod| method[Vault_MfaMethod]:::mfaMethodNode
+    policy[Vault_Policy]:::policyNode -->|Vault_ReadCredential| application[Vault_OidcApplication]:::oidcApplicationNode
 
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef oidcApplicationNode fill:#1ABC9C,color:#111,stroke:#117864,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (authority)-[:Vault_ReadCredential]->(:Vault_OidcApplication)
+WHERE authority:Vault_Policy
+   OR authority:Vault_Entity
+   OR authority:Vault_EntityAlias
+   OR authority:Vault_Group
+RETURN p
+```
+
+The generic `Vault_ReadCredential` edge is emitted only when the collected application is confidential and the authenticated read returns a populated client secret. Ordinary application reads remain non-traversable.
+
+## MFA
+
+MFA models configured methods and login-enforcement rules. It also records policy authority over enrollment and the narrow cases where reading method configuration returns usable integration credentials.
+
+### Topology
+
+```mermaid
+flowchart LR
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| enforcement[Vault_MfaLoginEnforcement]:::mfaEnforcementNode
+    store -->|Vault_Contains| method[Vault_MfaMethod]:::mfaMethodNode
+    enforcement -.->|Vault_MfaAppliesTo| target[Entity, group, or auth method]:::identityNode
+    enforcement -.->|Vault_MfaUsesMethod| method
+
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef mfaEnforcementNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef mfaMethodNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
@@ -503,13 +456,15 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_MfaLoginEnforcement)-[:Vault_MfaAppliesTo|Vault_MfaUsesMethod]->(d)
+MATCH p = (s)-[:Vault_Contains|Vault_MfaAppliesTo|Vault_MfaUsesMethod*1..2]->(d)
+WHERE (s:Vault_Store OR s:Vault_MfaLoginEnforcement)
+  AND (d:Vault_MfaLoginEnforcement OR d:Vault_MfaMethod OR d:Vault_Entity OR d:Vault_Group OR d:Vault_AuthMethod)
 RETURN p
 ```
 
 This opening diagram shows only durable MFA constraints. Policy-derived enrollment and secret-generation evidence is shown under Conditional Access.
 
-### Nodes
+### Specialized Nodes
 
 | Node | Description |
 | --- | --- |
@@ -518,7 +473,7 @@ This opening diagram shows only durable MFA constraints. Policy-derived enrollme
 
 ### Specialized Edges
 
-Unresolved MFA outcomes use the store-wide `Vault_PotentialAccess` family documented under [Common Edges](#common-edges).
+Unresolved MFA outcomes use the generic `Vault_PotentialAccess` family documented in the [base access edges](../MODEL.md#base-access-edges); it is not an MFA-specific edge.
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -565,6 +520,10 @@ MFA methods and enforcements describe login prerequisites. The collector does no
 | `Vault_MfaLoginEnforcement` | `Visible From Namespace IDs` | Lists namespaces from which the enforcement is visible. |
 | `Vault_MfaAppliesTo` | `Selector Types` | Distinguishes entity, group, auth accessor, and auth-type selectors. |
 | `Vault_MfaSelfEnroll`<br>`Vault_MfaGenerateSecret` | `Operations` | Lists the MFA enrollment operations represented by the edge. |
+| `Vault_ReadCredential` | `Credential Types` | Identifies a returned Duo integration credential or Okta API token. |
+| `Vault_ReadCredential` | `Credential Uses` | Describes the external integration that can be authenticated with the returned credential. |
+| `Vault_ReadCredential` | `Returned Fields` | Lists secret-bearing MFA configuration fields returned by Vault. |
+| `Vault_ReadCredential` | `Exposure Confirmed` | Indicates that the collected MFA method contains credential material returned by the read endpoint. |
 | `Vault_PotentialAccess` | `Potential Outcomes` | Identifies administrative TOTP enrollment as the possible result. |
 | `Vault_PotentialAccess` | `Credential Types` | Identifies the returned enrollment material. |
 | `Vault_PotentialAccess` | `Credential Uses` | Describes how the enrollment material could be used. |
@@ -580,6 +539,7 @@ MFA topology edges and self-enrollment permissions are non-traversable because c
 flowchart LR
     policy[Vault_Policy]:::policyNode -.->|Vault_MfaSelfEnroll| method[Vault_MfaMethod]:::mfaMethodNode
     policy -.->|Vault_MfaGenerateSecret| method
+    policy -->|Vault_ReadCredential| method
     policy -.->|Vault_PotentialAccess| entity[Vault_Entity or Identity Store]:::identityNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
@@ -590,7 +550,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_PotentialAccess]->(d)
+MATCH p = (authority)-[:Vault_MfaSelfEnroll|Vault_MfaGenerateSecret|Vault_ReadCredential|Vault_PotentialAccess]->(d)
 WHERE (authority:Vault_Policy
     OR authority:Vault_Entity
     OR authority:Vault_EntityAlias
@@ -599,13 +559,21 @@ WHERE (authority:Vault_Policy
 RETURN p
 ```
 
+`Vault_ReadCredential` is limited to observed Duo or Okta methods whose authenticated configuration response includes usable integration credentials. TOTP administrative generation remains `Vault_PotentialAccess` because the enrollment secret alone does not prove control of the entity's primary login.
+
 ## SCIM
+
+SCIM models Enterprise provisioning clients, their configured access-grant principals, and ownership of canonical entities and groups. Declared policy access and principal-effective provisioning are kept separate because both conditions are required.
+
+### Topology
 
 ```mermaid
 flowchart LR
-    client[Vault_ScimClient]:::scimNode -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]:::entityNode
+    store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| client[Vault_ScimClient]:::scimNode
+    client -.->|Vault_ScimUsesPrincipal| principal[Access-grant Vault_Entity]:::entityNode
     client -.->|Vault_ScimManages| resource["Client-owned Vault_Entity or Vault_Group"]:::identityNode
 
+    classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef scimNode fill:#2471A3,color:#fff,stroke:#154360,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
@@ -614,23 +582,23 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_ScimClient)-[:Vault_ScimUsesPrincipal|Vault_ScimManages]->(d)
+MATCH p = (s)-[:Vault_Contains|Vault_ScimUsesPrincipal|Vault_ScimManages*1..2]->(d)
+WHERE (s:Vault_Store OR s:Vault_ScimClient)
+  AND (d:Vault_ScimClient OR d:Vault_Entity OR d:Vault_Group)
 RETURN p
 ```
 
 This opening diagram shows configured principal selection and client ownership only. Declared protocol rights and principal-effective SCIM access are documented under Conditional Access.
 
-### Nodes
+### Specialized Nodes
 
 | Node | Description |
 | --- | --- |
 | `Vault_ScimClient` | Enterprise SCIM client and access-grant configuration. |
-| `Vault_Entity` | Canonical identity that may act as the SCIM access-grant principal or a managed User resource. |
-| `Vault_Group` | Canonical group that may be managed as a SCIM Group resource. |
 
 ### Specialized Edges
 
-Unresolved SCIM outcomes use the store-wide `Vault_PotentialAccess` family documented under [Common Edges](#common-edges).
+Unresolved SCIM outcomes use the generic `Vault_PotentialAccess` family documented in the [base access edges](../MODEL.md#base-access-edges); it is not a SCIM-specific edge.
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
@@ -651,6 +619,8 @@ Unresolved SCIM outcomes use the store-wide `Vault_PotentialAccess` family docum
 | `Vault_ScimClient` | `Access Grant Principal` | Identifies the entity authorized to use the client. |
 | `Vault_ScimClient` | `Alias Mount Accessor` | Identifies the auth mount used to correlate SCIM-created aliases. |
 | `Vault_ScimClient` | `Deleting` | Indicates that client deletion is in progress. |
+| `Vault_Entity`<br>`Vault_Group` | `SCIM Client ID` | Identifies the SCIM client that owns the canonical resource. |
+| `Vault_Entity`<br>`Vault_Group` | `SCIM Managed` | Indicates that the canonical resource is managed through SCIM. |
 | `Vault_ScimProtocolAccess` | `SCIM Targets` | Identifies Users, Groups, or discovery collections authorized by the policy. |
 | `Vault_ScimProtocolAccess` | `Surfaces` | Lists the authenticated SCIM protocol surfaces matched by the ACL. |
 | `Vault_ScimProtocolAccess` | `Operations` | Lists the allowed SCIM protocol operations. |
@@ -691,7 +661,7 @@ WHERE s:Vault_Policy OR s:Vault_Entity
 RETURN p
 ```
 
-## Template Policies
+## Cross-Cutting Template Resolution
 
 Identity templates can reference entity fields, an entity alias on a specific accessor, or an identity group by ID. The rendered effective edge originates from the referenced identity representation:
 
@@ -714,13 +684,9 @@ RETURN p
 
 The KV read is a concrete example. Template resolution can emit any compatible destination subsystem edge while retaining the same provenance properties.
 
-### Nodes
+### Resolution Rules
 
-Template resolution introduces no template-specific node kind. It uses an observed `Vault_Entity`, `Vault_EntityAlias`, or `Vault_Group` as the effective source and a concrete node from the destination subsystem as the target.
-
-### Specialized Edges
-
-Template resolution introduces no template-only edge kind. The collector emits the destination subsystem's ordinary operation edge and marks it with template and policy-provenance properties.
+Template resolution introduces no template-specific node or edge kind. It uses an observed `Vault_Entity`, `Vault_EntityAlias`, or `Vault_Group` as the effective source and a concrete node from the destination subsystem as the target. The collector emits the destination subsystem's ordinary operation edge and marks it with template and policy-provenance properties.
 
 | Template reference | Effective source |
 | --- | --- |

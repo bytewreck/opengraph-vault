@@ -930,11 +930,6 @@
       "is_traversable": true
     },
     {
-      "name": "Vault_GenerateIdentityToken",
-      "description": "Identity-token access edge showing that a Vault policy can mint an OIDC-compliant identity token from the target role or a namespace-scoped role surface when the signing key permits that role client ID.",
-      "is_traversable": true
-    },
-    {
       "name": "Vault_OidcAllowsApplication",
       "description": "Configuration edge showing that a Vault OIDC provider authorizes the target OIDC application.",
       "is_traversable": false
@@ -962,6 +957,11 @@
     {
       "name": "Vault_OidcAuthenticateTo",
       "description": "Derived OIDC access edge showing that an entity both satisfies an application's assignment requirements and has effective identity-policy or resolvable token-policy access to an allowed provider authorize endpoint.",
+      "is_traversable": true
+    },
+    {
+      "name": "Vault_OidcGenerateIdentityToken",
+      "description": "Identity-token access edge showing that a Vault policy can mint an OIDC-compliant identity token from the target role or a namespace-scoped role surface when the signing key permits that role client ID.",
       "is_traversable": true
     },
     {

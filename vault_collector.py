@@ -432,7 +432,7 @@ SECRETS_ENGINE_OBJECT_BOUND_EDGE_KINDS = {
 # Policy paths can name objects that the collector did not observe. Preserve
 # that intent without turning an inferred object into a valid attack-path hop.
 SYNTHETIC_TARGET_ATTACK_OUTCOMES = {
-    "Vault_GenerateIdentityToken": "Generate Identity Token",
+    "Vault_OidcGenerateIdentityToken": "Generate Identity Token",
     "Vault_OidcAuthenticateTo": "Authenticate to OIDC Application",
     "Vault_ScimProvisionResources": "Provision SCIM Resources",
     "Vault_GenerateCredentials": "Generate Credentials",
@@ -32526,7 +32526,7 @@ class VaultCollector:
             if role_names:
                 role_property = (
                     "eligible_role_names"
-                    if edge_kind == "Vault_GenerateIdentityToken"
+                    if edge_kind == "Vault_OidcGenerateIdentityToken"
                     else "unresolved_role_names"
                 )
                 properties[role_property] = role_names
@@ -32566,7 +32566,7 @@ class VaultCollector:
                 boolean_or_property_keys=boolean_or_property_keys or None,
             )
 
-        emit_eligibility_result(allowed_details, "Vault_GenerateIdentityToken")
+        emit_eligibility_result(allowed_details, "Vault_OidcGenerateIdentityToken")
         emit_eligibility_result(unknown_details, "Vault_PotentialAccess")
 
     def _identity_target_nodes(

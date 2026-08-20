@@ -53,7 +53,7 @@ EDGE_ENDPOINTS = {
     "Vault_CanUseManagedKey": ("Vault_Policy", "Vault_ManagedKey"),
     "Vault_ReadIdentity": ("Vault_Policy or resolved entity", "Identity store or concrete identity object"),
     "Vault_ReadCredential": ("Vault_Policy or resolved entity", "Concrete object returning credential material"),
-    "Vault_GenerateIdentityToken": ("Vault_Policy or resolved entity", "Vault_OidcTokenRole"),
+    "Vault_OidcGenerateIdentityToken": ("Vault_Policy or resolved entity", "Vault_OidcTokenRole"),
     "Vault_OidcAllowsApplication": ("Vault_OidcProvider", "Vault_OidcApplication"),
     "Vault_OidcGrantsAccess": ("Vault_OidcAssignment", "Vault_OidcApplication"),
     "Vault_OidcSupportsScope": ("Vault_OidcProvider", "Vault_OidcScope"),

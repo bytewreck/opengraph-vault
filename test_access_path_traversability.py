@@ -275,7 +275,7 @@ class IdentityTokenTraversalTests(unittest.TestCase):
         self.emit(collector)
 
         self.assertFalse(any(
-            edge.kind == "Vault_GenerateIdentityToken"
+            edge.kind == "Vault_OidcGenerateIdentityToken"
             for edge in collector.edges
         ))
         potential = next(
@@ -295,7 +295,7 @@ class IdentityTokenTraversalTests(unittest.TestCase):
 
         edge = next(
             edge for edge in collector.edges
-            if edge.kind == "Vault_GenerateIdentityToken"
+            if edge.kind == "Vault_OidcGenerateIdentityToken"
         )
         self.assertEqual(edge.target, "identity-role-web")
         self.assertEqual(edge.properties["key_eligibility"], ["Allowed"])
@@ -305,7 +305,7 @@ class IdentityTokenTraversalTests(unittest.TestCase):
         self.emit(collector)
 
         self.assertFalse(any(
-            edge.kind in {"Vault_GenerateIdentityToken", "Vault_PotentialAccess"}
+            edge.kind in {"Vault_OidcGenerateIdentityToken", "Vault_PotentialAccess"}
             for edge in collector.edges
         ))
 

@@ -39,7 +39,7 @@ These relationships model inheritance or identity resolution. They should be use
 ### Identity and Policy Escalation
 
 - `Vault_ReadCredential` exposes returned credential material from a concrete object.
-- `Vault_GenerateIdentityToken` produces an identity token through an allowed signing role.
+- `Vault_OidcGenerateIdentityToken` produces an identity token through an allowed signing role.
 - `Vault_OidcAuthenticateTo` represents proven access to an OIDC application through assignment and provider constraints.
 - `Vault_ControlObject` represents a proven takeover-capable mutation.
 
