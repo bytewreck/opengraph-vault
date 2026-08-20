@@ -114,7 +114,7 @@ flowchart LR
     authority -.->|Vault_CreateObject| store
     authority -.->|Vault_ReadObject| policy[Vault_Policy]:::policyNode
     authority -.->|Vault_ManageObject| policy
-    authority -->|Vault_Contains| policy
+    store -->|Vault_Contains| policy
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
