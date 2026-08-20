@@ -48,13 +48,11 @@ The following matrix summarizes implemented auth methods and their current test 
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store[Vault_Store: AUTH]:::storeNode
-    store -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
+    store[Vault_Store: AUTH]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
     method -->|Vault_Contains| A[Vault_AuthRole]:::authRoleNode
     method -->|Vault_Contains| B[Vault_AuthUser]:::authUserNode
     method -->|Vault_Contains| C[Vault_AuthGroup]:::authGroupNode
 
-    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef authRoleNode fill:#9B59B6,color:#fff,stroke:#633974,stroke-width:2px
@@ -65,7 +63,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH root = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
+MATCH root = (:Vault_Store)-[:Vault_Contains]->(method:Vault_AuthMethod)
 OPTIONAL MATCH roles = (method)-[:Vault_Contains]->(:Vault_AuthRole)
 OPTIONAL MATCH users = (method)-[:Vault_Contains]->(:Vault_AuthUser)
 OPTIONAL MATCH groups = (method)-[:Vault_Contains]->(:Vault_AuthGroup)
@@ -123,11 +121,9 @@ Method-wide defaults are represented directly on the auth method:
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store["Vault_Store: AUTH"]:::storeNode
-    store -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
+    store["Vault_Store: AUTH"]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
     method -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
 
-    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef authMethodNode fill:#8E44AD,color:#fff,stroke:#512E5F,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
@@ -136,7 +132,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(:Vault_Store)-[:Vault_Contains]->(:Vault_AuthMethod)-[:Vault_LinksPolicy]->(:Vault_Policy)
+MATCH p = (:Vault_Store)-[:Vault_Contains]->(:Vault_AuthMethod)-[:Vault_LinksPolicy]->(:Vault_Policy)
 RETURN p
 ```
 
