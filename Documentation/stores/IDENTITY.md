@@ -98,8 +98,6 @@ flowchart LR
     store -->|Vault_Contains| GA[Vault_GroupAlias]:::groupAliasNode
     GA -->|Vault_MapsTo| VG
     VE -->|Vault_MemberOf| VG
-    EA -.->|Vault_OnAuthMethod| auth[Vault_AuthMethod]:::authNode
-    GA -.->|Vault_OnAuthMethod| auth
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
