@@ -85,6 +85,7 @@ In every edge table in this guide, `Policy` or `Vault_Policy` denotes [policy au
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
+| `Vault_OnAuthMethod` | `Vault_EntityAlias` or `Vault_GroupAlias` | `Vault_AuthMethod` | :x: | Identifies the auth method mount on which the Identity alias exists. |
 | `Vault_ReadConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
 | `Vault_ManageConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Changes mount tuning, backend configuration, root credentials, or maintenance state. |
 | `Vault_ListObjects` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Lists roles, users, groups, CRLs, or another method-specific child collection. |
@@ -93,7 +94,6 @@ In every edge table in this guide, `Policy` or `Vault_Policy` denotes [policy au
 | `Vault_ManageObject` | `Vault_Policy` | Concrete auth child | :x: | Updates, patches, deletes, or otherwise administers a child without proving takeover. |
 | `Vault_ControlObject` | `Vault_Policy` | Concrete auth child or trust target | :white_check_mark: | Performs a parameter-aware mutation that proves takeover of the target authentication outcome. |
 | `Vault_PotentialAccess` | `Vault_Policy` | Unobserved or unresolved auth target | :x: | Preserves a possible authentication or takeover outcome whose prerequisites are not proven. |
-| `Vault_OnAuthMethod` | `Vault_EntityAlias` or `Vault_GroupAlias` | `Vault_AuthMethod` | :x: | Identifies the auth method mount on which the Identity alias exists. |
 
 ### Common Properties
 

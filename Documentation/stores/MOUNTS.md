@@ -238,7 +238,8 @@ This secrets engine does not define any specialized edges.
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_AwsRole]:::secretObjectNode
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| dynamic[Vault_AwsRole]:::secretObjectNode
+    policy -->|Vault_ReadStaticCredentials| static[Vault_AwsStaticRole]:::secretObjectNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
@@ -247,34 +248,12 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_AwsRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(d)
+WHERE d:Vault_AwsRole OR d:Vault_AwsStaticRole
 RETURN p
 ```
 
 The destination role records whether Vault returns an IAM user, assumed-role credential, federation token, or session token. The edge is traversable only when at least one configured mode is viable. A session-token-only role that requires an unproven MFA code instead produces `Vault_PotentialAccess`.
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_ReadStaticCredentials| role[Vault_AwsStaticRole]:::secretObjectNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (authority)-[:Vault_ReadStaticCredentials]->(:Vault_AwsStaticRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
-RETURN p
-```
 
 This yields the managed IAM user's current credential through Vault. Neither path proves the generated principal's downstream AWS permissions; those require correlation with AWS graph data.
 
@@ -356,12 +335,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(role)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (role:Vault_AzureRole OR role:Vault_AzureStaticRole)
+MATCH p = (s)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(d)
+WHERE d:Vault_AzureRole OR d:Vault_AzureStaticRole
 RETURN p
 ```
 
@@ -473,12 +448,9 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_DatabaseRole)-[:Vault_References]->(:Vault_DatabaseConnection)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
-RETURN p
+MATCH p = (s)-[:Vault_GenerateCredentials]->(d:Vault_DatabaseRole)
+OPTIONAL MATCH references = (d)-[:Vault_References]->(:Vault_DatabaseConnection)
+RETURN p, references
 ```
 
 The attack path terminates at the role; `Vault_References` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
@@ -494,11 +466,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
 RETURN p
 ```
 
@@ -593,14 +561,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials]->(target)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (target:Vault_GcpRoleset
-    OR target:Vault_GcpStaticAccount
-    OR target:Vault_GcpImpersonatedAccount)
+MATCH p = (s)-[:Vault_GenerateCredentials]->(d)
+WHERE d:Vault_GcpRoleset OR d:Vault_GcpStaticAccount OR d:Vault_GcpImpersonatedAccount
 RETURN p
 ```
 
@@ -683,11 +645,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GcpKmsDecrypt|Vault_GcpKmsSign]->(:Vault_GcpKmsKey)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_GcpKmsDecrypt|Vault_GcpKmsSign]->(:Vault_GcpKmsKey)
 RETURN p
 ```
 
@@ -826,17 +784,9 @@ A policy-backed identity path can reach a concrete secret file:
 
 ```mermaid
 flowchart LR
-    user[Vault_AuthUser]:::authUserNode -->|Vault_MapsTo| alias[Vault_EntityAlias]:::entityAliasNode
-    alias -->|Vault_MapsTo| entity[Vault_Entity]:::entityNode
-    entity -->|Vault_MemberOf| group[Vault_Group]:::groupNode
-    group -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
-    policy -->|Vault_KvReadSecret| file[Vault_KvFile]:::kvObjectNode
+    policy[Vault_Policy]:::policyNode -->|Vault_KvReadSecret| file[Vault_KvFile]:::kvObjectNode
     file -->|Vault_Contains| pair[Vault_KvPair]:::kvPairNode
 
-    classDef authUserNode fill:#5DADE2,color:#111,stroke:#21618C,stroke-width:2px
-    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
-    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
-    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
@@ -845,7 +795,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_AuthUser)-[:Vault_MapsTo]->(:Vault_EntityAlias)-[:Vault_MapsTo]->(:Vault_Entity)-[:Vault_MemberOf]->(:Vault_Group)-[:Vault_LinksPolicy]->(:Vault_Policy)-[:Vault_KvReadSecret]->(:Vault_KvFile)-[:Vault_Contains]->(:Vault_KvPair)
+MATCH p = (s)-[:Vault_KvReadSecret]->(:Vault_KvFile)-[:Vault_Contains]->(:Vault_KvPair)
 RETURN p
 ```
 
@@ -947,11 +897,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_KubernetesRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_GenerateCredentials]->(:Vault_KubernetesRole)
 RETURN p
 ```
 
@@ -1066,12 +1012,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials|Vault_LdapCheckoutServiceAccount]->(target)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (target:Vault_LdapDynamicRole OR target:Vault_LdapStaticRole OR target:Vault_LdapServiceAccount)
+MATCH p = (s)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials|Vault_LdapCheckoutServiceAccount]->(d)
+WHERE d:Vault_LdapDynamicRole OR d:Vault_LdapStaticRole OR d:Vault_LdapServiceAccount
 RETURN p
 ```
 
@@ -1274,12 +1216,8 @@ The role-targeted `Vault_PkiSignVerbatim` path is role-qualified. Issuer-targete
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_PkiIssueCertificate|Vault_PkiSignCertificate|Vault_PkiSignVerbatim|Vault_PkiSignIntermediate|Vault_PkiSignSelfIssued]->(target)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (target:Vault_PkiRole OR target:Vault_PkiIssuer)
+MATCH p = (s)-[:Vault_PkiIssueCertificate|Vault_PkiSignCertificate|Vault_PkiSignVerbatim|Vault_PkiSignIntermediate|Vault_PkiSignSelfIssued]->(d)
+WHERE d:Vault_PkiRole OR d:Vault_PkiIssuer
 RETURN p
 ```
 
@@ -1399,11 +1337,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_SshGenerateOtp|Vault_SshSignKey|Vault_SshIssueKeyPair]->(:Vault_SshRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (n)-[:Vault_SshGenerateOtp|Vault_SshSignKey|Vault_SshIssueKeyPair]->(:Vault_SshRole)
 RETURN p
 ```
 
@@ -1503,11 +1437,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_GenerateCredentials]->(:Vault_TerraformRole)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_GenerateCredentials]->(:Vault_TerraformRole)
 RETURN p
 ```
 
@@ -1588,11 +1518,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_TotpGenerateCode]->(:Vault_TotpKey)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_TotpGenerateCode]->(:Vault_TotpKey)
 RETURN p
 ```
 
@@ -1721,11 +1647,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_TransitDecrypt|Vault_TransitSign|Vault_TransitGenerateCmac|Vault_TransitGenerateHmac|Vault_TransitExportKey]->(:Vault_TransitKey)
-WHERE authority:Vault_Policy
-   OR authority:Vault_Entity
-   OR authority:Vault_EntityAlias
-   OR authority:Vault_Group
+MATCH p = (s)-[:Vault_TransitDecrypt|Vault_TransitSign|Vault_TransitGenerateCmac|Vault_TransitGenerateHmac|Vault_TransitExportKey]->(:Vault_TransitKey)
 RETURN p
 ```
 

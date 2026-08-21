@@ -50,13 +50,13 @@ Policy-derived administration uses the same generic edge families across all fou
 
 | Generic Edge | Destination | Identity Store Meaning |
 | --- | --- | --- |
+| `Vault_ReadConfig` | Identity Store | Reads namespace-level Identity configuration. |
+| `Vault_ManageConfig` | Identity Store | Changes namespace-level Identity configuration, such as the outbound OIDC issuer. |
 | `Vault_ListObjects` | Identity Store | Enumerates one or more Identity object collections. `Object Types` identifies the collections. |
 | `Vault_CreateObject` | Identity Store | Represents collection-wide, patterned, or exact unresolved authority to create Identity objects. |
 | `Vault_ReadObject` | Concrete observed Identity object | Reads a resolved entity, alias, group, OIDC object, MFA object, or SCIM client. |
-| `Vault_ReadIdentity` | Identity Store | Represents store-level lookup, introspection, aggregate visibility, or an unresolved Identity read. It is not used for a resolved concrete object. |
 | `Vault_ManageObject` | Concrete observed Identity object | Updates or deletes a resolved object after impossible operations and known constraints are applied. |
-| `Vault_ReadConfig` | Identity Store | Reads namespace-level Identity configuration. |
-| `Vault_ManageConfig` | Identity Store | Changes namespace-level Identity configuration, such as the outbound OIDC issuer. |
+| `Vault_ReadIdentity` | Identity Store | Represents store-level lookup, introspection, aggregate visibility, or an unresolved Identity read. It is not used for a resolved concrete object. |
 | `Vault_ReadCredential` | Concrete secret-bearing Identity object | Records a confirmed credential returned by an authenticated read. |
 | `Vault_ControlObject` | Concrete entity or group | Records a parameter-aware mutation that proves control over a policy-bearing identity. |
 | `Vault_PotentialAccess` | Concrete object or subsystem anchor | Preserves a security-relevant outcome whose target or prerequisite cannot be proven. |
@@ -215,15 +215,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (source)-[:Vault_MapsTo*0..2]->(canonical)-[:Vault_MemberOf*0..]->(grantor)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE (source:Vault_AuthUser
-   OR source:Vault_AuthGroup
-   OR source:Vault_EntityAlias
-   OR source:Vault_GroupAlias
-   OR source:Vault_Entity
-   OR source:Vault_Group)
-  AND (canonical:Vault_Entity OR canonical:Vault_Group)
-  AND (grantor:Vault_Entity OR grantor:Vault_Group)
+MATCH p = (s)-[:Vault_MapsTo|Vault_MemberOf|Vault_LinksPolicy*1..]->(:Vault_Policy)
+WHERE (s:Vault_EntityAlias OR s:Vault_GroupAlias OR s:Vault_Entity OR s:Vault_Group)
 RETURN p
 ```
 
