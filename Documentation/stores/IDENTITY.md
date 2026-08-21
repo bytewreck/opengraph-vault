@@ -13,7 +13,6 @@ flowchart LR
     store -->|Vault_Contains| mfa["MFA resources"]:::storeNode
     store -->|Vault_Contains| scim["SCIM resources"]:::storeNode
 
-    classDef namespaceNode fill:#34495E,color:#fff,stroke:#1B2631,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
 ```
 
