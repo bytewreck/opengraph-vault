@@ -87,7 +87,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains|Vault_References*1..]->(n)
+MATCH p = (store:Vault_Store)-[:Vault_Contains|Vault_References*1..]->(n)
 WHERE store.`Store Type` = "Secrets Engines"
 RETURN p
 ```

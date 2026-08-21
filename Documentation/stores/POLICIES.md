@@ -22,10 +22,8 @@ In schema topology diagrams, solid arrows represent traversable relationships an
 
 ```mermaid
 flowchart LR
-    namespace[Vault_Namespace]:::namespaceNode -->|Vault_Contains| store["Vault_Store: POLICIES"]:::storeNode
-    store -->|Vault_Contains| policy[Vault_Policy]:::policyNode
+    store["Vault_Store: POLICIES"]:::storeNode -->|Vault_Contains| policy[Vault_Policy]:::policyNode
 
-    classDef namespaceNode fill:#6C757D,color:#fff,stroke:#343A40,stroke-width:2px
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
 ```
@@ -33,7 +31,7 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (:Vault_Namespace)-[:Vault_Contains]->(store:Vault_Store)-[:Vault_Contains]->(n)
+MATCH p = (store:Vault_Store)-[:Vault_Contains]->(n)
 WHERE store.`Store Type` = "Policy"
 RETURN p
 ```
