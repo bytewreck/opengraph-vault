@@ -6,11 +6,13 @@ VaultHound collects ACL, Role Governing Policy (RGP), and Endpoint Governing Pol
 
 ## Supported Policy Types
 
-| Policy Type | Collection Surface | Collected | Parsed As ACL | Assignment Target | Administration |
+| Policy Type | Collection Surface | Supported | Parsed As ACL | Assignment Target | Administration |
 | --- | --- | :---: | :---: | :---: | :---: |
 | ACL | `sys/policies/acl`; legacy fallback through `sys/policy` | :white_check_mark: | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 | RGP | `sys/policies/rgp` | :white_check_mark: | :x: | :white_check_mark: | :white_check_mark: |
 | EGP | `sys/policies/egp` | :white_check_mark: | :x: | :x: | :white_check_mark: |
+
+Supported means that VaultHound understands the policy family and attempts its collection surface. A policy appears only when the collector can list the registry and read that policy document. RGP and EGP additionally require the corresponding Vault Enterprise surface. Insufficient ACL visibility, unavailable Enterprise features, or unreadable individual documents therefore produce a partial Policy Store rather than placeholder nodes.
 
 ACL collection prefers `sys/policies/acl` and falls back to `sys/policy` only when the modern collection returns no names. RGP assignment is resolved by policy name; when ACL and RGP policies share a name, the ACL policy is the assignment target. EGP policies govern endpoint paths rather than being assigned as token policies.
 
@@ -55,7 +57,7 @@ Shared node properties such as `Name` and `Namespace ID` follow the canonical [p
 | `Vault_Policy` | `Policy Type` | Identifies the document as ACL, RGP, or EGP. |
 | `Vault_Policy` | `Is Wildcard` | Indicates that an ACL policy contains the literal path `*`; it does not mean merely that a path contains `+` or a trailing `*`. |
 | `Vault_Policy` | `Uses Templates` | Indicates that at least one ACL path contains an Identity template expression. |
-| `Vault_Policy` | `Can Manage Audit` | Indicates that an ACL policy can administer an audit path or contains the literal path `*`. |
+| `Vault_Policy` | `Can Manage Audit` | Collector heuristic set when an ACL has write authority on a `sys/audit...` path or contains the literal path `*`. The literal `*` condition currently marks the policy regardless of that path block's capability set, so this property is a triage hint rather than proof of usable audit-management authority. |
 | `Vault_Policy` | `High Value` | Marks literal-wildcard ACL policies, ACL policies with policy-write authority, and EGP policies governing `*`. |
 | `Vault_Policy` | `Paths Summary` | Lists every parsed ACL path and normalized capability set. It is empty for RGP and EGP because they are not parsed as ACL policies. |
 | `Vault_Policy` | `Policy Language` | Records `Sentinel` for collected RGP and EGP policies. |
@@ -128,7 +130,7 @@ WHERE d:Vault_Policy OR (d:Vault_Store AND d.`Store Type` = "Policy")
 RETURN p
 ```
 
-### Operations
+### Edges
 
 | Edge Type | Destination | Required Capability | Operation | Description |
 | --- | --- | --- | --- | --- |
@@ -136,10 +138,6 @@ RETURN p
 | `Vault_CreateObject` | Policy Store or synthetic `Vault_Policy` | `create` | `Create` | Represents broad policy creation or creation of an exact unobserved policy. |
 | `Vault_ReadObject` | Observed `Vault_Policy` | `read` | `Read` | Reads a concrete policy document. |
 | `Vault_ManageObject` | Observed non-root `Vault_Policy` | `update`, `delete` | `Update`, `Delete` | Modifies or removes a concrete policy. The ACL root policy is excluded. |
-
-### Creation And Synthetic Policies
-
-A patterned creation path targets the Policy Store and records `Potential Only: TRUE` and `Can Create Unobserved Objects: TRUE`. An exact create path for a missing, non-root policy creates a detached `Vault_Policy` node marked `Synthetic: TRUE`; it receives no `Vault_Contains` edge because its existence was not observed.
 
 ### Edge Properties
 
@@ -150,12 +148,16 @@ Generic properties follow the [cross-cutting property contract](../MODEL.md#cros
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Object Types` | Contains the normalized value `Policy`. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Capabilities` | Lists only the capabilities relevant to the represented operation. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Operations` | Lists `List`, `Create`, `Read`, `Update`, or `Delete` as applicable. |
-| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Scopes` | Distinguishes collection, exact, pattern expansion, exact unresolved, and canonical potential targets. |
+| `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Scopes` | Uses `collection`, `exact`, or `pattern_expansion` for observed administration; exact missing policy creation retains `exact_unresolved`, while store-anchored creation is canonicalized to `potential`. |
 | `Vault_ListObjects`<br>`Vault_CreateObject`<br>`Vault_ReadObject`<br>`Vault_ManageObject` | `Matched Policy Paths` | Lists the original HCL paths authorizing the operation. |
 | `Vault_CreateObject` | `Potential Only` | Marks creation authority whose target is not an observed policy. |
 | `Vault_CreateObject` | `Can Create Unobserved Objects` | Marks patterned authority that can create additional policy objects beneath the registry. |
 
 Policy type and API-surface details are used while routing registry endpoints but are removed when these relationships are canonicalized into generic object-operation edges. The target node and `Object Types` identify the resulting object family.
+
+### Creation And Synthetic Policies
+
+A patterned creation path targets the Policy Store and records `Potential Only: TRUE` and `Can Create Unobserved Objects: TRUE`. An exact create path for a missing, non-root policy creates a detached `Vault_Policy` node marked `Synthetic: TRUE`; it receives no `Vault_Contains` edge because its existence was not observed.
 
 ## ACL Evaluation
 
@@ -185,35 +187,31 @@ When a winning rule includes `deny`, its effective capability set becomes only `
 
 ### Identity Templates
 
-Supported expressions include entity IDs, entity names, entity metadata, accessor-selected aliases, and Identity groups selected by ID or name. A rendered value containing `*` or `+` is rejected, while wildcards outside the template expression remain valid.
+VaultHound renders the following Identity expression families. `<accessor>`, `<group-id>`, and `<group-name>` are literal selectors in the policy expression; `<key>` selects one metadata field.
 
-Template-effective relationships originate from the identity representation supplying the entitlement:
+| Expression | Resolved Value | Effective Edge Source |
+| --- | --- | --- |
+| `{{identity.entity.id}}` | Canonical entity ID | `Vault_Entity` |
+| `{{identity.entity.name}}` | Canonical entity name | `Vault_Entity` |
+| `{{identity.entity.metadata.<key>}}` | Entity metadata value | `Vault_Entity` |
+| `{{identity.entity.aliases.<accessor>.id}}` | Alias ID on the selected auth accessor | Referenced `Vault_EntityAlias` |
+| `{{identity.entity.aliases.<accessor>.name}}` | Alias name on the selected auth accessor | Referenced `Vault_EntityAlias` |
+| `{{identity.entity.aliases.<accessor>.metadata.<key>}}` | Alias metadata value | Referenced `Vault_EntityAlias` |
+| `{{identity.entity.aliases.<accessor>.custom_metadata.<key>}}` | Alias custom-metadata value | Referenced `Vault_EntityAlias` |
+| `{{identity.groups.ids.<group-id>.name}}` | Name of an effective group selected by ID | The referenced `Vault_Group` only when it is the single group context and also grants the policy; otherwise `Vault_Entity` |
+| `{{identity.groups.ids.<group-id>.metadata.<key>}}` | Metadata of an effective group selected by ID | The referenced `Vault_Group` under the same single-granting-group condition; otherwise `Vault_Entity` |
+| `{{identity.groups.names.<group-name>.id}}` | ID of an effective group selected by name | The referenced `Vault_Group` under the same single-granting-group condition; otherwise `Vault_Entity` |
+| `{{identity.groups.names.<group-name>.metadata.<key>}}` | Metadata of an effective group selected by name | The referenced `Vault_Group` under the same single-granting-group condition; otherwise `Vault_Entity` |
+| Multiple alias-only expressions | Values from each selected alias | Each collected referenced `Vault_EntityAlias`; if no alias graph source is available, `Vault_Entity` |
+| Mixed entity, alias, or group contexts | All referenced values | `Vault_Entity`, because the result is specific to the combined entity context |
 
-- Entity fields produce an edge from `Vault_Entity`.
-- Alias-only expressions produce an edge from the referenced `Vault_EntityAlias` when that alias was collected.
-- A single group expression may produce an edge from `Vault_Group` when the same group also grants the policy.
-- Mixed or ambiguous resolved source contexts fall back to the entity.
-
-When a template expression cannot be resolved for an identity context, VaultHound emits no effective relationship for that rendering.
-
-Policy inheritance remains provenance through properties such as `Via Policies`, `Policy Origins`, and `Inherited From Group IDs`. Disabled entities do not receive effective template relationships.
-
-### Target Resolution
-
-| Target State | Representation |
-| --- | --- |
-| Observed | The relationship targets a concrete node collected from Vault. |
-| Synthetic | An exact supported path may create a node marked `Synthetic: TRUE`. Synthetic nodes receive no containment edge because their existence was not observed. |
-| Potential | An unresolved prerequisite, runtime-selected or future object, or security outcome involving a synthetic target is marked `Potential Only`. Applicable attack outcomes are converted to `Vault_PotentialAccess`; ordinary wildcard matches to observed descendants remain concrete edges. |
-| Creation anchor | When a wildcard can create unobserved objects, the relationship targets the nearest observed directory, mount, or store and records `Can Create Unobserved Objects`. |
-
-Synthetic targets are endpoint- and operation-specific. VaultHound creates one only when the handler understands the object type and the represented operation is meaningful for an absent object.
+A rendered value containing `*` or `+` is rejected; wildcards outside the template expression remain valid and are matched after rendering. Missing selectors or metadata values produce no effective relationship for that entity rendering. Policy inheritance remains provenance through `Via Policies`, `Policy Origins`, and `Inherited From Group IDs`; inheritance alone does not change the edge source. Disabled entities do not receive effective template relationships.
 
 ### Capability Routing
 
 Capabilities are routed through endpoint-specific handlers rather than exported as generic capability edges. Each relationship retains only the capabilities relevant to its operation.
 
-Unsupported endpoints and unsupported secrets-engine implementations receive no fallback access edge. Relationships sharing a source, target, and edge kind are merged; their capabilities, paths, scopes, surfaces, operations, and requirements become deduplicated arrays.
+Unsupported endpoints and unsupported secrets-engine implementations receive no fallback access edge. Relationships sharing a source, target, and edge kind are merged; their capabilities, paths, scopes, surfaces, operations, and requirements become deduplicated arrays. Observed, synthetic, potential, and creation-anchor behavior follows the shared [target-state contract](../MODEL.md#observed-synthetic-and-potential); endpoint handlers decide whether an exact missing target can be represented safely.
 
 ### Deny, Sudo, And Parameters
 
@@ -225,46 +223,93 @@ Declared policy edges preserve grant and deny evidence from individual policies 
 
 `required_parameters`, `allowed_parameters`, and `denied_parameters` are parsed and consulted by parameter-aware derivations. Constraints can prevent a control relationship, restrict it to known values, or downgrade it to `Vault_PotentialAccess`. Exported relationships retain parameter names and constraint status; raw allowed and denied value maps remain internal.
 
-### Evidence Properties
+### Policy Evidence
 
-Policy-derived relationship kinds use the shared [Policy-Derived Edge Metadata](../MODEL.md#policy-derived-edge-metadata) contract.
+Policy-derived relationships use the shared [policy-derived edge metadata](../MODEL.md#policy-derived-edge-metadata). Policy-specific interpretation has two important rules:
 
-| Property | Meaning |
-| --- | --- |
-| `Capabilities` | Capabilities relevant to the represented operation. |
-| `Matched Policy Paths` | Original HCL paths declaring the authority. |
-| `Matched Paths` | Rendered template paths, emitted only when they differ from the original policy paths. |
-| `Scopes` | Exact, collection, single-segment, glob, subtree, mount, or potential scope. |
-| `Surfaces` | Vault API endpoint families represented by the edge. |
-| `Operations` | Human-readable operations represented by the edge. |
-| `Requirements` | Preconditions such as sudo, CAS, CIDR, or target-state requirements. |
-| `Via Policies` | Policies contributing to an effective template relationship. |
-| `Policy Origins` | Direct, group-inherited, token-derived, or other policy provenance. |
+- `Matched Policy Paths` preserves the original HCL declaration; `Matched Paths` is added only when template rendering changes that path.
+- Merged arrays summarize all declarations contributing to one source, target, and edge kind. They do not assert that every listed capability came from every listed path; consult the policy node's `Paths Summary` for path-and-capability pairings.
 
-These properties belong to the concrete edge kind being emitted; "policy-derived access edge" is not itself a schema kind. Evidence arrays are merged summaries. When multiple path blocks collapse into one relationship, do not assume that every capability came from every listed path. `Paths Summary` on the policy node preserves the parsed path-and-capability combinations.
+## Attack Paths
 
-## Policy Authority Model
+Policy nodes are the declared authority boundary. Non-templated grants normally compose through `Vault_LinksPolicy` rather than being duplicated from every principal. Template-effective edges are emitted from the resolved entity, alias, or group and retain their declaring policies in `Via Policies`.
 
-Policy-to-target edges remain visible even when a derived Identity-template edge exists. This preserves both the policy that declares the authority and the concrete identity representation for which the template resolves.
+### Assigned Policy Authority
 
-VaultHound intentionally avoids materializing every non-templated policy grant as a duplicate principal-to-resource relationship. Policy assignment and group membership already provide the traversable route to declared authority:
+The following examples use real traversable subsystem edges. They illustrate secret disclosure, dynamic credential generation, and proven object takeover; destination subsystem guides document the complete edge families and prerequisites.
 
 ```mermaid
 flowchart LR
-    PR[Principal]:::objectNode -->|Vault_LinksPolicy| PL[Vault_Policy]:::policyNode
-    PL -->|"Operation Edge"| TR[Target]:::objectNode
+    principal[Policy-bearing principal]:::identityNode -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
+    policy -->|Vault_KvReadSecret| secret[Vault_KvFile]:::kvObjectNode
+    policy -->|Vault_GenerateCredentials| role[Credential role]:::objectNode
+    policy -->|Vault_ControlObject| controlled[Controllable object]:::objectNode
 
-    classDef objectNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
+    classDef objectNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
 ```
 
-Template-effective edges are the exception because the rendered target and edge source depend on the referenced identity context. Their `Via Policies` property preserves the declaration source.
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (principal)-[:Vault_LinksPolicy]->(policy:Vault_Policy)-[operation]->(target)
+WHERE type(operation) IN [
+  "Vault_KvReadSecret",
+  "Vault_GenerateCredentials",
+  "Vault_ControlObject"
+]
+RETURN p
+```
+
+### Policy Acquisition Through Object Control
+
+When a proven takeover-capable mutation controls an observed entity, group, auth user, or auth role, its existing `Vault_LinksPolicy` relationships expose the policies obtainable through that object.
+
+```mermaid
+flowchart LR
+    authority[Controlling policy or principal]:::identityNode -->|Vault_ControlObject| object[Policy-bearing object]:::objectNode
+    object -->|Vault_LinksPolicy| acquired[Obtainable Vault_Policy]:::policyNode
+
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
+    classDef objectNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (authority)-[:Vault_ControlObject]->(object)-[:Vault_LinksPolicy]->(:Vault_Policy)
+RETURN p
+```
+
+### Unresolved Policy Assignment
+
+If object control is proven but value constraints leave assignable policy names unresolved, VaultHound emits non-traversable `Vault_PotentialAccess` to the controlled object with `Potential Outcomes: Obtain Additional Policy`. It does not invent a relationship to an unknown policy node.
+
+```mermaid
+flowchart LR
+    authority[Controlling policy or principal]:::identityNode -.->|Vault_PotentialAccess| object[Policy-bearing object]:::objectNode
+
+    classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef objectNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
+```
+
+Equivalent Cypher query:
+
+```cypher
+MATCH p = (authority)-[potential:Vault_PotentialAccess]->(object)
+WHERE "Obtain Additional Policy" IN potential.`Potential Outcomes`
+RETURN p
+```
 
 ## Limitations
 
 - ACL edges describe static authorization and do not prove that a principal currently possesses a usable Vault token.
-- RGP and EGP documents are collected but are not interpreted as ACL path rules.
+- Policy collection reflects only registries and documents visible to the collector. RGP and EGP also depend on Vault Enterprise availability and are not interpreted as ACL path rules.
 - Declared edges preserve per-policy evidence; the collector does not compute a complete effective capability union across every policy attached to a token.
 - Control groups, response wrapping, runtime request parameters, namespaces, and plugin-side validation can impose additional conditions.
 - Synthetic and potential targets represent inferred authority rather than proof that the target currently exists or is usable.
 - Ordinary policy mutation remains non-traversable; VaultHound does not infer acquisition of the modified policy without a separate assignment or control path.
+- Generic policy administration edges normalize `Object Types` to `Policy`; ACL, RGP, and EGP distinctions may therefore require the target node's `Policy Type` or the matched registry path.

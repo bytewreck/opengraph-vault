@@ -961,7 +961,7 @@
     },
     {
       "name": "Vault_OidcGenerateIdentityToken",
-      "description": "Identity-token access edge showing that a Vault policy can mint an OIDC-compliant identity token from the target role or a namespace-scoped role surface when the signing key permits that role client ID.",
+      "description": "Identity-token access edge showing that a Vault policy or resolved template authority can mint an OIDC-compliant identity token from the concrete observed target role when its signing key permits that role client ID. Patterned and templated role surfaces expand directly to eligible observed roles; unresolved role or key prerequisites use Vault_PotentialAccess.",
       "is_traversable": true
     },
     {

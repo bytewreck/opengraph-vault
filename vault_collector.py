@@ -32447,14 +32447,55 @@ class VaultCollector:
             ]
 
         if target_node == self._identity_namespace_node_id() and not role_infos:
+            properties: dict[str, Any] = {
+                "capabilities": ["read"],
+                "scopes": [scope],
+                "matched_paths": [matched_path],
+                "matched_policy_paths": [matched_policy_path],
+                "potential_outcomes": ["Generate Identity Token"],
+                "resolution_status": ["No Matching OIDC Token Role Was Collected"],
+                "requirements": [
+                    "Matching OIDC Token Role Exists",
+                    "Signing Key Allows Role Client ID",
+                ],
+                "potential_only": True,
+                "target_observed": False,
+            }
+            array_property_keys = {
+                "scopes",
+                "matched_paths",
+                "matched_policy_paths",
+                "potential_outcomes",
+                "resolution_status",
+                "requirements",
+            }
+            if role_references:
+                properties["role_references"] = list(dict.fromkeys(role_references))
+                properties["unresolved_role_names"] = list(dict.fromkeys(role_references))
+                array_property_keys.update({"role_references", "unresolved_role_names"})
+            if extra_properties:
+                properties.update(extra_properties)
+            if extra_array_property_keys:
+                array_property_keys.update(extra_array_property_keys)
+            boolean_or_property_keys = set(extra_boolean_or_property_keys or set())
+            boolean_or_property_keys.update({"potential_only", "target_observed"})
+            self._emit_or_merge_edge(
+                policy_node,
+                target_node,
+                "Vault_PotentialAccess",
+                properties=properties,
+                array_property_keys=array_property_keys,
+                boolean_or_property_keys=boolean_or_property_keys,
+            )
             return
 
-        if (
-            target_node == self._identity_namespace_node_id()
-            and role_infos
-            and self._identity_is_patterned(matched_path)
-            and "{{" not in matched_path
-        ):
+        if target_node == self._identity_namespace_node_id() and role_infos:
+            expanded_scope = (
+                "pattern_expansion"
+                if self._identity_is_patterned(matched_path)
+                and "{{" not in matched_policy_path
+                else scope
+            )
             for candidate in role_infos:
                 self._emit_identity_token_generation_edge(
                     policy_node,
@@ -32462,7 +32503,7 @@ class VaultCollector:
                     caps,
                     matched_path,
                     matched_policy_path,
-                    "pattern_expansion",
+                    expanded_scope,
                     role_references=role_references,
                     extra_properties=extra_properties,
                     extra_array_property_keys=extra_array_property_keys,
@@ -32484,12 +32525,6 @@ class VaultCollector:
         ]
         if role_infos and not allowed_details and not unknown_details:
             return
-
-        blocked_role_names = list(dict.fromkeys(
-            str(detail[0].get("name") or "")
-            for detail in eligibility_details
-            if detail[1] == "Blocked" and detail[0].get("name")
-        ))
 
         def emit_eligibility_result(
             details: list[tuple[dict[str, Any], str, str, str]],
@@ -32531,9 +32566,6 @@ class VaultCollector:
                 )
                 properties[role_property] = role_names
                 array_property_keys.add(role_property)
-            if blocked_role_names:
-                properties["blocked_role_names"] = blocked_role_names
-                array_property_keys.add("blocked_role_names")
             if role_references:
                 properties["role_references"] = role_references
                 array_property_keys.add("role_references")

@@ -309,6 +309,151 @@ class IdentityTokenTraversalTests(unittest.TestCase):
             for edge in collector.edges
         ))
 
+    def test_template_store_anchor_expands_to_observed_role(self):
+        collector = self.collector(["web-client"])
+        store_node = collector._identity_namespace_node_id()
+
+        collector._emit_identity_token_generation_edge(
+            "policy",
+            store_node,
+            ["read"],
+            "identity/oidc/token/web",
+            "identity/oidc/token/{{identity.entity.metadata.token_role}}",
+            "template",
+            role_references=["{{identity.entity.metadata.token_role}}"],
+            extra_properties={
+                "templated": True,
+                "via_policies": ["identity-template"],
+            },
+            extra_array_property_keys={"via_policies"},
+            extra_boolean_or_property_keys={"templated"},
+        )
+
+        generated = [
+            edge
+            for edge in collector.edges
+            if edge.kind == "Vault_OidcGenerateIdentityToken"
+        ]
+        self.assertEqual([edge.target for edge in generated], ["identity-role-web"])
+        self.assertFalse(any(edge.target == store_node for edge in generated))
+        self.assertEqual(
+            generated[0].properties["matched_paths"],
+            ["identity/oidc/token/web"],
+        )
+        self.assertEqual(
+            generated[0].properties["matched_policy_paths"],
+            ["identity/oidc/token/{{identity.entity.metadata.token_role}}"],
+        )
+        self.assertEqual(
+            generated[0].properties["role_references"],
+            ["{{identity.entity.metadata.token_role}}"],
+        )
+        self.assertEqual(
+            generated[0].properties["via_policies"],
+            ["identity-template"],
+        )
+        self.assertTrue(generated[0].properties["templated"])
+
+    def test_store_anchor_with_unknown_key_is_potential_on_role(self):
+        collector = self.collector(include_key=False)
+        store_node = collector._identity_namespace_node_id()
+
+        collector._emit_identity_token_generation_edge(
+            "policy",
+            store_node,
+            ["read"],
+            "identity/oidc/token/*",
+            "identity/oidc/token/*",
+            "pattern",
+        )
+
+        self.assertFalse(any(
+            edge.kind == "Vault_OidcGenerateIdentityToken"
+            for edge in collector.edges
+        ))
+        potential = next(
+            edge for edge in collector.edges
+            if edge.kind == "Vault_PotentialAccess"
+        )
+        self.assertEqual(potential.target, "identity-role-web")
+        self.assertNotEqual(potential.target, store_node)
+        self.assertEqual(potential.properties["key_eligibility"], ["Unknown"])
+
+    def test_pattern_store_anchor_expands_to_each_compatible_role(self):
+        collector = self.collector(["web-client"])
+        collector._oidc_token_roles["ops"] = {
+            "node_id": "identity-role-ops",
+            "name": "ops",
+            "key": "ops-key",
+            "client_id": "ops-client",
+        }
+        collector._oidc_keys["ops-key"] = {
+            "allowed_client_ids": ["ops-client"],
+        }
+        collector.nodes.append(graph_node("identity-role-ops", "Vault_OidcTokenRole"))
+        store_node = collector._identity_namespace_node_id()
+
+        collector._emit_identity_token_generation_edge(
+            "policy",
+            store_node,
+            ["read"],
+            "identity/oidc/token/*",
+            "identity/oidc/token/*",
+            "pattern",
+        )
+
+        generated = [
+            edge
+            for edge in collector.edges
+            if edge.kind == "Vault_OidcGenerateIdentityToken"
+        ]
+        self.assertEqual(
+            {edge.target for edge in generated},
+            {"identity-role-web", "identity-role-ops"},
+        )
+        self.assertTrue(all(edge.target != store_node for edge in generated))
+        self.assertTrue(all(
+            edge.properties["scopes"] == ["pattern_expansion"]
+            for edge in generated
+        ))
+
+    def test_unresolved_store_anchor_emits_no_traversable_store_edge(self):
+        collector = self.collector(["web-client"])
+        collector._oidc_token_roles.clear()
+        store_node = collector._identity_namespace_node_id()
+
+        collector._emit_identity_token_generation_edge(
+            "policy",
+            store_node,
+            ["read"],
+            "identity/oidc/token/missing",
+            "identity/oidc/token/{{identity.entity.metadata.token_role}}",
+            "template",
+            role_references=["missing"],
+        )
+
+        self.assertFalse(any(
+            edge.kind == "Vault_OidcGenerateIdentityToken"
+            and edge.target == store_node
+            for edge in collector.edges
+        ))
+        potential = next(
+            edge
+            for edge in collector.edges
+            if edge.kind == "Vault_PotentialAccess"
+        )
+        self.assertEqual(potential.target, store_node)
+        self.assertEqual(
+            potential.properties["potential_outcomes"],
+            ["Generate Identity Token"],
+        )
+        self.assertEqual(
+            potential.properties["unresolved_role_names"],
+            ["missing"],
+        )
+        self.assertTrue(potential.properties["potential_only"])
+        self.assertFalse(potential.properties["target_observed"])
+
 
 class GcpKmsTraversalTests(unittest.TestCase):
     @staticmethod

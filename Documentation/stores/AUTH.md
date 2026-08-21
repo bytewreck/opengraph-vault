@@ -195,12 +195,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_ControlObject]->(x)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (x:Vault_AuthUser OR x:Vault_AuthRole)
+MATCH p = (s)-[:Vault_ControlObject]->(n)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE n:Vault_AuthUser OR n:Vault_AuthRole
 RETURN p
 ```
 
