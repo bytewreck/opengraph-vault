@@ -110,10 +110,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[r]->(d)
-WHERE type(r) IN ["Vault_Contains", "Vault_MapsTo", "Vault_MemberOf", "Vault_OnAuthMethod"]
-  AND (s:Vault_Store OR s:Vault_Entity OR s:Vault_EntityAlias OR s:Vault_Group OR s:Vault_GroupAlias)
-  AND (d:Vault_Entity OR d:Vault_EntityAlias OR d:Vault_Group OR d:Vault_GroupAlias OR d:Vault_AuthMethod)
+MATCH p = (store:Vault_Store)-[:Vault_Contains|Vault_MapsTo|Vault_MemberOf*1..]->(d)
+WHERE store.`Store Type` = "Identity" AND (d:Vault_Entity OR d:Vault_EntityAlias OR d:Vault_Group OR d:Vault_GroupAlias)
 RETURN p
 ```
 
@@ -228,10 +226,10 @@ Parameter-aware alias rebinding, group-membership changes, and policy assignment
 
 ```mermaid
 flowchart LR
-    policyA[Controlling Vault_Policy]:::policyNode -->|Vault_ControlObject| entity[Vault_Entity]:::identityNode
-    policyA -->|Vault_ControlObject| group[Vault_Group]:::groupNode
-    entity -->|Vault_LinksPolicy| policyB[Linked Vault_Policy]:::policyNode
-    group -->|Vault_LinksPolicy| policyB
+    P1[Vault_Policy]:::policyNode -->|Vault_ControlObject| VE[Vault_Entity]:::identityNode
+    P1 -->|Vault_ControlObject| VG[Vault_Group]:::groupNode
+    VE -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
+    VG -->|Vault_LinksPolicy| P2
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef identityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
@@ -241,12 +239,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (authority)-[:Vault_ControlObject]->(identity)-[:Vault_LinksPolicy]->(:Vault_Policy)
-WHERE (authority:Vault_Policy
-    OR authority:Vault_Entity
-    OR authority:Vault_EntityAlias
-    OR authority:Vault_Group)
-  AND (identity:Vault_Entity OR identity:Vault_Group)
+MATCH p = (s)-[:Vault_ControlObject]->(d)-[:Vault_LinksPolicy]->(:Vault_Policy)
+WHERE d:Vault_Entity OR d:Vault_Group
 RETURN p
 ```
 
@@ -295,19 +289,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[r]->(d)
-WHERE type(r) IN [
-  "Vault_Contains",
-  "Vault_OidcAllowsApplication",
-  "Vault_OidcSupportsScope",
-  "Vault_References",
-  "Vault_OidcAssignedTo",
-  "Vault_OidcGrantsAccess"
-]
-  AND (s:Vault_Store OR s:Vault_OidcProvider OR s:Vault_OidcApplication
-    OR s:Vault_OidcAssignment OR s:Vault_OidcTokenRole OR s:Vault_Entity OR s:Vault_Group)
-  AND (d:Vault_OidcProvider OR d:Vault_OidcApplication OR d:Vault_OidcScope
-    OR d:Vault_OidcKey OR d:Vault_OidcAssignment OR d:Vault_OidcTokenRole)
+MATCH p = (store:Vault_Store)-[:Vault_Contains]->(s)-[r*1..]->(d)
+WHERE store.`Store Type` = "Identity" AND ALL(n IN r WHERE type(n) STARTS WITH 'Vault_Oidc' OR type(n) = 'Vault_References')
 RETURN p
 ```
 
@@ -484,15 +467,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[r]->(d)
-WHERE (
-    type(r) = "Vault_Contains"
-    AND s:Vault_Store
-    AND (d:Vault_MfaLoginEnforcement OR d:Vault_MfaMethod)
-  ) OR (
-    type(r) IN ["Vault_MfaAppliesTo", "Vault_MfaUsesMethod"]
-    AND s:Vault_MfaLoginEnforcement
-  )
+MATCH p = (store:Vault_Store)-[:Vault_Contains]->(s)-[r*1..]->(d)
+WHERE store.`Store Type` = "Identity" AND ALL(n IN r WHERE type(n) STARTS WITH 'Vault_Mfa')
 RETURN p
 ```
 
@@ -631,16 +607,8 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[r]->(d)
-WHERE (
-    type(r) = "Vault_Contains"
-    AND s:Vault_Store
-    AND d:Vault_ScimClient
-  ) OR (
-    type(r) IN ["Vault_ScimUsesPrincipal", "Vault_ScimManages"]
-    AND s:Vault_ScimClient
-    AND (d:Vault_Entity OR d:Vault_Group)
-  )
+MATCH p = (store:Vault_Store)-[:Vault_Contains]->(s)-[r*1..]->(d)
+WHERE store.`Store Type` = "Identity" AND ALL(n IN r WHERE type(n) IN ["Vault_ScimUsesPrincipal", "Vault_ScimManages"])
 RETURN p
 ```
 
