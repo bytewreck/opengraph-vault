@@ -9,7 +9,7 @@ The Managed Keys Store represents the namespace-local Enterprise registry at `sy
 - Collection-wide creation is anchored to the Managed Keys Store.
 - Mechanism, backend, mount-allowlist, and operation compatibility remain explicit edge prerequisites.
 
-## Limitations
+## Managed Keys Store Limitations
 
 - VaultHound does not independently inspect the external KMS or HSM that owns the key material.
 - Provider IAM, network reachability, and provider-side key state remain outside the Vault graph.

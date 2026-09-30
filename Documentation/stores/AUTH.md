@@ -37,7 +37,7 @@ The following matrix summarizes implemented auth methods and their current test 
 - SecretID, privileged token, and takeover edges require their method-specific prerequisites even under a broad glob.
 - Broad `auth/*` and method-specific globs use the same endpoint-routing logic, so equivalent rights normalize to equivalent edges.
 
-## Limitations
+## Auth Store Limitations
 
 - VaultHound does not attempt logins or validate external credentials.
 - External user/group membership is limited to Vault mappings and aliases returned by the API.
@@ -85,7 +85,7 @@ In every edge table in this guide, `Policy` or `Vault_Policy` denotes [policy au
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_OnAuthMethod` | `Vault_EntityAlias` or `Vault_GroupAlias` | `Vault_AuthMethod` | :x: | Identifies the auth method mount on which the Identity alias exists. |
+| `Vault_OnAuthMethod` | `Vault_EntityAlias`,<br>`Vault_GroupAlias` | `Vault_AuthMethod` | :x: | Identifies the auth method mount on which the Identity alias exists. |
 | `Vault_ReadConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Reads mount, tuning, or backend-wide authentication configuration. |
 | `Vault_ManageConfig` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Changes mount tuning, backend configuration, root credentials, or maintenance state. |
 | `Vault_ListObjects` | `Vault_Policy` | `Vault_AuthMethod` | :x: | Lists roles, users, groups, CRLs, or another method-specific child collection. |
@@ -122,7 +122,7 @@ Method-wide defaults are represented directly on the auth method:
 
 ```mermaid
 flowchart LR
-    store["Vault_Store: AUTH"]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
+    store_auth["Vault_Store: AUTH"]:::storeNode -->|Vault_Contains| method[Vault_AuthMethod]:::authMethodNode
     method -->|Vault_LinksPolicy| policy[Vault_Policy]:::policyNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px

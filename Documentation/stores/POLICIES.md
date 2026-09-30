@@ -16,6 +16,16 @@ Supported means that VaultHound understands the policy family and attempts its c
 
 ACL collection prefers `sys/policies/acl` and falls back to `sys/policy` only when the modern collection returns no names. RGP assignment is resolved by policy name; when ACL and RGP policies share a name, the ACL policy is the assignment target. EGP policies govern endpoint paths rather than being assigned as token policies.
 
+## Policy Store Limitations
+
+- ACL edges describe static authorization and do not prove that a principal currently possesses a usable Vault token.
+- Policy collection reflects only registries and documents visible to the collector. RGP and EGP also depend on Vault Enterprise availability and are not interpreted as ACL path rules.
+- Declared edges preserve per-policy evidence; the collector does not compute a complete effective capability union across every policy attached to a token.
+- Control groups, response wrapping, runtime request parameters, namespaces, and plugin-side validation can impose additional conditions.
+- Synthetic and potential targets represent inferred authority rather than proof that the target currently exists or is usable.
+- Ordinary policy mutation remains non-traversable; VaultHound does not infer acquisition of the modified policy without a separate assignment or control path.
+- Generic policy administration edges normalize `Object Types` to `Policy`; ACL, RGP, and EGP distinctions may therefore require the target node's `Policy Type` or the matched registry path.
+
 ## Store Topology
 
 In schema topology diagrams, solid arrows represent traversable relationships and dashed arrows represent non-traversable relationships. Processing-flow diagrams are explicitly identified and do not use this graph-edge convention.
@@ -301,13 +311,3 @@ MATCH p = (authority)-[potential:Vault_PotentialAccess]->(object)
 WHERE "Obtain Additional Policy" IN potential.`Potential Outcomes`
 RETURN p
 ```
-
-## Limitations
-
-- ACL edges describe static authorization and do not prove that a principal currently possesses a usable Vault token.
-- Policy collection reflects only registries and documents visible to the collector. RGP and EGP also depend on Vault Enterprise availability and are not interpreted as ACL path rules.
-- Declared edges preserve per-policy evidence; the collector does not compute a complete effective capability union across every policy attached to a token.
-- Control groups, response wrapping, runtime request parameters, namespaces, and plugin-side validation can impose additional conditions.
-- Synthetic and potential targets represent inferred authority rather than proof that the target currently exists or is usable.
-- Ordinary policy mutation remains non-traversable; VaultHound does not infer acquisition of the modified policy without a separate assignment or control path.
-- Generic policy administration edges normalize `Object Types` to `Policy`; ACL, RGP, and EGP distinctions may therefore require the target node's `Policy Type` or the matched registry path.

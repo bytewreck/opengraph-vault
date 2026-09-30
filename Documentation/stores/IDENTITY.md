@@ -2,6 +2,16 @@
 
 The Identity Store represents Vault's namespace-local identity subsystem under `identity/`. Unlike the Auth and Mount stores, it is not a catalogue of interchangeable backends. It is one store containing four distinct technologies: canonical identity administration, outbound OIDC, MFA, and Enterprise SCIM.
 
+## Identity Store Limitations
+
+- VaultHound does not authenticate as collected entities or validate external identity-provider credentials.
+- External directory membership is represented only where Vault returns aliases or mappings that prove it.
+- Static ACL and configuration collection cannot prove runtime token state, successful OIDC protocol completion, or satisfaction of an MFA challenge.
+- Control groups and runtime request parameters can impose conditions not visible from static policy evaluation.
+- Administrative TOTP enrollment remains potential because the generated factor does not prove possession of the entity's primary credential.
+- SCIM provisioning remains non-traversable evidence and is conditional on the configured access-grant principal, effective ACLs, and collected client ownership.
+- Identity-template expressions that cannot be resolved for a collected identity context produce no effective relationship.
+
 ## Store Topology
 
 Mermaid diagrams in this guide use solid arrows for traversable relationships and dashed arrows for non-traversable configuration, constraint, ownership, or evidence relationships.
@@ -128,8 +138,8 @@ In every access-control example in this guide, `Policy` denotes [policy authorit
 
 | Edge | Source | Destination | Traversable | Meaning |
 | --- | --- | --- | :---: | --- |
-| `Vault_MapsTo` | Auth principal or alias | Alias or canonical identity | :white_check_mark: | Correlates an external representation with Vault identity. |
-| `Vault_MemberOf` | Entity or child group | Group | :white_check_mark: | Carries policy-bearing membership. |
+| `Vault_MapsTo` | `Vault_EntityAlias`,<br>`Vault_AuthUser`,<br>`Vault_GroupAlias`,<br>`Vault_AuthGroup` | `Vault_Entity`,<br>`Vault_EntityAlias`,<br>`Vault_Group`,<br>`Vault_GroupAlias` | :white_check_mark: | Correlates an external representation with Vault identity. |
+| `Vault_MemberOf` | `Vault_Entity`,<br>`Vault_Group` | `Vault_Group` | :white_check_mark: | Carries policy-bearing membership. |
 
 The cross-store `Vault_OnAuthMethod` relationship shown in the topology is defined in [Auth Store common edges](AUTH.md#common-edges), because it identifies the auth mount that owns an Identity alias.
 
@@ -199,9 +209,9 @@ flowchart LR
     VE -->|Vault_LinksPolicy| P1[Vault_Policy]:::policyNode
     VE -->|Vault_MemberOf| VG1[Vault_Group]:::groupNode
     VG1 -->|Vault_LinksPolicy| P2[Vault_Policy]:::policyNode
-    GA[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG1
     VG2[Vault_Group]:::groupNode -->|Vault_MemberOf| VG1
     GA2[Vault_GroupAlias]:::groupAliasNode -->|Vault_MapsTo| VG2
+    VG2 -->|Vault_LinksPolicy| P3[Vault_Policy]:::policyNode
 
     classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
     classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
@@ -260,17 +270,19 @@ The outbound OIDC model is distinct from the JWT/OIDC authentication method. Her
 ```mermaid
 flowchart LR
     store[Vault_Store: IDENTITY]:::storeNode -->|Vault_Contains| provider[Vault_OidcProvider]:::oidcProviderNode
+    store -->|Vault_Contains| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
+    provider -.->|Vault_OidcAllowsApplication| app
     store -->|Vault_Contains| app[Vault_OidcApplication]:::oidcApplicationNode
     store -->|Vault_Contains| scope[Vault_OidcScope]:::oidcScopeNode
     store -->|Vault_Contains| key[Vault_OidcKey]:::oidcKeyNode
-    store -->|Vault_Contains| assignment[Vault_OidcAssignment]:::oidcAssignmentNode
     store -->|Vault_Contains| role[Vault_OidcTokenRole]:::oidcTokenRoleNode
-    provider -.->|Vault_OidcAllowsApplication| app
     provider -.->|Vault_OidcSupportsScope| scope
     app -.->|Vault_References| key
     role -.->|Vault_References| key
-    entity[Vault_Entity]:::identityNode -.->|Vault_OidcAssignedTo| assignment
-    group[Vault_Group]:::groupNode -.->|Vault_OidcAssignedTo| assignment
+    store -->|Vault_Contains| entity[Vault_Entity]:::identityNode
+    entity -.->|Vault_OidcAssignedTo| assignment
+    store -->|Vault_Contains| group[Vault_Group]:::groupNode
+    group -.->|Vault_OidcAssignedTo| assignment
     assignment -.->|Vault_OidcGrantsAccess| app
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
@@ -699,13 +711,3 @@ WHERE (type(r) = "Vault_ScimProtocolAccess" AND s:Vault_Policy AND d:Vault_ScimC
        AND d:Vault_ScimClient)
 RETURN p
 ```
-
-## Limitations
-
-- VaultHound does not authenticate as collected entities or validate external identity-provider credentials.
-- External directory membership is represented only where Vault returns aliases or mappings that prove it.
-- Static ACL and configuration collection cannot prove runtime token state, successful OIDC protocol completion, or satisfaction of an MFA challenge.
-- Control groups and runtime request parameters can impose conditions not visible from static policy evaluation.
-- Administrative TOTP enrollment remains potential because the generated factor does not prove possession of the entity's primary credential.
-- SCIM provisioning remains non-traversable evidence and is conditional on the configured access-grant principal, effective ACLs, and collected client ownership.
-- Identity-template expressions that cannot be resolved for a collected identity context produce no effective relationship.

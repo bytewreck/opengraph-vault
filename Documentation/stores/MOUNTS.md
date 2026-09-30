@@ -43,7 +43,7 @@ The following matrix summarizes secrets-engine implementation and test status:
 - Unknown external prerequisites or unresolved runtime selectors become `Vault_PotentialAccess` rather than traversable outcomes.
 - Unsupported observed non-system engines retain only their generic mount existence and type; their endpoint paths do not emit generic secret-access edges.
 
-## Limitations
+## Mount Store Limitations
 
 - VaultHound does not invoke credential-generation, signing, decryption, or secret-read endpoints.
 - External cloud, database, directory, and SaaS permissions are not independently validated.
@@ -76,7 +76,7 @@ flowchart LR
     store[Vault_Store: MOUNTS]:::storeNode -->|Vault_Contains| mount[Vault_SecretsEngine]:::mountNode
     mount -->|Vault_Contains| O1[Vault_SecretsRole]:::secretObjectNode
     mount -->|Vault_Contains| O2[Child resources]:::secretObjectNode
-    O2 -.->|Vault_References| dependency[Referenced resource]:::referenceNode
+    O2 -.->|Vault_References| dependency[Referenced resources]:::referenceNode
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
@@ -435,8 +435,9 @@ Dynamic credential generation requires an observed compatible connection and an 
 
 ```mermaid
 flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| role[Vault_DatabaseRole]:::secretObjectNode
-    role -.->|Vault_References| connection[Vault_DatabaseConnection]:::referenceNode
+    policy[Vault_Policy]:::policyNode -->|Vault_GenerateCredentials| DR[Vault_DatabaseRole]:::secretObjectNode
+    policy -->|Vault_ReadStaticCredentials| SR[Vault_DatabaseStaticRole]:::secretObjectNode
+    DR -.->|Vault_References| connection[Vault_DatabaseConnection]:::referenceNode
 
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
@@ -446,27 +447,13 @@ flowchart LR
 Equivalent Cypher query:
 
 ```cypher
-MATCH p = (s)-[:Vault_GenerateCredentials]->(d:Vault_DatabaseRole)
+MATCH p = (s)-[:Vault_GenerateCredentials|Vault_ReadStaticCredentials]->(d)
+WHERE d:Vault_DatabaseRole OR d:Vault_DatabaseStaticRole
 OPTIONAL MATCH references = (d)-[:Vault_References]->(:Vault_DatabaseConnection)
 RETURN p, references
 ```
 
 The attack path terminates at the role; `Vault_References` is supporting evidence, not a traversable hop. Generation is traversable only when the referenced connection was observed, uses a compatible plugin, and permits the role through `allowed_roles`. Incomplete collection emits `Vault_PotentialAccess`.
-
-```mermaid
-flowchart LR
-    policy[Vault_Policy]:::policyNode -->|Vault_ReadStaticCredentials| role[Vault_DatabaseStaticRole]:::secretObjectNode
-
-    classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
-    classDef secretObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
-```
-
-Equivalent Cypher query:
-
-```cypher
-MATCH p = (s)-[:Vault_ReadStaticCredentials]->(:Vault_DatabaseStaticRole)
-RETURN p
-```
 
 Static credential reads target the exact managed account and do not depend on dynamic-role connection viability in the same way.
 
@@ -659,8 +646,7 @@ flowchart LR
     mount -->|Vault_Contains| D1[Vault_KvDirectory]:::kvObjectNode
     mount -->|Vault_Contains| F1[Vault_KvFile]:::kvObjectNode
     F1 -->|Vault_Contains| P1[Vault_KvPair]:::kvPairNode
-    D1 -->|Vault_Contains| F2[Vault_KvFile]:::kvObjectNode
-    F2 -->|Vault_Contains| P2[Vault_KvPair]:::kvPairNode
+    D1 -->|Vault_Contains| F1
 
     classDef storeNode fill:#5F6B7A,color:#fff,stroke:#343A40,stroke-width:2px
     classDef mountNode fill:#D35400,color:#fff,stroke:#873600,stroke-width:2px
@@ -785,9 +771,16 @@ flowchart LR
     policy[Vault_Policy]:::policyNode -->|Vault_KvReadSecret| file[Vault_KvFile]:::kvObjectNode
     file -->|Vault_Contains| pair[Vault_KvPair]:::kvPairNode
 
+    VE[Vault_Entity]:::entityNode -->|Vault_KvReadSecret| file
+    EA[Vault_EntityAlias]:::entityAliasNode -->|Vault_KvReadSecret| file
+    VG[Vault_Group]:::groupNode -->|Vault_KvReadSecret| file
+
     classDef policyNode fill:#C0392B,color:#fff,stroke:#7B241C,stroke-width:2px
     classDef kvObjectNode fill:#E67E22,color:#fff,stroke:#A04000,stroke-width:2px
     classDef kvPairNode fill:#F5B041,color:#111,stroke:#B9770E,stroke-width:2px
+    classDef entityNode fill:#2F80ED,color:#fff,stroke:#1B4F72,stroke-width:2px
+    classDef entityAliasNode fill:#56CCF2,color:#111,stroke:#2E86C1,stroke-width:2px
+    classDef groupNode fill:#219653,color:#fff,stroke:#145A32,stroke-width:2px
 ```
 
 Equivalent Cypher query:
