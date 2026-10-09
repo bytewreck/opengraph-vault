@@ -2,3 +2,9 @@ vault_collected.json
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.dlt/
+.venv/
+build/
+dist/
+*.egg-info/
+/data

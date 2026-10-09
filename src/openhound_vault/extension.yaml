@@ -1,0 +1,35 @@
+name: vault
+version: 0.1.0
+description: "HashiCorp Vault collector and OpenGraph model for OpenHound"
+authors:
+  - name: VaultHound contributors
+
+type: local
+license: APACHE-2.0
+homepage: https://github.com/bytewreck/VaultHound
+references:
+  - name: VaultHound
+    url: https://github.com/bytewreck/VaultHound
+  - name: OpenHound
+    url: https://github.com/SpecterOps/OpenHound
+  - name: HashiCorp Vault API
+    url: https://developer.hashicorp.com/vault/api-docs
+
+credentials:
+  - name: address
+    description: Base URL of the Vault API
+    required: true
+  - name: token
+    description: Vault token used for discovery
+    required: true
+  - name: namespace
+    description: Optional Vault Enterprise namespace
+    required: false
+
+parameters:
+  - name: requests_per_second
+    description: Maximum average Vault API request rate
+    required: false
+    default: 50
+
+tags: ["vault", "hashicorp", "opengraph", "bloodhound"]
