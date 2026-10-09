@@ -1339,5 +1339,354 @@
       ]
     }
   ],
-  "relationship_findings": []
+  "relationship_findings": [
+    {
+      "name": "Vault_PrivilegedPolicyGrant",
+      "display_name": "Grants a Protected Vault Policy",
+      "relationship_kind": "Vault_LinksPolicy",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "A Vault identity or authentication object is linked to a protected policy.",
+        "long_description": "The source object receives the target policy through a direct assignment, authentication grant, auth-method default, or another collected policy-link mechanism. The policy may provide access to protected Vault resources.",
+        "short_remediation": "Remove unnecessary protected-policy assignments.",
+        "long_remediation": "Review the policy link type and remove the assignment or backend default when it is not required. Prefer narrowly scoped policies, periodically review all principals linked to protected policies, and revoke credentials issued through obsolete assignments."
+      }
+    },
+    {
+      "name": "Vault_PrivilegedGroupMembership",
+      "display_name": "Membership in a Protected Vault Group",
+      "relationship_kind": "Vault_MemberOf",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "A Vault entity or group is a member of a protected Vault group.",
+        "long_description": "The source inherits the target group's policies and any policies inherited through parent groups. This membership can extend the source's effective Vault authority to protected resources.",
+        "short_remediation": "Remove unnecessary protected-group membership.",
+        "long_remediation": "Remove direct or nested memberships that are not required, minimize policies attached to the protected group, and review external group mappings that can recreate the membership during authentication."
+      }
+    },
+    {
+      "name": "Vault_PrivilegedIdentityMapping",
+      "display_name": "Maps to a Protected Vault Identity",
+      "relationship_kind": "Vault_MapsTo",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "An authentication representation maps to a protected Vault identity.",
+        "long_description": "Successful authentication as the source representation resolves to the protected target identity and can inherit its identity and group policies.",
+        "short_remediation": "Correct or remove the privileged identity mapping.",
+        "long_remediation": "Verify the alias name, mount accessor, canonical identity, and external identity mapping. Remove stale or overly broad aliases and rotate affected authentication credentials when an unintended mapping may have been usable."
+      }
+    },
+    {
+      "name": "Vault_ObjectTakeover",
+      "display_name": "Can Take Control of a Protected Vault Object",
+      "relationship_kind": "Vault_ControlObject",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can perform a security-bearing mutation that grants effective control of the target object.",
+        "long_description": "The collected permissions and parameters prove a takeover outcome such as resetting credentials, changing policy-bearing membership, rebinding an alias, or replacing authentication trust.",
+        "short_remediation": "Revoke the mutation rights that enable object takeover.",
+        "long_remediation": "Remove create, update, patch, or delete capabilities from the relevant endpoint unless operationally required. Constrain accepted parameters, separate trust administration from routine management, and review policies reachable through the controlled object."
+      }
+    },
+    {
+      "name": "Vault_CredentialExposure",
+      "display_name": "Can Read a Protected Credential",
+      "relationship_kind": "Vault_ReadCredential",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can read confirmed reusable credential material from the target object.",
+        "long_description": "The authenticated read returns populated secret-bearing fields, such as an OIDC client secret or an MFA integration credential, that may permit authentication to Vault or an integrated service.",
+        "short_remediation": "Remove credential-read access and rotate exposed material.",
+        "long_remediation": "Restrict read capability on the credential-bearing endpoint to dedicated administrators. Rotate the returned credential, review its downstream use, and prefer integrations that avoid exposing reusable secrets where possible."
+      }
+    },
+    {
+      "name": "Vault_ApproleCredentialIssuance",
+      "display_name": "Can Generate AppRole Login Credentials",
+      "relationship_kind": "Vault_AuthApproleGenerateSecretId",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can generate a usable SecretID for the target AppRole.",
+        "long_description": "The source can generate standard or custom SecretIDs and the required RoleID is observed or independently obtainable. Successful login receives the policies and token constraints configured on the AppRole.",
+        "short_remediation": "Restrict SecretID generation and RoleID access.",
+        "long_remediation": "Limit SecretID generation to the intended delivery workflow, protect RoleID reads, apply short TTL and low use limits, bind SecretIDs and tokens to expected CIDRs, and remove excessive policies from the AppRole."
+      }
+    },
+    {
+      "name": "Vault_PrivilegedTokenIssuance",
+      "display_name": "Can Create a Privileged Vault Token",
+      "relationship_kind": "Vault_AuthTokenCreatePrivilegedToken",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can mint a token with authority beyond its current effective policy baseline.",
+        "long_description": "The issuance path proves policy expansion through sudo-authorized policy selection, a token role, or a privileged allowed entity alias. The resulting token can provide additional access in the target namespace.",
+        "short_remediation": "Remove the proven token privilege-expansion path.",
+        "long_remediation": "Remove unnecessary sudo access to token creation, constrain token-role allowed policies and entity aliases, minimize token TTL and use count, bind tokens to expected networks, and revoke tokens issued through the affected path."
+      }
+    },
+    {
+      "name": "Vault_OidcApplicationAccess",
+      "display_name": "Can Authenticate to a Protected OIDC Application",
+      "relationship_kind": "Vault_OidcAuthenticateTo",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The entity can satisfy the assignment and authorization requirements of a protected OIDC application.",
+        "long_description": "Collected assignment, provider, and ACL evidence proves that the source entity can complete Vault's OIDC authorization flow for the target application.",
+        "short_remediation": "Remove unnecessary application eligibility or authorization.",
+        "long_remediation": "Remove the entity or its groups from applicable assignments, narrow provider allowed-client configuration, and restrict access to the provider authorize endpoint. Review application claims and downstream privileges granted to authenticated identities."
+      }
+    },
+    {
+      "name": "Vault_OidcIdentityTokenIssuance",
+      "display_name": "Can Generate a Protected OIDC Identity Token",
+      "relationship_kind": "Vault_OidcGenerateIdentityToken",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can mint an OIDC identity token through the target role.",
+        "long_description": "The target role and signing-key restrictions permit token generation for its client ID. The resulting token carries the role's configured audience, claims, and lifetime.",
+        "short_remediation": "Restrict identity-token generation for the role.",
+        "long_remediation": "Remove unnecessary generate capability, narrow the role audience and claims, constrain the signing key's allowed client IDs, reduce token lifetime, and rotate the signing key if unauthorized tokens may have been issued."
+      }
+    },
+    {
+      "name": "Vault_KvSecretExposure",
+      "display_name": "Can Read a Protected KV Secret",
+      "relationship_kind": "Vault_KvReadSecret",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can read the value of a protected KV secret.",
+        "long_description": "The matched policy path permits reading secret data from the target KV object and may also return version or custom metadata on KV version 2.",
+        "short_remediation": "Remove unnecessary read access and rotate the secret.",
+        "long_remediation": "Narrow the policy to the minimum required secret paths and principals, avoid broad globs, and rotate the secret value and any downstream credentials when unauthorized disclosure is possible."
+      }
+    },
+    {
+      "name": "Vault_DynamicCredentialIssuance",
+      "display_name": "Can Generate Protected Dynamic Credentials",
+      "relationship_kind": "Vault_GenerateCredentials",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can generate dynamic or lease-backed credentials from a protected role.",
+        "long_description": "At least one collected generation mode is viable for the target role-like object. The resulting credentials can grant access to the configured external platform, database, cluster, or service.",
+        "short_remediation": "Restrict credential generation and narrow the target role.",
+        "long_remediation": "Remove unnecessary generation capability, reduce the external permissions represented by the role, constrain target scope and TTL, enforce required external prerequisites, and revoke outstanding leases when access is removed."
+      }
+    },
+    {
+      "name": "Vault_StaticCredentialExposure",
+      "display_name": "Can Read Protected Static Credentials",
+      "relationship_kind": "Vault_ReadStaticCredentials",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can retrieve current credentials managed by a protected static role.",
+        "long_description": "The endpoint returns reusable credentials for the external account represented by the static role. Those credentials remain useful until rotated or otherwise invalidated.",
+        "short_remediation": "Restrict static credential reads and rotate the account.",
+        "long_remediation": "Limit read access to approved consumers, reduce the external account's privileges, ensure frequent automated rotation, and immediately rotate credentials after unintended retrieval."
+      }
+    },
+    {
+      "name": "Vault_LdapServiceAccountCheckout",
+      "display_name": "Can Check Out a Protected LDAP Service Account",
+      "relationship_kind": "Vault_LdapCheckoutServiceAccount",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can check out credentials for a currently available protected LDAP service account.",
+        "long_description": "The checkout endpoint can allocate the concrete target account and return its current password for use until the checkout expires or the account is checked in.",
+        "short_remediation": "Restrict checkout access and rotate the service account.",
+        "long_remediation": "Limit checkout capability to approved workloads, reduce the account's directory privileges, use short checkout periods, monitor account allocation, and rotate the account after unauthorized or unexpected checkout."
+      }
+    },
+    {
+      "name": "Vault_SshOtpIssuance",
+      "display_name": "Can Generate a Protected SSH OTP",
+      "relationship_kind": "Vault_SshGenerateOtp",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can generate an SSH one-time password through the target role.",
+        "long_description": "The generated OTP can authenticate to hosts and users allowed by the SSH role while the credential remains valid.",
+        "short_remediation": "Restrict SSH OTP generation and narrow the role.",
+        "long_remediation": "Remove unnecessary generation capability, constrain allowed users, hosts, CIDRs, and ports, shorten credential lifetime, and review target systems for use of unexpectedly generated OTPs."
+      }
+    },
+    {
+      "name": "Vault_SshKeyPairIssuance",
+      "display_name": "Can Issue a Protected SSH Key Pair",
+      "relationship_kind": "Vault_SshIssueKeyPair",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can obtain a newly generated SSH private key and signed certificate from the target role.",
+        "long_description": "The issue endpoint returns a private key and corresponding SSH certificate usable against hosts and principals permitted by the role.",
+        "short_remediation": "Restrict SSH key-pair issuance and narrow the role.",
+        "long_remediation": "Remove unnecessary issue capability, constrain allowed users, principals, extensions, CIDRs, and certificate TTL, and revoke or otherwise invalidate certificates issued through unauthorized requests."
+      }
+    },
+    {
+      "name": "Vault_TotpCodeGeneration",
+      "display_name": "Can Generate a Protected TOTP Code",
+      "relationship_kind": "Vault_TotpGenerateCode",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can generate a current TOTP code from the target key.",
+        "long_description": "Vault returns a valid one-time code calculated from the protected TOTP key. The code may satisfy a downstream authentication factor during its validity window.",
+        "short_remediation": "Restrict TOTP code generation and rotate the key when needed.",
+        "long_remediation": "Limit generation capability to intended workloads, protect downstream primary credentials independently, monitor code-generation activity, and replace the TOTP seed if unauthorized generation is suspected."
+      }
+    },
+    {
+      "name": "Vault_GcpKmsDecryption",
+      "display_name": "Can Decrypt with a Protected GCP KMS Key",
+      "relationship_kind": "Vault_GcpKmsDecrypt",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target GCP KMS key as a decryption oracle.",
+        "long_description": "Vault can submit ciphertext to the configured external GCP KMS key and return the resulting plaintext to the caller.",
+        "short_remediation": "Remove unnecessary decrypt access to the key.",
+        "long_remediation": "Restrict the Vault policy and GCP KMS role to approved callers and keys, separate encryption and decryption duties, audit decrypt operations, and rotate affected key material according to the external key lifecycle."
+      }
+    },
+    {
+      "name": "Vault_GcpKmsSigning",
+      "display_name": "Can Sign with a Protected GCP KMS Key",
+      "relationship_kind": "Vault_GcpKmsSign",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target GCP KMS key as a signing oracle.",
+        "long_description": "Vault can submit compatible digests to the configured external GCP KMS key and return signatures trusted as originating from that key.",
+        "short_remediation": "Remove unnecessary signing access to the key.",
+        "long_remediation": "Restrict the Vault policy and GCP KMS role to approved signing workflows, constrain algorithms and keys, audit signatures, and rotate or disable the key if unauthorized signatures may have been produced."
+      }
+    },
+    {
+      "name": "Vault_PkiCertificateIssuance",
+      "display_name": "Can Issue a Protected PKI Certificate",
+      "relationship_kind": "Vault_PkiIssueCertificate",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can issue certificates through a protected PKI role or issuer.",
+        "long_description": "The issuance path can return a certificate and, where applicable, private key material under the names, usages, constraints, protocol, and issuer represented by the edge.",
+        "short_remediation": "Restrict certificate issuance and narrow issuance constraints.",
+        "long_remediation": "Remove unnecessary issue capability, constrain allowed names, SANs, usages, key types, protocols, issuers, and TTLs, and revoke certificates created through unauthorized issuance."
+      }
+    },
+    {
+      "name": "Vault_PkiCertificateSigning",
+      "display_name": "Can Sign a Certificate with a Protected PKI Issuer",
+      "relationship_kind": "Vault_PkiSignCertificate",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can sign a CSR through a protected PKI role or issuer.",
+        "long_description": "The signing endpoint can convert a caller-supplied CSR into a trusted certificate subject to the represented role, issuer, protocol, and request constraints.",
+        "short_remediation": "Restrict CSR signing and narrow signing constraints.",
+        "long_remediation": "Remove unnecessary sign capability, constrain certificate names, SANs, usages, issuers, key types, and TTLs, validate external-policy decisions, and revoke unauthorized certificates."
+      }
+    },
+    {
+      "name": "Vault_PkiVerbatimSigning",
+      "display_name": "Can Perform Verbatim PKI Signing",
+      "relationship_kind": "Vault_PkiSignVerbatim",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can perform sign-verbatim operations with a protected PKI role or issuer.",
+        "long_description": "Verbatim signing can honor substantially more of the caller-supplied CSR than ordinary role-constrained signing, increasing the impact of access to the endpoint.",
+        "short_remediation": "Remove or tightly restrict sign-verbatim access.",
+        "long_remediation": "Permit sign-verbatim only for narrowly controlled workflows, require an explicit restrictive role where possible, constrain issuers and certificate parameters, audit every use, and revoke unauthorized certificates."
+      }
+    },
+    {
+      "name": "Vault_PkiIntermediateSigning",
+      "display_name": "Can Sign a Protected Intermediate CA",
+      "relationship_kind": "Vault_PkiSignIntermediate",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can sign an intermediate CA certificate with the target issuer.",
+        "long_description": "A signed intermediate can issue additional certificates beneath the protected trust hierarchy and may therefore extend authority beyond a single leaf certificate.",
+        "short_remediation": "Restrict intermediate-CA signing to dedicated administrators.",
+        "long_remediation": "Remove routine access to the endpoint, constrain permitted names, paths, usages, and lifetimes, require audited approval for intermediate creation, and revoke unauthorized intermediates and their descendants."
+      }
+    },
+    {
+      "name": "Vault_PkiSelfIssuedSigning",
+      "display_name": "Can Sign a Protected Self-Issued Certificate",
+      "relationship_kind": "Vault_PkiSignSelfIssued",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can sign a self-issued CA certificate with the target issuer.",
+        "long_description": "The operation can place a self-issued certificate under the target issuer's authority and affect the represented PKI trust hierarchy.",
+        "short_remediation": "Restrict self-issued certificate signing.",
+        "long_remediation": "Limit the endpoint to dedicated PKI administrators, validate the intended trust transition, audit all uses, and remove or revoke unauthorized certificates introduced through this operation."
+      }
+    },
+    {
+      "name": "Vault_SshCertificateSigning",
+      "display_name": "Can Sign with a Protected SSH CA",
+      "relationship_kind": "Vault_SshSignKey",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can obtain an SSH certificate for a supplied public key through the target role.",
+        "long_description": "The resulting certificate can authenticate the holder of the corresponding private key to hosts and principals permitted by the SSH role.",
+        "short_remediation": "Restrict SSH signing and narrow certificate constraints.",
+        "long_remediation": "Remove unnecessary signing capability, constrain allowed users, principals, hosts, extensions, critical options, CIDRs, and TTL, and revoke or deny certificates issued through unauthorized requests."
+      }
+    },
+    {
+      "name": "Vault_TransitDecryption",
+      "display_name": "Can Decrypt with a Protected Transit Key",
+      "relationship_kind": "Vault_TransitDecrypt",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target Transit key as a decryption oracle.",
+        "long_description": "The source can submit compatible Vault ciphertext and receive plaintext, subject to any context, version, and key-type requirements represented by the edge.",
+        "short_remediation": "Remove unnecessary Transit decrypt access.",
+        "long_remediation": "Restrict decrypt capability to approved workloads, separate encryption and decryption policies, enforce derived-key context controls, audit decrypt operations, and rotate affected key versions when appropriate."
+      }
+    },
+    {
+      "name": "Vault_TransitSigning",
+      "display_name": "Can Sign with a Protected Transit Key",
+      "relationship_kind": "Vault_TransitSign",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target Transit key as a signing oracle.",
+        "long_description": "The source can obtain signatures for compatible messages, digests, or CSRs using the protected key and its configured signing algorithms.",
+        "short_remediation": "Remove unnecessary Transit signing access.",
+        "long_remediation": "Restrict sign capability to approved workflows, constrain key type, hash, signature, marshaling, and context options, audit signing operations, and rotate the key if unauthorized signatures may have been produced."
+      }
+    },
+    {
+      "name": "Vault_TransitCmacGeneration",
+      "display_name": "Can Generate CMACs with a Protected Transit Key",
+      "relationship_kind": "Vault_TransitGenerateCmac",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target Transit key as a CMAC oracle.",
+        "long_description": "The source can obtain valid CMAC values for chosen input under the protected compatible symmetric key.",
+        "short_remediation": "Remove unnecessary CMAC generation access.",
+        "long_remediation": "Restrict CMAC capability to intended workloads, enforce required context and algorithm constraints, audit generated MACs, and rotate the key when unauthorized use may affect downstream trust."
+      }
+    },
+    {
+      "name": "Vault_TransitHmacGeneration",
+      "display_name": "Can Generate HMACs with a Protected Transit Key",
+      "relationship_kind": "Vault_TransitGenerateHmac",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can use the target Transit key as an HMAC oracle.",
+        "long_description": "The source can obtain valid HMAC values for chosen input under the protected key and supported hash algorithms.",
+        "short_remediation": "Remove unnecessary HMAC generation access.",
+        "long_remediation": "Restrict HMAC capability to intended workloads, enforce required context and algorithm constraints, audit generated MACs, and rotate the key when unauthorized use may affect downstream trust."
+      }
+    },
+    {
+      "name": "Vault_TransitSecretKeyExport",
+      "display_name": "Can Export Protected Transit Key Material",
+      "relationship_kind": "Vault_TransitExportKey",
+      "environment_kind": "Vault_Server",
+      "remediation": {
+        "short_description": "The source can export usable secret material from the target Transit key.",
+        "long_description": "The observed key is exportable and compatible with a raw secret export mode. Exported material can be used outside Vault without further authorization or audit enforcement.",
+        "short_remediation": "Remove export access and rotate exported key material.",
+        "long_remediation": "Disable exportability where operationally possible, restrict export capability and key versions, investigate prior exports, rotate affected key versions and downstream material, and migrate consumers back to Vault-mediated cryptographic operations."
+      }
+    }
+  ]
 }

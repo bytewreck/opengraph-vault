@@ -1,1 +1,4 @@
 vault_collected.json
+__pycache__/
+*.py[cod]
+.pytest_cache/
