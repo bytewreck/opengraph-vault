@@ -1,7 +1,7 @@
 # VaultHound
 
 VaultHound is a HashiCorp Vault collector and OpenGraph model for BloodHound.
-It can run either as the original standalone collector or as a native
+It runs as a native
 [OpenHound](https://github.com/SpecterOps/OpenHound) source extension.
 
 ## OpenHound extension
@@ -14,8 +14,8 @@ The OpenHound implementation uses the complete two-stage pipeline:
    property models before writing OpenGraph output.
 
 All node and relationship definitions are registered from `schema.json`.
-Relationship traversability is also read from that schema, so the standalone
-and OpenHound outputs use the same offensive-security semantics.
+Relationship traversability is also read from that schema so collection and
+conversion use the same offensive-security semantics.
 
 ### Requirements
 
@@ -72,15 +72,6 @@ why the convert input is the nested `.\data\vault\vault` path.
 The token is used only during collection and is not written into the snapshot.
 Treat the collected and converted output as sensitive because it contains
 Vault configuration, identities, policy paths, and access relationships.
-
-## Standalone collector
-
-The existing collector remains available for compatibility:
-
-```powershell
-python vault_collector.py --vault-addr https://vault.example.com:8200 --output vault_collected.json
-```
-
-Set `VAULT_TOKEN` in the environment before running it. See
+See
 [`Documentation/MODEL.md`](Documentation/MODEL.md) for the graph design and the
 store-specific documentation under [`Documentation/stores`](Documentation/stores).

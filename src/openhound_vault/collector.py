@@ -5,8 +5,8 @@ Vault OpenGraph Collector
 Collects identity, policy, and resource data from HashiCorp Vault
 and produces BloodHound-compatible OpenGraph JSON.
 
-Usage:
-    python vault_collector.py [--output FILE] [--vault-addr URL]
+The collector is executed through the OpenHound `vault` source. Use
+`openhound collect vault` followed by `openhound convert vault`.
 
 Environment Variables:
     VAULT_ADDR   - Vault server URL (default: http://127.0.0.1:8200)

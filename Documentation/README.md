@@ -32,8 +32,8 @@ python Documentation/tools/generate_schema_reference.py --check
 The implementation is authoritative when documentation and code differ:
 
 1. `schema.json` defines exported node kinds, relationship kinds, icons, descriptions, and traversability.
-2. `vault_collector.py` defines collection behavior, Vault endpoint mappings, policy resolution, and properties.
-3. `test_access_path_traversability.py` captures focused behavioral and attack-path expectations.
+2. `src/openhound_vault/collector.py` defines collection behavior, Vault endpoint mappings, policy resolution, and properties.
+3. `tests/test_access_path_traversability.py` captures focused behavioral and attack-path expectations.
 4. `Documentation/SCHEMA.md` is the generated reference for the current exported schema.
 
 VaultHound models authority and security outcomes without collecting KV plaintext or invoking credential-generation endpoints. Treat collector output as sensitive because configuration and graph relationships can still reveal credentials, trust configuration, and attack paths.

@@ -1,6 +1,6 @@
 import unittest
 
-import vault_collector as vc
+from openhound_vault import collector as vc
 
 
 def graph_node(node_id, kind):

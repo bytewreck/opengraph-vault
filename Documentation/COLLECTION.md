@@ -2,25 +2,26 @@
 
 ## Invocation
 
-The collector requires a Vault token and supports an optional Enterprise namespace.
+The OpenHound source requires a Vault token and supports an optional Enterprise namespace.
 
 ```powershell
 $env:VAULT_ADDR = "https://vault.example"
 $env:VAULT_TOKEN = "..."
 $env:VAULT_NAMESPACE = "admin/team-a"
-python vault_collector.py --pretty --output vault_collected.json
+openhound collect vault .\data\vault
+openhound convert vault .\data\vault\vault .\data\opengraph
 ```
 
-Command-line options:
+The equivalent DLT settings can be placed in `.dlt/secrets.toml`:
 
-| Option | Meaning |
-| --- | --- |
-| `--output`, `-o` | Output OpenGraph JSON path. |
-| `--vault-addr` | Overrides `VAULT_ADDR`. |
-| `--namespace` | Overrides `VAULT_NAMESPACE`. |
-| `--pretty` | Pretty-prints JSON output. |
+```toml
+[sources.vault.credentials]
+address = "https://vault.example"
+token = "..."
+namespace = "admin/team-a"
+```
 
-The collector does not attempt authentication workflows. It uses the supplied token for authenticated Vault API requests.
+The collector does not attempt authentication workflows. It uses the supplied token for authenticated Vault API requests. The token is used only by `collect`; `convert` reads the persisted DLT snapshot without contacting Vault.
 
 ## Collection Phases
 
@@ -37,7 +38,17 @@ The current pipeline is ordered so later edge derivation can use all collected l
 9. Compute structural, identity, policy, and access edges.
 10. Resolve templates and identity-effective relationships.
 11. Canonicalize names and properties, merge duplicate evidence, and prune redundant edges.
-12. Sanitize graph properties and serialize OpenGraph JSON.
+12. Sanitize graph properties and emit typed `VaultGraphAsset` records to the DLT snapshot.
+
+## Conversion Phase
+
+OpenHound reads the persisted `vault_graph` JSONL resource and converts each record through the native graph model:
+
+1. Node records become OpenHound `Node` objects with stable IDs, Vault kinds, required environment properties, and dynamic Vault properties.
+2. Relationship records become OpenHound `Edge` objects with ID-matched endpoints, evidence properties, and schema-derived traversability.
+3. OpenHound appends the `Vault` source kind, batches graph objects, and writes standard OpenGraph JSON output.
+
+Vault discovery and policy evaluation happen during `collect`; `convert` is deterministic and offline.
 
 ## Stable IDs
 
@@ -131,7 +142,7 @@ This is why one exported `Vault_ManageObject` edge can represent several compati
 
 ## Pruning
 
-Before serialization the collector removes:
+Before snapshot emission the collector removes:
 
 - Namespace containment to non-top-level subsystem objects.
 - Synthetic containment edges.
@@ -141,13 +152,13 @@ Before serialization the collector removes:
 
 ## Output Safety and Validation
 
-Nested API values are converted to JSON strings, null values are removed, and node properties are normalized before output. The resulting file contains a single OpenGraph graph with nodes and edges registered by `schema.json`.
+Nested API values are converted to JSON strings, null values are removed, and node properties are normalized before snapshot emission. OpenHound then writes graph files containing nodes and edges registered from `schema.json`.
 
 Recommended checks:
 
 ```powershell
-python -m py_compile vault_collector.py
-python -m unittest -v
+python -m compileall -q src
+python -m pytest -q
 python Documentation/tools/generate_schema_reference.py --check
 python -c "import json; json.load(open('schema.json', encoding='utf-8'))"
 ```

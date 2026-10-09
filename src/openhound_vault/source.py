@@ -12,8 +12,7 @@ import dlt
 from dlt.common.configuration import configspec
 from dlt.common.configuration.specs import CredentialsConfiguration
 
-import vault_collector as legacy
-
+from . import collector as legacy
 from .graph import VaultGraphAsset
 from .main import app
 from .schema import relationship_traversability

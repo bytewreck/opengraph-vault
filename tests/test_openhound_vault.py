@@ -10,7 +10,7 @@ import pytest
 
 pytest.importorskip("openhound")
 
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from openhound_vault.graph import VaultGraphAsset
 from openhound_vault.main import app
