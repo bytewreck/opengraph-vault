@@ -18,20 +18,20 @@ The following matrix summarizes secrets-engine implementation and test status:
 | Key Management | :x: | :x: | N/A |
 | KMIP | :x: | :x: | N/A |
 | Kubernetes | :white_check_mark: | :x: | `Vault_SecretsEngineKubernetes` |
-| K/V | :white_check_mark: | :x: | `Vault_SecretsEngineKv` |
+| K/V | :white_check_mark: | :white_check_mark: | `Vault_SecretsEngineKv` |
 | LDAP | :white_check_mark: | :x: | `Vault_SecretsEngineLdap` |
 | MongoDB Atlas | :x: | :x: | N/A |
 | Nomad | :x: | :x: | N/A |
 | OS Local Accounts | :x: | :x: | N/A |
-| PKI | :white_check_mark: | :x: | `Vault_SecretsEnginePki` |
+| PKI | :white_check_mark: | :white_check_mark: | `Vault_SecretsEnginePki` |
 | PKI External CA | :x: | :x: | N/A |
 | RabbitMQ | :x: | :x: | N/A |
 | SPIFFE | :x: | :x: | N/A |
-| SSH | :white_check_mark: | :x: | `Vault_SecretsEngineSsh` |
+| SSH | :white_check_mark: | :white_check_mark: | `Vault_SecretsEngineSsh` |
 | Terraform Cloud | :white_check_mark: | :x: | `Vault_SecretsEngineTerraform` |
 | TOTP | :white_check_mark: | :x: | `Vault_SecretsEngineTotp` |
 | Transform | :x: | :x: | N/A |
-| Transit | :white_check_mark: | :x: | `Vault_SecretsEngineTransit` |
+| Transit | :white_check_mark: | :white_check_mark: | `Vault_SecretsEngineTransit` |
 
 `Identity` is modeled as the separate namespace-local [Identity Store](IDENTITY.md), not as a mount-specific secrets-engine implementation. Cubbyhole is excluded as a system mount. Other unsupported non-system engines are still emitted when observed as generic `Vault_SecretsEngine` nodes with their existence, type, path, and common mount properties.
 

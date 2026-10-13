@@ -18,7 +18,7 @@ The following matrix summarizes implemented auth methods and their current test 
 | JWT/OIDC | :white_check_mark: | :x: | `Vault_AuthMethodJwtOidc` |
 | Kerberos | :white_check_mark: | :x: | `Vault_AuthMethodKerberos` |
 | Kubernetes | :white_check_mark: | :x: | `Vault_AuthMethodKubernetes` |
-| LDAP | :white_check_mark: | :x: | `Vault_AuthMethodLdap` |
+| LDAP | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodLdap` |
 | OCI | :white_check_mark: | :x: | `Vault_AuthMethodOci` |
 | Okta | :white_check_mark: | :x: | `Vault_AuthMethodOkta` |
 | RADIUS | :white_check_mark: | :x: | `Vault_AuthMethodRadius` |
@@ -26,8 +26,8 @@ The following matrix summarizes implemented auth methods and their current test 
 | SCEP | :white_check_mark: | :x: | `Vault_AuthMethodScep` |
 | SPIFFE | :white_check_mark: | :x: | `Vault_AuthMethodSpiffe` |
 | TLS Certificate | :white_check_mark: | :x: | `Vault_AuthMethodTlsCert` |
-| Token | :white_check_mark: | :x: | `Vault_AuthMethodToken` |
-| UserPass | :white_check_mark: | :x: | `Vault_AuthMethodUserpass` |
+| Token | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodToken` |
+| UserPass | :white_check_mark: | :white_check_mark: | `Vault_AuthMethodUserpass` |
 
 ## Glob, Synthetic, And Control Behavior
 
