@@ -1,4 +1,4 @@
-# VaultHound
+# OpenGraph extension for HashiCorp Vault
 
 VaultHound is a HashiCorp Vault collector and OpenGraph model for BloodHound.
 It runs as a native
